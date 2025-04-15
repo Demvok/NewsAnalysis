@@ -4,6 +4,5 @@ from data_prep.event_classifier import main
 
 if __name__ == "__main__":
     # split_articles_to_chunks()
-
     main()
     print("✅ Done")

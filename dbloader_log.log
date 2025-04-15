@@ -226,3 +226,23 @@
 2025-04-08 01:01:32 - DBLoader - INFO - 0.014s - Topic found with topic_id: 1
 2025-04-08 01:01:32 - DBLoader - INFO - 0.013s - Article chunk found with chunk_id: 358
 2025-04-08 01:01:32 - DBLoader - INFO - 0.024s - Article found with article_id: 98
+2025-04-15 18:50:25 - DBLoader - WARNING - 0.090s - Article chunk with chunk_id 358 not found
+2025-04-15 18:50:51 - DBLoader - INFO - 0.007s - Found 48 articles
+2025-04-15 18:50:51 - DBLoader - CRITICAL - N/A - 'module' object is not callable. Did you mean: 'tqdm.tqdm(...)'?
+2025-04-15 18:51:29 - DBLoader - INFO - 0.009s - Found 48 articles
+2025-04-15 18:51:30 - DBLoader - INFO - 0.428s - Added 171 article chunks
+2025-04-15 19:16:40 - DBLoader - WARNING - 0.335s - Article chunk with chunk_id 358 not found
+2025-04-15 19:19:05 - DBLoader - INFO - 0.051s - Article chunk found with chunk_id: 68
+2025-04-15 19:19:05 - DBLoader - INFO - 0.013s - Article found with article_id: 66
+2025-04-15 19:19:05 - DBLoader - INFO - 0.008s - Topic found with topic_id: 1
+2025-04-15 19:19:05 - DBLoader - WARNING - 0.002s - Article chunk with chunk_id 358 not found
+2025-04-15 19:20:04 - DBLoader - INFO - 0.044s - Article chunk found with chunk_id: 68
+2025-04-15 19:20:04 - DBLoader - INFO - 0.004s - Article found with article_id: 66
+2025-04-15 19:20:04 - DBLoader - INFO - 0.002s - Topic found with topic_id: 1
+2025-04-15 19:20:04 - DBLoader - INFO - 0.001s - Article chunk found with chunk_id: 68
+2025-04-15 19:20:04 - DBLoader - INFO - 0.001s - Article found with article_id: 66
+2025-04-15 19:43:14 - DBLoader - INFO - 0.230s - Article chunk found with chunk_id: 68
+2025-04-15 19:43:14 - DBLoader - INFO - 0.013s - Article found with article_id: 66
+2025-04-15 19:43:14 - DBLoader - INFO - 0.004s - Topic found with topic_id: 1
+2025-04-15 19:43:14 - DBLoader - INFO - 0.002s - Article chunk found with chunk_id: 68
+2025-04-15 19:43:14 - DBLoader - INFO - 0.002s - Article found with article_id: 66

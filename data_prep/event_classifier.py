@@ -1,19 +1,31 @@
-from langchain_huggingface import HuggingFaceEndpoint
-import warnings
 import os
-from database.DBConnector import get_article_chunk, t_get_article_chunk_content, get_article, get_topic
+import json
+from database.DBConnector import *
 
+from langchain_huggingface import HuggingFaceEndpoint
+from langchain.chat_models import ChatOpenAI
 
 from pydantic import BaseModel, Field
 from typing import Optional, List, TypedDict
 from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts import PromptTemplate
 from langgraph.graph import StateGraph, END
-import json
+
+import warnings
 warnings.filterwarnings("ignore")
 
 
-HF_API_TOKEN = os.getenv('HUGGINGFACE_API_KEY')
+# HF_API_TOKEN = os.getenv('HUGGINGFACE_API_KEY')
+
+# # Setup Hugging Face model
+# llm = HuggingFaceEndpoint(
+#     repo_id='tiiuae/falcon-7b-instruct',
+#     huggingfacehub_api_token=HF_API_TOKEN,
+#     task='text-generation'
+# )
+
+llm = ChatOpenAI(openai_api_base="http://127.0.0.1:1234/v1")
+
 
 
 class GeneralEvent(BaseModel):
@@ -63,14 +75,6 @@ def parse_event_output(response: str):
     
     return events
 
-
-
-# Setup Hugging Face model
-llm = HuggingFaceEndpoint(
-    repo_id='tiiuae/falcon-7b-instruct',
-    huggingfacehub_api_token=HF_API_TOKEN,
-    task='text-generation'
-)
 
 
 parser = PydanticOutputParser(pydantic_object=EventClassification)
@@ -138,12 +142,12 @@ def main():
 
 
 
-    article_id = get_article_chunk(358)["fk_article_id"]
+    article_id = get_article_chunk(68)["fk_article_id"]
     topic_id = get_article(article_id)["fk_topic_id"]
     topic = get_topic(topic_id)["topic_name"]
 
 
-    result = app.invoke({"topic": topic, "chunk": t_get_article_chunk_content(358)})
+    result = app.invoke({"topic": topic, "chunk": t_get_article_chunk_content(68)})
     print(result["events"])
 
 

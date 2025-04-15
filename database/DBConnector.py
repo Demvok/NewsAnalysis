@@ -1,7 +1,5 @@
-import logging
+import os, logging, sys, time
 from tqdm import tqdm
-import sys
-import time
 from datetime import datetime
 import pandas as pd
 from sqlalchemy import create_engine, text
@@ -14,17 +12,9 @@ from contextlib import contextmanager
 
 ############################################################################################################
 
-
-
-DATABASE_URL = "mysql+pymysql://admin:gvce924b@195.189.106.16:3306/news_analysis_test"
+DATABASE_URL = os.getenv('DATABASE_URL')
 LOGGING_LEVEL = logging.DEBUG
 CONSOLE_LOG = True
-
-
-# IF OperationalError: (mysql.connector.errors.OperationalError) 2055: Lost connection to MySQL server at '147.93.43.199:3306', system error: Errno 8: EOF occurred in violation of protocol (_ssl.c:2406)
-# THEN: refresh the connection via refresh_connection() function
-
-
 
 ############################################################################################################
 
