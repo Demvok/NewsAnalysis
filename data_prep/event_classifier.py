@@ -15,6 +15,13 @@ import warnings
 warnings.filterwarnings("ignore")
 
 
+# 
+# EQUALS TO STAGE 0
+# 
+
+
+
+
 # HF_API_TOKEN = os.getenv('HUGGINGFACE_API_KEY')
 
 # # Setup Hugging Face model
@@ -27,13 +34,11 @@ warnings.filterwarnings("ignore")
 llm = ChatOpenAI(openai_api_base="http://127.0.0.1:1234/v1")
 
 
-
 class GeneralEvent(BaseModel):
     title: str = Field(description="Title of the article.")
     date: str = Field(description="Date of the event.")
     article_id: str = Field(description="Unique identifier for the article.")
     summary: str = Field(description="Brief summary of the event, limited to 140 characters.")
-
 
 class PersonEvent(BaseModel):
     article_id: str = Field(description="Unique identifier for the article.")
@@ -41,11 +46,9 @@ class PersonEvent(BaseModel):
     date: str = Field(description="Date of the event.")
     citation: str = Field(description="Key statement or citation related to the person and the topic.")
 
-
 class EventClassification(BaseModel):
     general_event: Optional[GeneralEvent]
     person_event: Optional[PersonEvent]
-
 
 class EventExtractionState(TypedDict):
     topic: str
@@ -149,5 +152,4 @@ def main():
 
     result = app.invoke({"topic": topic, "chunk": t_get_article_chunk_content(68)})
     print(result["events"])
-
 

@@ -246,3 +246,8 @@
 2025-04-15 19:43:14 - DBLoader - INFO - 0.004s - Topic found with topic_id: 1
 2025-04-15 19:43:14 - DBLoader - INFO - 0.002s - Article chunk found with chunk_id: 68
 2025-04-15 19:43:14 - DBLoader - INFO - 0.002s - Article found with article_id: 66
+2025-04-15 19:54:36 - DBLoader - INFO - 0.063s - Article chunk found with chunk_id: 68
+2025-04-15 19:54:36 - DBLoader - INFO - 0.004s - Article found with article_id: 66
+2025-04-15 19:54:36 - DBLoader - INFO - 0.003s - Topic found with topic_id: 1
+2025-04-15 19:54:36 - DBLoader - INFO - 0.001s - Article chunk found with chunk_id: 68
+2025-04-15 19:54:36 - DBLoader - INFO - 0.002s - Article found with article_id: 66
