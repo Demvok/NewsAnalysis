@@ -2,14 +2,12 @@ import os
 import json
 from database.DBConnector import *
 
-from langchain_huggingface import HuggingFaceEndpoint
-from langchain.chat_models import ChatOpenAI
-
 from pydantic import BaseModel, Field
 from typing import Optional, List, TypedDict
 from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts import PromptTemplate
-from langgraph.graph import StateGraph, END
+
+from model import llm_invoke
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -20,31 +18,16 @@ warnings.filterwarnings("ignore")
 # 
 
 
-
-
-# HF_API_TOKEN = os.getenv('HUGGINGFACE_API_KEY')
-
-# # Setup Hugging Face model
-# llm = HuggingFaceEndpoint(
-#     repo_id='tiiuae/falcon-7b-instruct',
-#     huggingfacehub_api_token=HF_API_TOKEN,
-#     task='text-generation'
-# )
-
-llm = ChatOpenAI(openai_api_base="http://127.0.0.1:1234/v1")
-
-
 class GeneralEvent(BaseModel):
-    title: str = Field(description="Title of the article.")
-    date: str = Field(description="Date of the event.")
-    article_id: str = Field(description="Unique identifier for the article.")
-    summary: str = Field(description="Brief summary of the event, limited to 140 characters.")
+    fk_origin_article_id: str = Field(description="Unique identifier for the origin article.")
+    description: str = Field(description="Brief summary of the event, limited to 200 characters.", max_length=200)
 
 class PersonEvent(BaseModel):
-    article_id: str = Field(description="Unique identifier for the article.")
-    name: str = Field(description="Name of the person involved.")
-    date: str = Field(description="Date of the event.")
-    citation: str = Field(description="Key statement or citation related to the person and the topic.")
+    fk_origin_article_id: str = Field(description="Unique identifier for the origin article.")
+    citation: str = Field(description="Key statement or citation related to the person and the topic.", max_length=300)
+
+class Person(BaseModel):
+    name: str = Field(description="Name of the person involved in the event.")
 
 class EventClassification(BaseModel):
     general_event: Optional[GeneralEvent]
@@ -56,39 +39,13 @@ class EventExtractionState(TypedDict):
     events: Optional[dict]
 
 
-def parse_event_output(response: str):
-    events = {"general_event": None, "person_event": None}
-
-    # Виділення інформації з тексту (відокремлені блоки General Event і Person Event)
-    try:
-
-        general_event_part = response.split("Person Event:")[0].strip()
-        person_event_part = response.split("Person Event:")[1].strip()
-
-        # Пошук в JSON-форматі для General Event
-        general_event_json = json.loads(general_event_part.replace("General Event:", "").strip())
-        events["general_event"] = GeneralEvent(**general_event_json)
-
-        # Пошук в JSON-форматі для Person Event
-        person_event_json = json.loads(person_event_part.replace("Person Event:", "").strip())
-        events["person_event"] = PersonEvent(**person_event_json)
-
-    except Exception as e:
-        print(f"Error while parsing response: {e}")
-    
-    return events
-
-
-
 parser = PydanticOutputParser(pydantic_object=EventClassification)
-
-
 
 prompt = PromptTemplate.from_template(
     """You are an expert journalist assistant. Your task is to extract:
 
-    1. A general event related to the topic "{topic}" from the article.
-    2. A person event related to someone’s statement or action regarding "{topic}".
+    1. General events related to the topic "{topic}" from the article.
+    2. Person events related to someone’s statement or action regarding "{topic}".
 
     Whitout superfluous information, just the most important details.
 
@@ -97,14 +54,10 @@ prompt = PromptTemplate.from_template(
     {{
     "general_event": {{
         "title": "...",
-        "date": "...",
-        "article_id": "...",
         "summary": "..."
     }},
     "person_event": {{
-        "article_id": "...",
-        "name": "...",
-        "date": "...",
+        "person_name": "...",
         "citation": "..."
     }}
     }}
@@ -123,33 +76,59 @@ def extract_events_node(state):
     chunk = state["chunk"]
 
     formatted_prompt = prompt.format(topic=topic, chunk=chunk)
-    response = llm.invoke(formatted_prompt)
+    response = llm_invoke(formatted_prompt)
 
     print("----- PROMPT -----")
     print(formatted_prompt)
+
+    parsed = parse_event_output(response.content)
     print("----- RESPONSE -----")
     print(response)
 
-    parsed = parse_event_output(response)
     return {"events": parsed}
 
+# def parse_event_output(response: str):
+#     events = {"general_event": None, "person_event": None}
+
+#     # Виділення інформації з тексту (відокремлені блоки General Event і Person Event)
+#     try:
+
+#         general_event_part = response.split("Person Event:")[0].strip()
+#         person_event_part = response.split("Person Event:")[1].strip()
+
+#         # Пошук в JSON-форматі для General Event
+#         general_event_json = json.loads(general_event_part.replace("General Event:", "").strip())
+#         events["general_event"] = GeneralEvent(**general_event_json)
+
+#         # Пошук в JSON-форматі для Person Event
+#         person_event_json = json.loads(person_event_part.replace("Person Event:", "").strip())
+#         events["person_event"] = PersonEvent(**person_event_json)
+
+#     except Exception as e:
+#         print(f"Error while parsing response: {e}")
+    
+#     return events
+
+
+def parse_event_output(response: str):
+    events = {"general_event": None, "person_event": None}
+
+    # Виділення інформації з тексту (відокремлені блоки General Event і Person Event)
+    try:
+        jsoned = json.loads(response.strip('```json').strip())
+        events['general_event'] = jsoned['general_event']
+        events['person_event'] = jsoned['person_event']
+
+    except Exception as e:
+        print(f"Error while parsing response: {e}")
+    
+    return events
 
 
 def main():
-
-    graph = StateGraph(state_schema=EventExtractionState)
-    graph.add_node("extract_events", extract_events_node)
-    graph.set_entry_point("extract_events")
-    graph.set_finish_point("extract_events")
-    app = graph.compile()
-
-
-
-    article_id = get_article_chunk(68)["fk_article_id"]
+   
+    article_id = get_article_chunk(78)["fk_article_id"]
     topic_id = get_article(article_id)["fk_topic_id"]
     topic = get_topic(topic_id)["topic_name"]
 
-
-    result = app.invoke({"topic": topic, "chunk": t_get_article_chunk_content(68)})
-    print(result["events"])
-
+    return extract_events_node({"topic": topic, "chunk": t_get_article_chunk_content(78)})

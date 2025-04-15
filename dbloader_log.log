@@ -251,3 +251,148 @@
 2025-04-15 19:54:36 - DBLoader - INFO - 0.003s - Topic found with topic_id: 1
 2025-04-15 19:54:36 - DBLoader - INFO - 0.001s - Article chunk found with chunk_id: 68
 2025-04-15 19:54:36 - DBLoader - INFO - 0.002s - Article found with article_id: 66
+2025-04-15 20:44:38 - DBLoader - INFO - 0.919s - Article chunk found with chunk_id: 68
+2025-04-15 20:44:56 - DBLoader - INFO - 0.034s - Article found with article_id: 66
+2025-04-15 20:44:59 - DBLoader - INFO - 0.036s - Topic found with topic_id: 1
+2025-04-15 20:45:31 - DBLoader - INFO - 2.153s - Article chunk found with chunk_id: 68
+2025-04-15 20:45:38 - DBLoader - INFO - 0.488s - Article found with article_id: 66
+2025-04-15 20:51:39 - DBLoader - INFO - 0.044s - Article chunk found with chunk_id: 68
+2025-04-15 20:51:39 - DBLoader - INFO - 0.004s - Article found with article_id: 66
+2025-04-15 20:51:39 - DBLoader - INFO - 0.003s - Topic found with topic_id: 1
+2025-04-15 20:51:39 - DBLoader - INFO - 0.001s - Article chunk found with chunk_id: 68
+2025-04-15 20:51:39 - DBLoader - INFO - 0.002s - Article found with article_id: 66
+2025-04-15 20:52:12 - DBLoader - INFO - 0.046s - Article chunk found with chunk_id: 68
+2025-04-15 20:52:12 - DBLoader - INFO - 0.003s - Article found with article_id: 66
+2025-04-15 20:52:12 - DBLoader - INFO - 0.003s - Topic found with topic_id: 1
+2025-04-15 20:52:12 - DBLoader - INFO - 0.001s - Article chunk found with chunk_id: 68
+2025-04-15 20:52:12 - DBLoader - INFO - 0.000s - Article found with article_id: 66
+2025-04-15 21:09:05 - DBLoader - INFO - 0.228s - Article chunk found with chunk_id: 68
+2025-04-15 21:09:05 - DBLoader - INFO - 0.012s - Article found with article_id: 66
+2025-04-15 21:09:05 - DBLoader - INFO - 0.005s - Topic found with topic_id: 1
+2025-04-15 21:09:05 - DBLoader - INFO - 0.001s - Article chunk found with chunk_id: 68
+2025-04-15 21:09:05 - DBLoader - INFO - 0.004s - Article found with article_id: 66
+2025-04-15 21:11:17 - DBLoader - INFO - 0.071s - Article chunk found with chunk_id: 68
+2025-04-15 21:11:17 - DBLoader - INFO - 0.007s - Article found with article_id: 66
+2025-04-15 21:11:17 - DBLoader - INFO - 0.003s - Topic found with topic_id: 1
+2025-04-15 21:11:17 - DBLoader - INFO - 0.002s - Article chunk found with chunk_id: 68
+2025-04-15 21:11:17 - DBLoader - INFO - 0.002s - Article found with article_id: 66
+2025-04-15 22:43:25 - DBLoader - INFO - 0.050s - Article chunk found with chunk_id: 68
+2025-04-15 22:43:25 - DBLoader - INFO - 0.005s - Article found with article_id: 66
+2025-04-15 22:43:25 - DBLoader - INFO - 0.003s - Topic found with topic_id: 1
+2025-04-15 22:43:25 - DBLoader - INFO - 0.001s - Article chunk found with chunk_id: 68
+2025-04-15 22:43:25 - DBLoader - INFO - 0.001s - Article found with article_id: 66
+2025-04-15 23:04:34 - DBLoader - INFO - 0.006s - Article chunk found with chunk_id: 68
+2025-04-15 23:04:34 - DBLoader - INFO - 0.003s - Article found with article_id: 66
+2025-04-15 23:04:34 - DBLoader - INFO - 0.001s - Topic found with topic_id: 1
+2025-04-15 23:04:34 - DBLoader - INFO - 0.002s - Article chunk found with chunk_id: 68
+2025-04-15 23:04:34 - DBLoader - INFO - 0.001s - Article found with article_id: 66
+2025-04-15 23:25:23 - DBLoader - INFO - 0.002s - Article chunk found with chunk_id: 68
+2025-04-15 23:25:23 - DBLoader - INFO - 0.001s - Article found with article_id: 66
+2025-04-15 23:25:23 - DBLoader - INFO - 0.001s - Topic found with topic_id: 1
+2025-04-15 23:25:23 - DBLoader - INFO - 0.001s - Article chunk found with chunk_id: 68
+2025-04-15 23:25:23 - DBLoader - INFO - 0.002s - Article found with article_id: 66
+2025-04-15 23:26:21 - DBLoader - INFO - 0.053s - Article chunk found with chunk_id: 68
+2025-04-15 23:26:21 - DBLoader - INFO - 0.005s - Article found with article_id: 66
+2025-04-15 23:26:21 - DBLoader - INFO - 0.007s - Topic found with topic_id: 1
+2025-04-15 23:26:21 - DBLoader - INFO - 0.002s - Article chunk found with chunk_id: 68
+2025-04-15 23:26:21 - DBLoader - INFO - 0.002s - Article found with article_id: 66
+2025-04-15 23:31:15 - DBLoader - INFO - 0.002s - Article chunk found with chunk_id: 68
+2025-04-15 23:31:15 - DBLoader - INFO - 0.002s - Article found with article_id: 66
+2025-04-15 23:31:15 - DBLoader - INFO - 0.001s - Topic found with topic_id: 1
+2025-04-15 23:31:15 - DBLoader - INFO - 0.000s - Article chunk found with chunk_id: 68
+2025-04-15 23:31:15 - DBLoader - INFO - 0.001s - Article found with article_id: 66
+2025-04-15 23:31:16 - DBLoader - INFO - 0.002s - Article chunk found with chunk_id: 68
+2025-04-15 23:31:16 - DBLoader - INFO - 0.001s - Article found with article_id: 66
+2025-04-15 23:31:16 - DBLoader - INFO - 0.001s - Topic found with topic_id: 1
+2025-04-15 23:31:16 - DBLoader - INFO - 0.001s - Article chunk found with chunk_id: 68
+2025-04-15 23:31:16 - DBLoader - INFO - 0.001s - Article found with article_id: 66
+2025-04-15 23:31:32 - DBLoader - INFO - 0.002s - Article chunk found with chunk_id: 68
+2025-04-15 23:31:32 - DBLoader - INFO - 0.001s - Article found with article_id: 66
+2025-04-15 23:31:32 - DBLoader - INFO - 0.001s - Topic found with topic_id: 1
+2025-04-15 23:31:32 - DBLoader - INFO - 0.001s - Article chunk found with chunk_id: 68
+2025-04-15 23:31:32 - DBLoader - INFO - 0.001s - Article found with article_id: 66
+2025-04-15 23:31:41 - DBLoader - INFO - 0.061s - Article chunk found with chunk_id: 68
+2025-04-15 23:31:41 - DBLoader - INFO - 0.004s - Article found with article_id: 66
+2025-04-15 23:31:41 - DBLoader - INFO - 0.003s - Topic found with topic_id: 1
+2025-04-15 23:31:41 - DBLoader - INFO - 0.001s - Article chunk found with chunk_id: 68
+2025-04-15 23:31:41 - DBLoader - INFO - 0.002s - Article found with article_id: 66
+2025-04-15 23:39:05 - DBLoader - INFO - 0.002s - Article chunk found with chunk_id: 68
+2025-04-15 23:39:05 - DBLoader - INFO - 0.003s - Article found with article_id: 66
+2025-04-15 23:39:05 - DBLoader - INFO - 0.001s - Topic found with topic_id: 1
+2025-04-15 23:39:05 - DBLoader - INFO - 0.001s - Article chunk found with chunk_id: 68
+2025-04-15 23:39:05 - DBLoader - INFO - 0.001s - Article found with article_id: 66
+2025-04-15 23:39:23 - DBLoader - INFO - 0.002s - Article chunk found with chunk_id: 68
+2025-04-15 23:39:23 - DBLoader - INFO - 0.001s - Article found with article_id: 66
+2025-04-15 23:39:23 - DBLoader - INFO - 0.001s - Topic found with topic_id: 1
+2025-04-15 23:39:23 - DBLoader - INFO - 0.001s - Article chunk found with chunk_id: 68
+2025-04-15 23:39:23 - DBLoader - INFO - 0.001s - Article found with article_id: 66
+2025-04-15 23:39:59 - DBLoader - INFO - 0.002s - Article chunk found with chunk_id: 68
+2025-04-15 23:39:59 - DBLoader - INFO - 0.001s - Article found with article_id: 66
+2025-04-15 23:39:59 - DBLoader - INFO - 0.001s - Topic found with topic_id: 1
+2025-04-15 23:39:59 - DBLoader - INFO - 0.001s - Article chunk found with chunk_id: 68
+2025-04-15 23:39:59 - DBLoader - INFO - 0.001s - Article found with article_id: 66
+2025-04-15 23:40:29 - DBLoader - INFO - 0.038s - Article chunk found with chunk_id: 68
+2025-04-15 23:40:29 - DBLoader - INFO - 0.003s - Article found with article_id: 66
+2025-04-15 23:40:29 - DBLoader - INFO - 0.003s - Topic found with topic_id: 1
+2025-04-15 23:40:29 - DBLoader - INFO - 0.001s - Article chunk found with chunk_id: 68
+2025-04-15 23:40:29 - DBLoader - INFO - 0.001s - Article found with article_id: 66
+2025-04-15 23:41:31 - DBLoader - INFO - 0.002s - Article chunk found with chunk_id: 68
+2025-04-15 23:41:31 - DBLoader - INFO - 0.002s - Article found with article_id: 66
+2025-04-15 23:41:31 - DBLoader - INFO - 0.001s - Topic found with topic_id: 1
+2025-04-15 23:41:31 - DBLoader - INFO - 0.002s - Article chunk found with chunk_id: 68
+2025-04-15 23:41:31 - DBLoader - INFO - 0.002s - Article found with article_id: 66
+2025-04-15 23:42:38 - DBLoader - INFO - 0.002s - Article chunk found with chunk_id: 68
+2025-04-15 23:42:38 - DBLoader - INFO - 0.002s - Article found with article_id: 66
+2025-04-15 23:42:38 - DBLoader - INFO - 0.002s - Topic found with topic_id: 1
+2025-04-15 23:42:38 - DBLoader - INFO - 0.002s - Article chunk found with chunk_id: 68
+2025-04-15 23:42:38 - DBLoader - INFO - 0.001s - Article found with article_id: 66
+2025-04-15 23:43:01 - DBLoader - INFO - 0.054s - Article chunk found with chunk_id: 68
+2025-04-15 23:43:01 - DBLoader - INFO - 0.005s - Article found with article_id: 66
+2025-04-15 23:43:01 - DBLoader - INFO - 0.003s - Topic found with topic_id: 1
+2025-04-15 23:43:01 - DBLoader - INFO - 0.001s - Article chunk found with chunk_id: 68
+2025-04-15 23:43:01 - DBLoader - INFO - 0.001s - Article found with article_id: 66
+2025-04-15 23:48:55 - DBLoader - INFO - 0.047s - Article chunk found with chunk_id: 68
+2025-04-15 23:48:55 - DBLoader - INFO - 0.003s - Article found with article_id: 66
+2025-04-15 23:48:55 - DBLoader - INFO - 0.002s - Topic found with topic_id: 1
+2025-04-15 23:48:55 - DBLoader - INFO - 0.001s - Article chunk found with chunk_id: 68
+2025-04-15 23:48:55 - DBLoader - INFO - 0.002s - Article found with article_id: 66
+2025-04-15 23:56:56 - DBLoader - INFO - 0.040s - Article chunk found with chunk_id: 68
+2025-04-15 23:56:56 - DBLoader - INFO - 0.004s - Article found with article_id: 66
+2025-04-15 23:56:56 - DBLoader - INFO - 0.002s - Topic found with topic_id: 1
+2025-04-15 23:56:56 - DBLoader - INFO - 0.001s - Article chunk found with chunk_id: 68
+2025-04-15 23:56:56 - DBLoader - INFO - 0.001s - Article found with article_id: 66
+2025-04-16 00:05:54 - DBLoader - INFO - 0.002s - Article chunk found with chunk_id: 68
+2025-04-16 00:05:54 - DBLoader - INFO - 0.001s - Article found with article_id: 66
+2025-04-16 00:05:54 - DBLoader - INFO - 0.000s - Topic found with topic_id: 1
+2025-04-16 00:05:54 - DBLoader - INFO - 0.002s - Article chunk found with chunk_id: 68
+2025-04-16 00:05:54 - DBLoader - INFO - 0.001s - Article found with article_id: 66
+2025-04-16 00:20:37 - DBLoader - INFO - 0.057s - Article chunk found with chunk_id: 68
+2025-04-16 00:20:37 - DBLoader - INFO - 0.004s - Article found with article_id: 66
+2025-04-16 00:20:37 - DBLoader - INFO - 0.003s - Topic found with topic_id: 1
+2025-04-16 00:20:37 - DBLoader - INFO - 0.002s - Article chunk found with chunk_id: 68
+2025-04-16 00:20:37 - DBLoader - INFO - 0.002s - Article found with article_id: 66
+2025-04-16 00:21:19 - DBLoader - INFO - 0.002s - Article chunk found with chunk_id: 68
+2025-04-16 00:21:19 - DBLoader - INFO - 0.001s - Article found with article_id: 66
+2025-04-16 00:21:19 - DBLoader - INFO - 0.001s - Topic found with topic_id: 1
+2025-04-16 00:21:19 - DBLoader - INFO - 0.001s - Article chunk found with chunk_id: 68
+2025-04-16 00:21:19 - DBLoader - INFO - 0.003s - Article found with article_id: 66
+2025-04-16 00:23:41 - DBLoader - INFO - 0.061s - Article chunk found with chunk_id: 68
+2025-04-16 00:23:41 - DBLoader - INFO - 0.003s - Article found with article_id: 66
+2025-04-16 00:23:41 - DBLoader - INFO - 0.005s - Topic found with topic_id: 1
+2025-04-16 00:23:41 - DBLoader - INFO - 0.001s - Article chunk found with chunk_id: 68
+2025-04-16 00:23:41 - DBLoader - INFO - 0.003s - Article found with article_id: 66
+2025-04-16 00:24:26 - DBLoader - INFO - 0.003s - Article chunk found with chunk_id: 68
+2025-04-16 00:24:26 - DBLoader - INFO - 0.001s - Article found with article_id: 66
+2025-04-16 00:24:26 - DBLoader - INFO - 0.002s - Topic found with topic_id: 1
+2025-04-16 00:24:26 - DBLoader - INFO - 0.001s - Article chunk found with chunk_id: 68
+2025-04-16 00:24:26 - DBLoader - INFO - 0.002s - Article found with article_id: 66
+2025-04-16 00:33:18 - DBLoader - INFO - 0.002s - Article chunk found with chunk_id: 68
+2025-04-16 00:33:18 - DBLoader - INFO - 0.002s - Article found with article_id: 66
+2025-04-16 00:33:18 - DBLoader - INFO - 0.002s - Topic found with topic_id: 1
+2025-04-16 00:33:18 - DBLoader - INFO - 0.001s - Article chunk found with chunk_id: 68
+2025-04-16 00:33:18 - DBLoader - INFO - 0.002s - Article found with article_id: 66
+2025-04-16 00:33:59 - DBLoader - INFO - 0.060s - Article chunk found with chunk_id: 78
+2025-04-16 00:33:59 - DBLoader - INFO - 0.005s - Article found with article_id: 68
+2025-04-16 00:33:59 - DBLoader - INFO - 0.003s - Topic found with topic_id: 1
+2025-04-16 00:33:59 - DBLoader - INFO - 0.001s - Article chunk found with chunk_id: 78
+2025-04-16 00:33:59 - DBLoader - INFO - 0.001s - Article found with article_id: 68

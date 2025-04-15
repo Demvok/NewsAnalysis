@@ -1,8 +1,6 @@
-from data_prep.data_spliter import split_articles_to_chunks
-from data_prep.event_classifier import main
-
+from graph_config import create_app
 
 if __name__ == "__main__":
-    # split_articles_to_chunks()
-    main()
+    app = create_app()
+    result = app.invoke()
     print("✅ Done")

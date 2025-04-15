@@ -19,7 +19,7 @@ from database.DBConnector import *
 # )
 # logger = logging.getLogger(__name__)
 
-def split_articles_to_chunks(chunk_size=2500, chunk_overlap=200):
+def main(chunk_size=2500, chunk_overlap=200):
     """
     Splits articles into smaller chunks using RecursiveCharacterTextSplitter and tracks chunk boundaries.
 
@@ -93,7 +93,7 @@ if __name__ == "__main__":
 
     # Run data splitter
     try:
-        split_articles_to_chunks()
+        main()
     except Exception as e:
         print(f"Error during data splitting: {e}")
         raise
