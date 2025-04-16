@@ -3,11 +3,11 @@ import json
 from database.DBConnector import *
 
 from pydantic import BaseModel, Field
-from typing import Optional, List, TypedDict
+from typing import Optional
 from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts import PromptTemplate
 
-from model import llm_invoke
+from graph.model import llm_invoke
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -32,11 +32,6 @@ class Person(BaseModel):
 class EventClassification(BaseModel):
     general_event: Optional[GeneralEvent]
     person_event: Optional[PersonEvent]
-
-class EventExtractionState(TypedDict):
-    topic: str
-    chunk: str
-    events: Optional[dict]
 
 
 parser = PydanticOutputParser(pydantic_object=EventClassification)

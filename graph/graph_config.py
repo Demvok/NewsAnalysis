@@ -1,6 +1,12 @@
 from langgraph.graph import StateGraph, START, END
-from data_prep import data_splitter, event_classifier
+from nodes import data_splitter, event_classifier
 
+from typing import Optional, List, TypedDict
+
+class EventExtractionState(TypedDict):
+    topic: str
+    chunk: str
+    events: Optional[dict]
 
 
 def create_app():

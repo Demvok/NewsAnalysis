@@ -1,3 +1,5 @@
 .venv
 .env
 dbloader_log.log
+/database/__pycache__/
+/nodes/__pycache__/

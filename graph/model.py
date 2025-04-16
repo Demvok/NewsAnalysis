@@ -1,5 +1,5 @@
 # from langchain_huggingface import HuggingFaceEndpoint
-from langchain_community.chat_models import ChatOpenAI
+from langchain_openai.chat_models import ChatOpenAI
 
 # # Setup Hugging Face model
 # llm = HuggingFaceEndpoint(
@@ -8,7 +8,7 @@ from langchain_community.chat_models import ChatOpenAI
 #     task='text-generation'
 # )
 
-llm = ChatOpenAI(openai_api_base="http://127.0.0.1:1234/v1")
+llm = ChatOpenAI(openai_api_base="http://127.0.0.1:1234/v1", temperature=0)
 
 def llm_invoke(*args, **kwargs):
     response = llm.invoke(*args, **kwargs)

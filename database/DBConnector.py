@@ -68,7 +68,7 @@ def _setup_logger(name: str, log_file: str, level: int = logging.INFO, console: 
     
     return logger
 
-logger = _setup_logger(name='DBLoader', log_file='dbloader_log.log', level=LOGGING_LEVEL, console=CONSOLE_LOG)
+logger = _setup_logger(name='DBLoader', log_file='dbloader.log', level=LOGGING_LEVEL, console=CONSOLE_LOG)
 
 
 def refresh_connection():
