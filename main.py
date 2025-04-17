@@ -1,7 +1,7 @@
 from graph.graph_config import create_app
 from database.DBConnector import *
-from utils.article_splitter import main as split_articles
-from tqdm import tqdm
+# from utils.article_splitter import main as split_articles
+# from tqdm import tqdm
 
 if __name__ == "__main__":
 
@@ -9,12 +9,11 @@ if __name__ == "__main__":
 
     app = create_app() # Creating LangGraph
 
-    unprocessed_chunks_df = t_get_unprocessed_chunks_input(is_processed=False)
+    unprocessed_chunks_df = t_get_unprocessed_chunks_input(is_processed=False).head(10) # Obviously temporary
 
-    for _, row in tqdm(unprocessed_chunks_df.iterrows(), desc="Processing chunks", total=unprocessed_chunks_df.shape[0]):
+    for _, row in unprocessed_chunks_df.iterrows():
 
         result = app.invoke(row.to_dict())
 
-        break
     
     print("✅ Done")

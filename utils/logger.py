@@ -1,7 +1,4 @@
-import logging
-import time
-import sys
-import os
+import logging, time, sys, os
 
 LOGGING_LEVEL = logging.INFO
 CONSOLE_LOG = True

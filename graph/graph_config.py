@@ -1,8 +1,7 @@
-from langgraph.graph import StateGraph, START, END
+from langgraph.graph import StateGraph
 from nodes import  write_event, event_classifier
 
 from typing import Optional, List, TypedDict
-from pydantic import Field
 
 class ChunkState(TypedDict, total=False):
     chunk_id: int

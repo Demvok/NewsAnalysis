@@ -647,7 +647,7 @@ def find_person(person_name: str, get_id=True):
         end_time = time.time()
 
         if person:
-            logger.info(f'Person already exists with person_id: {person.person_id}', extra={"execution_time": log.timeUsed(start_time, end_time)})
+            logger.debug(f'Person already exists with person_id: {person.person_id}', extra={"execution_time": log.timeUsed(start_time, end_time)})
             return person if not get_id else person.person_id # Повертаємо person, якщо знайдено
         else:
             logger.warning(f'Person not found', extra={"execution_time": log.timeUsed(start_time, end_time)})
@@ -888,7 +888,7 @@ def find_opinion(fk_origin_article_id: int, fk_person_id: int, citation: str, ge
         end_time = time.time()
 
         if opinion:
-            logger.info(f"Opinion already exists with opinion_id: {opinion.opinion_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
+            logger.debug(f"Opinion already exists with opinion_id: {opinion.opinion_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return opinion if not get_id else opinion.opinion_id # Повертаємо opinion, якщо знайдено
         else:
             logger.warning(f"Opinion not found", extra={'execution_time': log.timeUsed(start_time, end_time)})
@@ -1429,7 +1429,7 @@ def find_topic(topic_name: str, get_id=True):
         end_time = time.time()
 
         if topic:
-            logger.info(f"Topic already exists with topic_id: {topic.topic_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
+            logger.debug(f"Topic already exists with topic_id: {topic.topic_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return topic if not get_id else topic.topic_id # Повертаємо topic, якщо знайдено
         else:
             logger.warning(f"Topic not found", extra={'execution_time': log.timeUsed(start_time, end_time)})
@@ -1619,7 +1619,7 @@ def find_attitude(fk_topic_id: int, fk_person_id: int):
         end_time = time.time()
 
         if attitude:
-            logger.info(f"Attitude already exists with fk_topic_id: {fk_topic_id} and fk_person_id: {fk_person_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
+            logger.debug(f"Attitude already exists with fk_topic_id: {fk_topic_id} and fk_person_id: {fk_person_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return {'fk_topic_id': attitude.fk_topic_id, 'fk_person_id': attitude.fk_person_id}  # Повертаємо attitude, якщо знайдено
         else:
             logger.warning(f"Attitude not found", extra={'execution_time': log.timeUsed(start_time, end_time)})

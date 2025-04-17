@@ -1,16 +1,13 @@
 import os
 import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))) # <-- Not sure about this
 
 import pandas as pd
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
-from tqdm import tqdm
-from logging import INFO, DEBUG, ERROR, CRITICAL
+from database.DBConnector import add_article_chunk_df, t_get_articles_without_chunks_input
 from utils.logger import setup_logger
-logger = setup_logger('article_splitter', "article_splitter.log")
-
-from database.DBConnector import *
+logger = setup_logger(name='article_splitter', log_file="article_splitter.log")
 
 
 def main(df, chunk_size=2500, chunk_overlap=200):

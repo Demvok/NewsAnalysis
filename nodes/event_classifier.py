@@ -1,6 +1,4 @@
-import os
 import json
-from database.DBConnector import *
 
 from pydantic import BaseModel, Field
 from typing import Optional
@@ -8,6 +6,9 @@ from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts import PromptTemplate
 
 from graph.model import llm_invoke
+
+from utils.logger import setup_logger
+logger = setup_logger(name="event_classifier", log_file="graph.log")
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -91,6 +92,7 @@ def extract_events(topic, content):
 
 
 def main(state):
+    logger.info(f"Processing chunk {state['chunk_id']} started")
     topic = state['topic']
     content = state['content']
 
@@ -107,4 +109,5 @@ def main(state):
     if extracted['person_event'] is not None:
         state['person_event'].append(extracted['person_event'].dict())  # Convert Pydantic model to dict
 
+    logger.debug(f"Chunk {state['chunk_id']} processed, ({len(state['general_event'])}) general events, ({len(state['person_event'])}) opinions.")
     return state
