@@ -38,7 +38,7 @@ prompt = PromptTemplate.from_template(
     1. General events related to the topic "{topic}" from the article.
     2. Person events related to someone’s statement or action regarding "{topic}".
 
-    Whitout superfluous information, just the most important details.
+    Whitout superfluous information, just the most important details. Limit the description for general_event to 200 characters and citaition for person_event to 300 characters.
 
     Return a JSON object in the following format:
 
@@ -94,13 +94,17 @@ def main(state):
     topic = state['topic']
     content = state['content']
 
+    # Extract events
     extracted = extract_events(topic, content)
 
-    state = state.update(
-        {
-            'general_event': extracted['general_event'],
-            'person_event': extracted['person_event']
-        }
-    )
+    # Update the state with extracted events
+    state['general_event'] = state.get('general_event', [])
+    state['person_event'] = state.get('person_event', [])
+
+    if extracted['general_event'] is not None:
+        state['general_event'].append(extracted['general_event'].dict())  # Convert Pydantic model to dict
+
+    if extracted['person_event'] is not None:
+        state['person_event'].append(extracted['person_event'].dict())  # Convert Pydantic model to dict
 
     return state

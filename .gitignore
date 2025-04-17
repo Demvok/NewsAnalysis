@@ -6,4 +6,5 @@ dbloader_log.log
 /graph/__pycache__/
 /utils/__pycache__/
 /logs/
+/graph/logs/
 /__pycache__/
