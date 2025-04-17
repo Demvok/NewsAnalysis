@@ -3,7 +3,7 @@ import json
 from database.DBConnector import *
 
 from pydantic import BaseModel, Field
-from typing import Optional, List, TypedDict
+from typing import Optional
 from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts import PromptTemplate
 
@@ -16,11 +16,6 @@ warnings.filterwarnings("ignore")
 # 
 # EQUALS TO STAGE 0
 # 
-
-class EventExtractionState(TypedDict):
-    topic: str
-    chunk: str
-    events: Optional[dict]
 
 
 class GeneralEvent(BaseModel):
@@ -65,17 +60,6 @@ prompt = PromptTemplate.from_template(
     """
 ).partial(format_instructions=parser.get_format_instructions())
 
-
-
-def extract_events(topic, content):
-
-    formatted_prompt = prompt.format(topic=topic, chunk=content)
-    response = llm_invoke(formatted_prompt)
-
-    parsed = _parse_event_output(response.content)
-
-    return parsed
-
 def _parse_event_output(response: str):
     events = {"general_event": None, "person_event": None}
 
@@ -96,10 +80,27 @@ def _parse_event_output(response: str):
     
     return events
 
+def extract_events(topic, content):
+
+    formatted_prompt = prompt.format(topic=topic, chunk=content)
+    response = llm_invoke(formatted_prompt)
+
+    parsed = _parse_event_output(response.content)
+
+    return parsed
+
 
 def main(state):
-    chunk_id = state['chunk_id']
     topic = state['topic']
     content = state['content']
 
-    return extract_events(topic, content)
+    extracted = extract_events(topic, content)
+
+    state = state.update(
+        {
+            'general_event': extracted['general_event'],
+            'person_event': extracted['person_event']
+        }
+    )
+
+    return state

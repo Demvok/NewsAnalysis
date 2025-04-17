@@ -243,6 +243,49 @@ def t_get_articles_without_chunks_input():
         return pd.DataFrame()  # Return an empty DataFrame as a precaution
     return get_article_df(article_ids)
 
+def t_get_unprocessed_chunks_input(*args, **kwargs):
+    """
+    Fetches unprocessed chunks along with their topics and content in a single query.
+    Call with is_processed=False to get unprocessed chunks.
+    """
+    with _get_session() as session:
+        # Query to fetch unprocessed chunks
+        query = (
+            session.query(
+                DimArticleChunks.chunk_id,
+                DimArticleChunks.fk_article_id,
+                DimArticleChunks.start_index,
+                DimArticleChunks.end_index,
+                DimTopic.topic_name,
+                DimArticle.content
+            )
+            .join(DimArticle, DimArticleChunks.fk_article_id == DimArticle.article_id)
+            .join(DimTopic, DimArticle.fk_topic_id == DimTopic.topic_id)
+            .filter(DimArticleChunks.is_processed == False)  # Only unprocessed chunks
+        )
+
+        # Apply additional conditions if provided
+        for attr, value in kwargs.items():
+            query = query.filter(getattr(DimArticleChunks, attr) == value)
+
+        # Fetch results
+        results = query.all()
+
+        if not results:
+            logger.warning("No unprocessed chunks found")
+            return pd.DataFrame()  # Return an empty DataFrame as a precaution
+
+        # Convert results to a DataFrame
+        data = [
+            {
+                "chunk_id": row.chunk_id,
+                "content": row.content[row.start_index:row.end_index],
+                "topic": row.topic_name,
+            }
+            for row in results
+        ]
+        return pd.DataFrame(data)
+
 def t_upload_person_event(
         article_id: str,
         person: str,
