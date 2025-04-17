@@ -3,7 +3,7 @@ import json
 from database.DBConnector import *
 
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List, TypedDict
 from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts import PromptTemplate
 
@@ -16,6 +16,12 @@ warnings.filterwarnings("ignore")
 # 
 # EQUALS TO STAGE 0
 # 
+
+class EventExtractionState(TypedDict):
+    topic: str
+    chunk: str
+    events: Optional[dict]
+
 
 
 class GeneralEvent(BaseModel):
@@ -32,7 +38,6 @@ class Person(BaseModel):
 class EventClassification(BaseModel):
     general_event: Optional[GeneralEvent]
     person_event: Optional[PersonEvent]
-
 
 parser = PydanticOutputParser(pydantic_object=EventClassification)
 
@@ -120,7 +125,7 @@ def parse_event_output(response: str):
     return events
 
 
-def main():
+def main(state):
    
     article_id = get_article_chunk(78)["fk_article_id"]
     topic_id = get_article(article_id)["fk_topic_id"]

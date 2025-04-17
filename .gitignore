@@ -3,3 +3,6 @@
 dbloader_log.log
 /database/__pycache__/
 /nodes/__pycache__/
+/graph/__pycache__/
+/utils/__pycache__/
+/logs/

@@ -1,5 +1,7 @@
-import os, logging, sys, time
+import os, time
+from logging import DEBUG, INFO, WARNING, ERROR, CRITICAL
 from tqdm import tqdm
+import utils.logger as log
 from datetime import datetime
 import pandas as pd
 from sqlalchemy import create_engine, text
@@ -10,11 +12,11 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm.exc import DetachedInstanceError
 from contextlib import contextmanager
 
+
 ############################################################################################################
 
 DATABASE_URL = os.getenv('DATABASE_URL')
-LOGGING_LEVEL = logging.DEBUG
-CONSOLE_LOG = True
+logger = log.setup_logger(name='DBConnector', log_file='dbloader.log')
 
 ############################################################################################################
 
@@ -22,54 +24,6 @@ CONSOLE_LOG = True
 engine = create_engine(DATABASE_URL)
 SessionFactory = sessionmaker(bind=engine, expire_on_commit=False)
 Session = scoped_session(SessionFactory)
-
-
-def _timeUsed(start_time, end_time) -> str:
-    # execution_started = datetime.fromtimestamp(start_time).strftime('%H:%M:%S')
-    duration = end_time - start_time
-    return f"{duration:.3f}s" 
-
-class CustomFormatter(logging.Formatter):
-    def format(self, record):
-        # Якщо поле execution_time не передано, встановлюємо значення за замовчуванням
-        if not hasattr(record, 'execution_time'):
-            record.execution_time = 'N/A'
-        return super().format(record)
-
-def _setup_logger(name: str, log_file: str, level: int = logging.INFO, console: bool = False) -> logging.Logger:
-    """
-    Налаштовує логгер з можливістю запису у файл і/або виводу в консоль.
-    
-    :param name: Ім'я логгера.
-    :param log_file: Шлях до файлу логів.
-    :param level: Рівень логування.
-    :param console: Якщо True, додається вивід у консоль.
-    :return: Налаштований об'єкт Logger.
-    """
-    # Створюємо логгер
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
-
-    formatter = CustomFormatter('%(asctime)s - %(name)s - %(levelname)s - %(execution_time)s - %(message)s')
-    formatter.converter = lambda *args: time.localtime(*args)  # Ensure local time is used
-    formatter.default_time_format = '%Y-%m-%d %H:%M:%S'  # Format without milliseconds
-    formatter.default_msec_format = ''  # Remove milliseconds
-    
-    # Файл-обробник
-    file_handler = logging.FileHandler(log_file)
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
-    
-    # Обробник для консолі (якщо вказано)
-    if console:
-        console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setFormatter(formatter)
-        logger.addHandler(console_handler)
-    
-    return logger
-
-logger = _setup_logger(name='DBLoader', log_file='dbloader.log', level=LOGGING_LEVEL, console=CONSOLE_LOG)
-
 
 def refresh_connection():
     """DEPRECATED"""
@@ -283,7 +237,11 @@ def t_find_articles_without_chunks():
     return [elem.article_id for elem in res] if res else None
 
 def t_get_articles_without_chunks_input():
-    return get_article_df(t_find_articles_without_chunks())
+    article_ids = t_find_articles_without_chunks()
+    if not article_ids:
+        logger.warning("No articles found without chunks")
+        return pd.DataFrame()  # Return an empty DataFrame as a precaution
+    return get_article_df(article_ids)
 
 def t_upload_person_event(
         article_id: str,
@@ -357,10 +315,10 @@ def find_event(fk_origin_article_id: int, description: str, get_id=True):
         end_time = time.time()
 
         if event:
-            logger.debug(f"Event already exists with event_id: {event.event_id}", extra={"execution_time": _timeUsed(start_time, end_time)})
+            logger.debug(f"Event already exists with event_id: {event.event_id}", extra={"execution_time": log.timeUsed(start_time, end_time)})
             return event if not get_id else event.event_id # Повертаємо event_id, якщо подія знайдена
         else:
-            logger.debug(f"Event not found", extra={"execution_time": _timeUsed(start_time, end_time)})
+            logger.debug(f"Event not found", extra={"execution_time": log.timeUsed(start_time, end_time)})
             return None  # Повертаємо None, якщо подія не знайдена
 
 def find_events_by_conditions(processing_stage=-1, **conditions):
@@ -401,9 +359,9 @@ def find_events_by_conditions(processing_stage=-1, **conditions):
         end_time = time.time()
 
         if event_ids:
-            logger.info(f"Found {len(event_ids)} events matching conditions", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.info(f"Found {len(event_ids)} events matching conditions", extra={'execution_time': log.timeUsed(start_time, end_time)})
         else:
-            logger.info(f"No events found matching conditions", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.info(f"No events found matching conditions", extra={'execution_time': log.timeUsed(start_time, end_time)})
         
         return event_ids
 
@@ -425,7 +383,7 @@ def add_event(fk_origin_article_id: int, description: str) -> int:
         session.commit()
         session.refresh(new_event)  # Отримуємо згенерований event_id
         end_time = time.time()
-        logger.info(f"Event added with event_id: {new_event.event_id}, description: {description}", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"Event added with event_id: {new_event.event_id}, description: {description}", extra={'execution_time': log.timeUsed(start_time, end_time)})
         return new_event.event_id
 
 def add_event_full(
@@ -460,7 +418,7 @@ def add_event_full(
         session.commit()
         session.refresh(new_event)
         end_time = time.time()
-        logger.info(f"Event added with event_id: {new_event.event_id}, description: {description}", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"Event added with event_id: {new_event.event_id}, description: {description}", extra={'execution_time': log.timeUsed(start_time, end_time)})
         return new_event.event_id
 
 def add_event_df(df: pd.DataFrame):
@@ -484,7 +442,7 @@ def add_event_df(df: pd.DataFrame):
         # Зберігаємо зміни в БД
         session.commit()
         end_time = time.time()
-        logger.info(f"Added {added_count} events", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"Added {added_count} events", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
 def get_event(event_id: int) -> pd.Series:
     """Отримує подію за ID та повертає її як Series."""
@@ -511,10 +469,10 @@ def get_event(event_id: int) -> pd.Series:
             'is_selected': event.is_selected
         }
         end_time = time.time()
-        logger.debug(f"Event found with event_id: {event_id}", extra={"execution_time": _timeUsed(start_time, end_time)})
+        logger.debug(f"Event found with event_id: {event_id}", extra={"execution_time": log.timeUsed(start_time, end_time)})
         return pd.Series(event_dict)  # Створюємо Series з одного запису
     else:
-        logger.info(f"Event with event_id {event_id} not found", extra={"execution_time": _timeUsed(start_time, end_time)})
+        logger.info(f"Event with event_id {event_id} not found", extra={"execution_time": log.timeUsed(start_time, end_time)})
         return pd.Series()  # Повертаємо порожній Series, якщо запис не знайдений
 
 def get_event_df(event_ids: list) -> pd.DataFrame:
@@ -538,10 +496,10 @@ def get_event_df(event_ids: list) -> pd.DataFrame:
                 'event_hotness': event.event_hotness,
                 'is_selected': event.is_selected
             } for event in events]
-            logger.info(f"Found {len(events)} events", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.info(f"Found {len(events)} events", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.DataFrame(event_dicts)
         else:
-            logger.info(f"No events found for the provided event_ids", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.info(f"No events found for the provided event_ids", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.DataFrame()
 
 def update_event(
@@ -575,7 +533,7 @@ def update_event(
         if is_selected is not None:
             event.is_selected = bool(is_selected)
         end_time = time.time()
-        logger.debug(f"{int(event_id)} updated successfully", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.debug(f"{int(event_id)} updated successfully", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
 def update_event_df(df: pd.DataFrame):
     """Оновлює існуючі записи у dimEvents на основі DataFrame з новими даними."""
@@ -602,7 +560,7 @@ def update_event_df(df: pd.DataFrame):
 
         session.commit()
         end_time = time.time()
-        logger.debug(f"Updated {updated_count} events", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.debug(f"Updated {updated_count} events", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
 def delete_event(event_id: int):
     """Видаляє запис з dimEvents за event_id."""
@@ -615,7 +573,7 @@ def delete_event(event_id: int):
         
         session.delete(event)
         end_time = time.time()
-        logger.debug(f"Event with event_id={event_id} deleted successfully", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.debug(f"Event with event_id={event_id} deleted successfully", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
 def delete_events(event_ids: list):
     """Видаляє записи з dimEvents за списком event_id."""
@@ -630,7 +588,7 @@ def delete_events(event_ids: list):
         
         session.commit()
         end_time = time.time()
-        logger.debug(f"Events with event_ids={event_ids} deleted successfully", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.debug(f"Events with event_ids={event_ids} deleted successfully", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
 # 
 # DimPerson
@@ -646,10 +604,10 @@ def find_person(person_name: str, get_id=True):
         end_time = time.time()
 
         if person:
-            logger.info(f'Person already exists with person_id: {person.person_id}', extra={"execution_time": _timeUsed(start_time, end_time)})
+            logger.info(f'Person already exists with person_id: {person.person_id}', extra={"execution_time": log.timeUsed(start_time, end_time)})
             return person if not get_id else person.person_id # Повертаємо person, якщо знайдено
         else:
-            logger.warning(f'Person not found', extra={"execution_time": _timeUsed(start_time, end_time)})
+            logger.warning(f'Person not found', extra={"execution_time": log.timeUsed(start_time, end_time)})
             return None  # Повертаємо None, якщо не знайдено
 
 def find_person_by_conditions(**conditions):
@@ -670,9 +628,9 @@ def find_person_by_conditions(**conditions):
         end_time = time.time()
         
         if person_ids:
-            logger.info(f"Found {len(person_ids)} persons matching conditions", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.info(f"Found {len(person_ids)} persons matching conditions", extra={'execution_time': log.timeUsed(start_time, end_time)})
         else:
-            logger.warning(f"No persons found matching conditions", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.warning(f"No persons found matching conditions", extra={'execution_time': log.timeUsed(start_time, end_time)})
         return person_ids
 
 def add_person(
@@ -703,7 +661,7 @@ def add_person(
         session.commit()
         session.refresh(new_person)
         end_time = time.time()
-        logger.info(f"Person added with person_id: {new_person.person_id}, person_name: {person_name}", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"Person added with person_id: {new_person.person_id}, person_name: {person_name}", extra={'execution_time': log.timeUsed(start_time, end_time)})
         return new_person.person_id
 
 def add_person_full(
@@ -736,7 +694,7 @@ def add_person_full(
         session.commit()
         session.refresh(new_person)
         end_time = time.time()
-        logger.info(f"Person added with person_id: {new_person.person_id}, person_name: {person_name}", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"Person added with person_id: {new_person.person_id}, person_name: {person_name}", extra={'execution_time': log.timeUsed(start_time, end_time)})
         return new_person.person_id
 
 def add_person_df(df: pd.DataFrame):
@@ -756,7 +714,7 @@ def add_person_df(df: pd.DataFrame):
 
         session.commit()
         end_time = time.time()
-        logger.info(f"Added {added_count} persons", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"Added {added_count} persons", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
 def get_person(person_id: int) -> pd.Series:
     """Отримує особу за ID та повертає її як Series."""
@@ -776,10 +734,10 @@ def get_person(person_id: int) -> pd.Series:
                 'attribute_3': person.attribute_3,
                 'attribute_4': person.attribute_4
             }
-            logger.info(f"Person found with person_id: {person_id}", extra={"execution_time": _timeUsed(start_time, end_time)})
+            logger.info(f"Person found with person_id: {person_id}", extra={"execution_time": log.timeUsed(start_time, end_time)})
             return pd.Series(person_dict)
         else:
-            logger.warning(f"Person with person_id {person_id} not found", extra={"execution_time": _timeUsed(start_time, end_time)})
+            logger.warning(f"Person with person_id {person_id} not found", extra={"execution_time": log.timeUsed(start_time, end_time)})
             return pd.Series()
 
 def get_person_df(person_ids: list) -> pd.DataFrame:
@@ -800,10 +758,10 @@ def get_person_df(person_ids: list) -> pd.DataFrame:
                 'attribute_3': person.attribute_3,
                 'attribute_4': person.attribute_4
             } for person in persons]
-            logger.info(f"Found {len(persons)} persons", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.info(f"Found {len(persons)} persons", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.DataFrame(person_dicts)
         else:
-            logger.warning(f"No persons found for the provided person_ids", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.warning(f"No persons found for the provided person_ids", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.DataFrame()
 
 def update_person(
@@ -840,7 +798,7 @@ def update_person(
             person.attribute_4 = str(attribute_4)
         session.commit()
         end_time = time.time()
-        logger.info(f"{int(person_id)} updated successfully", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"{int(person_id)} updated successfully", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
 def delete_person(person_id: int):
     """Видаляє запис з dimPerson за person_id."""
@@ -854,7 +812,7 @@ def delete_person(person_id: int):
         session.delete(person)
         session.commit()
         end_time = time.time()
-        logger.info(f"Person with person_id={person_id} deleted successfully", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"Person with person_id={person_id} deleted successfully", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
 def delete_people(person_ids: list):
     """Видаляє записи з dimPerson за списком person_id."""
@@ -869,7 +827,7 @@ def delete_people(person_ids: list):
         
         session.commit()
         end_time = time.time()
-        logger.info(f"Persons with person_ids={person_ids} deleted successfully", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"Persons with person_ids={person_ids} deleted successfully", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
 #
 # DimOpinion
@@ -887,10 +845,10 @@ def find_opinion(fk_origin_article_id: int, fk_person_id: int, citation: str, ge
         end_time = time.time()
 
         if opinion:
-            logger.info(f"Opinion already exists with opinion_id: {opinion.opinion_id}", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.info(f"Opinion already exists with opinion_id: {opinion.opinion_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return opinion if not get_id else opinion.opinion_id # Повертаємо opinion, якщо знайдено
         else:
-            logger.warning(f"Opinion not found", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.warning(f"Opinion not found", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return None  # Повертаємо None, якщо не знайдено
 
 def find_opinion_by_conditions(processing_stage=-1, **conditions):
@@ -947,9 +905,9 @@ def find_opinion_by_conditions(processing_stage=-1, **conditions):
         end_time = time.time()
         
         if opinion_ids:
-            logger.info(f"Found {len(opinion_ids)} opinions matching conditions", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.info(f"Found {len(opinion_ids)} opinions matching conditions", extra={'execution_time': log.timeUsed(start_time, end_time)})
         else:
-            logger.warning(f"No opinions found matching conditions", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.warning(f"No opinions found matching conditions", extra={'execution_time': log.timeUsed(start_time, end_time)})
         
         return opinion_ids
 
@@ -991,7 +949,7 @@ def add_opinion(
         session.commit()
         session.refresh(new_opinion)
         end_time = time.time()
-        logger.info(f"Opinion added with opinion_id: {new_opinion.opinion_id}, citation: {citation}", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"Opinion added with opinion_id: {new_opinion.opinion_id}, citation: {citation}", extra={'execution_time': log.timeUsed(start_time, end_time)})
         return new_opinion.opinion_id
 
 def add_opinion_full(
@@ -1029,7 +987,7 @@ def add_opinion_full(
         session.commit()
         session.refresh(new_opinion)
         end_time = time.time()
-        logger.info(f"Opinion added with opinion_id: {new_opinion.opinion_id}", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"Opinion added with opinion_id: {new_opinion.opinion_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
         return new_opinion.opinion_id
 
 def add_opinion_df(df: pd.DataFrame):
@@ -1049,7 +1007,7 @@ def add_opinion_df(df: pd.DataFrame):
 
         session.commit()
         end_time = time.time()
-        logger.info(f"Added {added_count} opinions", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"Added {added_count} opinions", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
 def get_opinion(opinion_id: int) -> pd.Series:
     """Отримує думку за ID та повертає її як Series."""
@@ -1076,10 +1034,10 @@ def get_opinion(opinion_id: int) -> pd.Series:
                 'created_at': opinion.created_at,
                 'modified_at': opinion.modified_at
             }
-            logger.info(f"Opinion found with opinion_id: {opinion_id}", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.info(f"Opinion found with opinion_id: {opinion_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.Series(opinion_dict)
         else:
-            logger.warning(f"Opinion with opinion_id {opinion_id} not found", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.warning(f"Opinion with opinion_id {opinion_id} not found", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.Series()
 
 def get_opinion_df(opinion_ids: list) -> pd.DataFrame:
@@ -1107,10 +1065,10 @@ def get_opinion_df(opinion_ids: list) -> pd.DataFrame:
                 'created_at': opinion.created_at,
                 'modified_at': opinion.modified_at
             } for opinion in opinions]
-            logger.info(f"Found {len(opinions)} opinions", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.info(f"Found {len(opinions)} opinions", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.DataFrame(opinion_dicts)
         else:
-            logger.warning(f"No opinions found for the provided opinion_ids", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.warning(f"No opinions found for the provided opinion_ids", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.DataFrame()
 
 def update_opinion(
@@ -1162,7 +1120,7 @@ def update_opinion(
             opinion.is_selected = bool(is_selected)
         session.commit()
         end_time = time.time()
-        logger.info(f"{int(opinion_id)} updated successfully", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"{int(opinion_id)} updated successfully", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
 def delete_opinion(opinion_id: int):
     """Видаляє запис з dimOpinion за opinion_id."""
@@ -1176,7 +1134,7 @@ def delete_opinion(opinion_id: int):
         session.delete(opinion)
         session.commit()
         end_time = time.time()
-        logger.info(f"Opinion with opinion_id={opinion_id} deleted successfully", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"Opinion with opinion_id={opinion_id} deleted successfully", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
 def delete_opinions(opinion_ids: list):
     """Видаляє записи з dimOpinion за списком opinion_id."""
@@ -1191,7 +1149,7 @@ def delete_opinions(opinion_ids: list):
         
         session.commit()
         end_time = time.time()
-        logger.info(f"Opinions with opinion_ids={opinion_ids} deleted successfully", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"Opinions with opinion_ids={opinion_ids} deleted successfully", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
 # 
 # dimArticle
@@ -1208,10 +1166,10 @@ def find_article(title: str, article_date: datetime, get_id=True):
         end_time = time.time()
 
         if article:
-            logger.info(f"Article already exists with article_id: {article.article_id}", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.info(f"Article already exists with article_id: {article.article_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return article if not get_id else article.article_id # Повертаємо article, якщо знайдено
         else:
-            logger.warning(f"Article not found", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.warning(f"Article not found", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return None  # Повертаємо None, якщо не знайдено
 
 def find_article_by_conditions(**conditions):
@@ -1232,9 +1190,9 @@ def find_article_by_conditions(**conditions):
         end_time = time.time()
         
         if article_ids:
-            logger.info(f"Found {len(article_ids)} articles matching conditions", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.info(f"Found {len(article_ids)} articles matching conditions", extra={'execution_time': log.timeUsed(start_time, end_time)})
         else:
-            logger.warning(f"No articles found matching conditions", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.warning(f"No articles found matching conditions", extra={'execution_time': log.timeUsed(start_time, end_time)})
         
         return article_ids
 
@@ -1259,7 +1217,7 @@ def add_article(
         session.commit()
         session.refresh(new_article)
         end_time = time.time()
-        logger.info(f"Article added with article_id: {new_article.article_id}", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"Article added with article_id: {new_article.article_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
         return new_article.article_id
 
 def add_article_full(
@@ -1283,7 +1241,7 @@ def add_article_full(
         session.commit()
         session.refresh(new_article)
         end_time = time.time()
-        logger.info(f"Article added with article_id: {new_article.article_id}", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"Article added with article_id: {new_article.article_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
         return new_article.article_id
 
 def add_article_df(df: pd.DataFrame):
@@ -1307,7 +1265,7 @@ def add_article_df(df: pd.DataFrame):
 
         session.commit()
         end_time = time.time()
-        logger.info(f"Added {added_count} articles", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"Added {added_count} articles", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
 def get_article(article_id: int) -> pd.Series:
     """Отримує статтю за ID та повертає її як Series."""
@@ -1327,10 +1285,10 @@ def get_article(article_id: int) -> pd.Series:
                 'modified_at': article.modified_at,
                 'content': article.content
             }
-            logger.info(f"Article found with article_id: {article_id}", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.info(f"Article found with article_id: {article_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.Series(article_dict)
         else:
-            logger.warning(f"Article with article_id {article_id} not found", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.warning(f"Article with article_id {article_id} not found", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.Series()
 
 def get_article_df(article_ids: list) -> pd.DataFrame:
@@ -1351,10 +1309,10 @@ def get_article_df(article_ids: list) -> pd.DataFrame:
                 'modified_at': article.modified_at,
                 'content': article.content
             } for article in articles]
-            logger.info(f"Found {len(articles)} articles", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.info(f"Found {len(articles)} articles", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.DataFrame(article_dicts)
         else:
-            logger.warning(f"No articles found for the provided article_ids", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.warning(f"No articles found for the provided article_ids", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.DataFrame()
 
 def update_article(
@@ -1385,7 +1343,7 @@ def update_article(
         if content is not None:
             article.content = str(content)
         end_time = time.time()
-        logger.info(f"{int(article_id)} updated successfully", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"{int(article_id)} updated successfully", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
 def delete_article(article_id: int):
     """Видаляє запис з dimArticle за article_id."""
@@ -1399,7 +1357,7 @@ def delete_article(article_id: int):
         session.delete(article)
         session.commit()
         end_time = time.time()
-        logger.info(f"Article with article_id={article_id} deleted successfully", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"Article with article_id={article_id} deleted successfully", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
 def delete_articles(article_ids: list):
     """Видаляє записи з dimArticle за списком article_id."""
@@ -1414,7 +1372,7 @@ def delete_articles(article_ids: list):
         
         session.commit()
         end_time = time.time()
-        logger.info(f"Articles with article_ids={article_ids} deleted successfully", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"Articles with article_ids={article_ids} deleted successfully", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
 #
 # dimTopic
@@ -1428,10 +1386,10 @@ def find_topic(topic_name: str, get_id=True):
         end_time = time.time()
 
         if topic:
-            logger.info(f"Topic already exists with topic_id: {topic.topic_id}", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.info(f"Topic already exists with topic_id: {topic.topic_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return topic if not get_id else topic.topic_id # Повертаємо topic, якщо знайдено
         else:
-            logger.warning(f"Topic not found", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.warning(f"Topic not found", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return None  # Повертаємо None, якщо не знайдено
 
 def find_topic_by_conditions(**conditions):
@@ -1452,9 +1410,9 @@ def find_topic_by_conditions(**conditions):
         end_time = time.time()
         
         if topic_ids:
-            logger.info(f"Found {len(topic_ids)} topics matching conditions", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.info(f"Found {len(topic_ids)} topics matching conditions", extra={'execution_time': log.timeUsed(start_time, end_time)})
         else:
-            logger.warning(f"No topics found matching conditions", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.warning(f"No topics found matching conditions", extra={'execution_time': log.timeUsed(start_time, end_time)})
         
         return topic_ids
 
@@ -1471,7 +1429,7 @@ def add_topic(topic_name: str, query: str, source: str = None) -> int:
         session.commit()
         session.refresh(new_topic)
         end_time = time.time()
-        logger.info(f"Topic added with topic_id: {new_topic.topic_id}", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"Topic added with topic_id: {new_topic.topic_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
         return new_topic.topic_id
 
 def add_topic_full(topic_name: str, query: str, source: str = None) -> int:
@@ -1487,7 +1445,7 @@ def add_topic_full(topic_name: str, query: str, source: str = None) -> int:
         session.commit()
         session.refresh(new_topic)
         end_time = time.time()
-        logger.info(f"Topic added with topic_id: {new_topic.topic_id}", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"Topic added with topic_id: {new_topic.topic_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
         return new_topic.topic_id
 
 def add_topic_df(df: pd.DataFrame):
@@ -1509,7 +1467,7 @@ def add_topic_df(df: pd.DataFrame):
 
         session.commit()
         end_time = time.time()
-        logger.info(f"Added {added_count} topics", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"Added {added_count} topics", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
 def get_topic(topic_id: int) -> pd.Series:
     """Отримує тему за ID та повертає її як Series."""
@@ -1525,10 +1483,10 @@ def get_topic(topic_id: int) -> pd.Series:
                 'query': topic.query,
                 'source': topic.source
             }
-            logger.info(f"Topic found with topic_id: {topic_id}", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.info(f"Topic found with topic_id: {topic_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.Series(topic_dict)
         else:
-            logger.warning(f"Topic with topic_id {topic_id} not found", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.warning(f"Topic with topic_id {topic_id} not found", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.Series()
 
 def get_topic_df(topic_ids: list) -> pd.DataFrame:
@@ -1545,10 +1503,10 @@ def get_topic_df(topic_ids: list) -> pd.DataFrame:
                 'query': topic.query,
                 'source': topic.source
             } for topic in topics]
-            logger.info(f"Found {len(topics)} topics", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.info(f"Found {len(topics)} topics", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.DataFrame(topic_dicts)
         else:
-            logger.warning(f"No topics found for the provided topic_ids", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.warning(f"No topics found for the provided topic_ids", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.DataFrame()
 
 def update_topic(
@@ -1573,7 +1531,7 @@ def update_topic(
         if source is not None:
             topic.source = str(source)
         end_time = time.time()
-        logger.info(f"{int(topic_id)} updated successfully", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"{int(topic_id)} updated successfully", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
 def delete_topic(topic_id: int):
     """Видаляє запис з dimTopic за topic_id."""
@@ -1586,7 +1544,7 @@ def delete_topic(topic_id: int):
         session.delete(topic)
         session.commit()
         end_time = time.time()
-        logger.info(f"Topic with topic_id={topic_id} deleted successfully", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"Topic with topic_id={topic_id} deleted successfully", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
 def delete_topics(topic_ids: list):
     """Видаляє записи з dimTopic за списком topic_id."""
@@ -1601,7 +1559,7 @@ def delete_topics(topic_ids: list):
         
         session.commit()
         end_time = time.time()
-        logger.info(f"Topics with topic_ids={topic_ids} deleted successfully", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"Topics with topic_ids={topic_ids} deleted successfully", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
 # 
 # fctAttitude
@@ -1618,10 +1576,10 @@ def find_attitude(fk_topic_id: int, fk_person_id: int):
         end_time = time.time()
 
         if attitude:
-            logger.info(f"Attitude already exists with fk_topic_id: {fk_topic_id} and fk_person_id: {fk_person_id}", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.info(f"Attitude already exists with fk_topic_id: {fk_topic_id} and fk_person_id: {fk_person_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return {'fk_topic_id': attitude.fk_topic_id, 'fk_person_id': attitude.fk_person_id}  # Повертаємо attitude, якщо знайдено
         else:
-            logger.warning(f"Attitude not found", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.warning(f"Attitude not found", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return None  # Повертаємо None, якщо не знайдено
 
 def find_attitude_by_conditions(**conditions):
@@ -1642,10 +1600,10 @@ def find_attitude_by_conditions(**conditions):
         end_time = time.time()
         
         if attitudes:
-            logger.info(f"Found {len(attitudes)} attitudes matching conditions", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.info(f"Found {len(attitudes)} attitudes matching conditions", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return [{'fk_topic_id': att[0], 'fk_person_id': att[1]} for att in attitudes]
         else:
-            logger.warning(f"No attitudes found matching conditions", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.warning(f"No attitudes found matching conditions", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return []
 
 def add_attitude(fk_topic_id: int, fk_person_id: int, sentiment_deviation: float = None, stance: str = None, person_summary: str = None, is_expert_flag: bool = None) -> None:
@@ -1655,7 +1613,7 @@ def add_attitude(fk_topic_id: int, fk_person_id: int, sentiment_deviation: float
         existing_attitude = find_attitude(fk_topic_id, fk_person_id)
         
         if existing_attitude:
-            logger.warning(f"Attitude already exists with fk_topic_id: {fk_topic_id} and fk_person_id: {fk_person_id}", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.warning(f"Attitude already exists with fk_topic_id: {fk_topic_id} and fk_person_id: {fk_person_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return
 
         new_attitude = FctAttitude(
@@ -1669,7 +1627,7 @@ def add_attitude(fk_topic_id: int, fk_person_id: int, sentiment_deviation: float
         session.add(new_attitude)
         session.commit()
         end_time = time.time()
-        logger.info(f"Attitude added with fk_topic_id: {fk_topic_id} and fk_person_id: {fk_person_id}", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"Attitude added with fk_topic_id: {fk_topic_id} and fk_person_id: {fk_person_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
 def add_attitude_full(fk_topic_id: int, fk_person_id: int, sentiment_deviation: float = None, stance: str = None, person_summary: str = None, is_expert_flag: bool = None) -> None:
     """Додає новий запис у fctAttitude з можливістю встановлення всіх полів, якщо його ще немає."""
@@ -1678,7 +1636,7 @@ def add_attitude_full(fk_topic_id: int, fk_person_id: int, sentiment_deviation: 
         existing_attitude = find_attitude(fk_topic_id, fk_person_id)
         
         if existing_attitude:
-            logger.warning(f"Attitude already exists with fk_topic_id: {fk_topic_id} and fk_person_id: {fk_person_id}", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.warning(f"Attitude already exists with fk_topic_id: {fk_topic_id} and fk_person_id: {fk_person_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return
 
         new_attitude = FctAttitude(
@@ -1692,7 +1650,7 @@ def add_attitude_full(fk_topic_id: int, fk_person_id: int, sentiment_deviation: 
         session.add(new_attitude)
         session.commit()
         end_time = time.time()
-        logger.info(f"Attitude added with fk_topic_id: {fk_topic_id} and fk_person_id: {fk_person_id}", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"Attitude added with fk_topic_id: {fk_topic_id} and fk_person_id: {fk_person_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
 def add_attitude_df(df: pd.DataFrame):
     """Завантажує DataFrame у таблицю fctAttitude, перевіряючи наявність записів перед додаванням."""
@@ -1715,7 +1673,7 @@ def add_attitude_df(df: pd.DataFrame):
 
         session.commit()
         end_time = time.time()
-        logger.info(f"Added {added_count} attitudes", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"Added {added_count} attitudes", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
 def get_attitude(fk_topic_id: int, fk_person_id: int) -> pd.Series:
     """Отримує запис за fk_topic_id та fk_person_id та повертає його як Series."""
@@ -1738,10 +1696,10 @@ def get_attitude(fk_topic_id: int, fk_person_id: int) -> pd.Series:
                 'created_at': attitude.created_at,
                 'modified_at': attitude.modified_at
             }
-            logger.info(f"Attitude found with fk_topic_id: {fk_topic_id} and fk_person_id: {fk_person_id}", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.info(f"Attitude found with fk_topic_id: {fk_topic_id} and fk_person_id: {fk_person_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.Series(attitude_dict)
         else:
-            logger.warning(f"Attitude with fk_topic_id {fk_topic_id} and fk_person_id {fk_person_id} not found", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.warning(f"Attitude with fk_topic_id {fk_topic_id} and fk_person_id {fk_person_id} not found", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.Series()
 
 def get_attitude_df(attitude_ids: list) -> pd.DataFrame:
@@ -1764,10 +1722,10 @@ def get_attitude_df(attitude_ids: list) -> pd.DataFrame:
                 'created_at': attitude.created_at,
                 'modified_at': attitude.modified_at
             } for attitude in attitudes]
-            logger.info(f"Found {len(attitudes)} attitudes", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.info(f"Found {len(attitudes)} attitudes", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.DataFrame(attitude_dicts)
         else:
-            logger.warning(f"No attitudes found for the provided attitude_ids", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.warning(f"No attitudes found for the provided attitude_ids", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.DataFrame()
 
 def update_attitude(
@@ -1799,7 +1757,7 @@ def update_attitude(
         if is_expert_flag is not None:
             attitude.is_expert_flag = bool(is_expert_flag)
         end_time = time.time()
-        logger.info(f"Attitude with fk_topic_id={int(fk_topic_id)} and fk_person_id={int(fk_person_id)} updated successfully", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"Attitude with fk_topic_id={int(fk_topic_id)} and fk_person_id={int(fk_person_id)} updated successfully", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
 def delete_attitude(fk_topic_id: int, fk_person_id: int):
     """Видаляє запис з fctAttitude за fk_topic_id та fk_person_id."""
@@ -1816,7 +1774,7 @@ def delete_attitude(fk_topic_id: int, fk_person_id: int):
         session.delete(attitude)
         session.commit()
         end_time = time.time()
-        logger.info(f"Attitude with fk_topic_id={fk_topic_id} and fk_person_id={fk_person_id} deleted successfully", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"Attitude with fk_topic_id={fk_topic_id} and fk_person_id={fk_person_id} deleted successfully", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
 def delete_attitudes(attitude_ids: list):
     """Видаляє записи з fctAttitude за списком пар (fk_topic_id, fk_person_id)."""
@@ -1833,7 +1791,7 @@ def delete_attitudes(attitude_ids: list):
         
         session.commit()
         end_time = time.time()
-        logger.info(f"Attitudes with attitude_ids={attitude_ids} deleted successfully", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"Attitudes with attitude_ids={attitude_ids} deleted successfully", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
 # 
 # dimArticleChunks
@@ -1849,10 +1807,10 @@ def find_article_chunk(fk_article_id: int):
         end_time = time.time()
 
         if article_chunk:
-            logger.info(f"Article chunk already exists with fk_article_id: {fk_article_id}.", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.info(f"Article chunk already exists with fk_article_id: {fk_article_id}.", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return article_chunk  # Повертаємо article_chunk, якщо знайдено
         else:
-            logger.warning(f"Article chunk not found", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.warning(f"Article chunk not found", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return None  # Повертаємо None, якщо не знайдено
 
 def find_article_chunk_by_conditions(**conditions):
@@ -1873,9 +1831,9 @@ def find_article_chunk_by_conditions(**conditions):
         end_time = time.time()
         
         if chunk_ids:
-            logger.info(f"Found {len(chunk_ids)} article chunks matching conditions", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.info(f"Found {len(chunk_ids)} article chunks matching conditions", extra={'execution_time': log.timeUsed(start_time, end_time)})
         else:
-            logger.warning(f"No article chunks found matching conditions", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.warning(f"No article chunks found matching conditions", extra={'execution_time': log.timeUsed(start_time, end_time)})
         
         return chunk_ids
 
@@ -1892,7 +1850,7 @@ def add_article_chunk(fk_article_id: int, start_index: int, end_index: int, is_p
         session.add(new_article_chunk)
         session.commit()
         end_time = time.time()
-        logger.info(f"Article chunk added with fk_article_id: {fk_article_id}, start_index: {start_index}, and end_index: {end_index}", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"Article chunk added with fk_article_id: {fk_article_id}, start_index: {start_index}, and end_index: {end_index}", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
 def add_article_chunk_df(df: pd.DataFrame):
     """Завантажує DataFrame у таблицю dimArticleChunks, перевіряючи наявність записів перед додаванням."""
@@ -1901,7 +1859,7 @@ def add_article_chunk_df(df: pd.DataFrame):
         records = df.to_dict(orient='records')
         added_count = 0
 
-        for record in tqdm(records):
+        for record in tqdm(records, desc='Uploading: ', unit='chunk', disable=log.LOGGING_LEVEL != DEBUG):
             existing_article_chunk = session.query(DimArticleChunks).filter(
                 DimArticleChunks.fk_article_id == record['fk_article_id'],
                 DimArticleChunks.start_index == record['start_index'],
@@ -1915,7 +1873,7 @@ def add_article_chunk_df(df: pd.DataFrame):
 
         session.commit()
         end_time = time.time()
-        logger.info(f"Added {added_count} article chunks", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"Added {added_count} article chunks", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
 def get_article_chunk(chunk_id: int) -> pd.Series:
     """Отримує запис за fk_article_id та повертає його як Series."""
@@ -1934,10 +1892,10 @@ def get_article_chunk(chunk_id: int) -> pd.Series:
                 'end_index': article_chunk.end_index,
                 'is_processed': article_chunk.is_processed
             }
-            logger.info(f"Article chunk found with chunk_id: {chunk_id}", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.info(f"Article chunk found with chunk_id: {chunk_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.Series(article_chunk_dict)
         else:
-            logger.warning(f"Article chunk with chunk_id {chunk_id} not found", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.warning(f"Article chunk with chunk_id {chunk_id} not found", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.Series()
 
 def get_article_chunk_df(article_chunk_ids: list) -> pd.DataFrame:
@@ -1957,10 +1915,10 @@ def get_article_chunk_df(article_chunk_ids: list) -> pd.DataFrame:
                 'end_index': article_chunk.end_index,
                 'is_processed': article_chunk.is_processed
             } for article_chunk in article_chunks]
-            logger.info(f"Found {len(article_chunks)} article chunks", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.info(f"Found {len(article_chunks)} article chunks", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.DataFrame(article_chunk_dicts)
         else:
-            logger.warning(f"No article chunks found for the provided article_chunk_ids", extra={'execution_time': _timeUsed(start_time, end_time)})
+            logger.warning(f"No article chunks found for the provided article_chunk_ids", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.DataFrame()
 
 def update_article_chunk(
@@ -1987,7 +1945,7 @@ def update_article_chunk(
         if is_processed is not None:
             article_chunk.is_processed = bool(is_processed)
         end_time = time.time()
-        logger.info(f"Article chunk with chunk_id={int(chunk_id)} updated successfully", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"Article chunk with chunk_id={int(chunk_id)} updated successfully", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
 def delete_article_chunk(chunk_id: int):
     """Видаляє запис з dimArticleChunks за chunk_id."""
@@ -2003,7 +1961,7 @@ def delete_article_chunk(chunk_id: int):
         session.delete(article_chunk)
         session.commit()
         end_time = time.time()
-        logger.info(f"Article chunk with chunk_id={chunk_id} deleted successfully", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"Article chunk with chunk_id={chunk_id} deleted successfully", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
 def delete_article_chunks(article_chunk_ids: list):
     """Видаляє записи з dimArticleChunks за списком chunk_id."""
@@ -2020,5 +1978,5 @@ def delete_article_chunks(article_chunk_ids: list):
         
         session.commit()
         end_time = time.time()
-        logger.info(f"Article chunks with article_chunk_ids={article_chunk_ids} deleted successfully", extra={'execution_time': _timeUsed(start_time, end_time)})
+        logger.info(f"Article chunks with article_chunk_ids={article_chunk_ids} deleted successfully", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
