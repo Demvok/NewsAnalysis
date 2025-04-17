@@ -3,7 +3,7 @@ import time
 import sys
 import os
 
-LOGGING_LEVEL = logging.DEBUG
+LOGGING_LEVEL = logging.INFO
 CONSOLE_LOG = True
 
 SAVE_TO = './logs/'

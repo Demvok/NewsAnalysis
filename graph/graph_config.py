@@ -4,8 +4,6 @@ import nodes
 from typing import Optional, List, TypedDict
 
 
-
-
 def create_app():
     graph = StateGraph(state_schema='EventExtractionState')
 

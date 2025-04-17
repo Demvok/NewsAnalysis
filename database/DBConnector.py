@@ -1166,7 +1166,7 @@ def find_article(title: str, article_date: datetime, get_id=True):
         end_time = time.time()
 
         if article:
-            logger.info(f"Article already exists with article_id: {article.article_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
+            logger.debug(f"Article already exists with article_id: {article.article_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return article if not get_id else article.article_id # Повертаємо article, якщо знайдено
         else:
             logger.warning(f"Article not found", extra={'execution_time': log.timeUsed(start_time, end_time)})
@@ -1217,7 +1217,7 @@ def add_article(
         session.commit()
         session.refresh(new_article)
         end_time = time.time()
-        logger.info(f"Article added with article_id: {new_article.article_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
+        logger.debug(f"Article added with article_id: {new_article.article_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
         return new_article.article_id
 
 def add_article_full(
@@ -1241,7 +1241,7 @@ def add_article_full(
         session.commit()
         session.refresh(new_article)
         end_time = time.time()
-        logger.info(f"Article added with article_id: {new_article.article_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
+        logger.debug(f"Article added with article_id: {new_article.article_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
         return new_article.article_id
 
 def add_article_df(df: pd.DataFrame):
@@ -1285,7 +1285,7 @@ def get_article(article_id: int) -> pd.Series:
                 'modified_at': article.modified_at,
                 'content': article.content
             }
-            logger.info(f"Article found with article_id: {article_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
+            logger.debug(f"Article found with article_id: {article_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.Series(article_dict)
         else:
             logger.warning(f"Article with article_id {article_id} not found", extra={'execution_time': log.timeUsed(start_time, end_time)})
@@ -1343,7 +1343,7 @@ def update_article(
         if content is not None:
             article.content = str(content)
         end_time = time.time()
-        logger.info(f"{int(article_id)} updated successfully", extra={'execution_time': log.timeUsed(start_time, end_time)})
+        logger.debug(f"{int(article_id)} updated successfully", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
 def delete_article(article_id: int):
     """Видаляє запис з dimArticle за article_id."""
@@ -1357,7 +1357,7 @@ def delete_article(article_id: int):
         session.delete(article)
         session.commit()
         end_time = time.time()
-        logger.info(f"Article with article_id={article_id} deleted successfully", extra={'execution_time': log.timeUsed(start_time, end_time)})
+        logger.debug(f"Article with article_id={article_id} deleted successfully", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
 def delete_articles(article_ids: list):
     """Видаляє записи з dimArticle за списком article_id."""
@@ -1483,7 +1483,7 @@ def get_topic(topic_id: int) -> pd.Series:
                 'query': topic.query,
                 'source': topic.source
             }
-            logger.info(f"Topic found with topic_id: {topic_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
+            logger.debug(f"Topic found with topic_id: {topic_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.Series(topic_dict)
         else:
             logger.warning(f"Topic with topic_id {topic_id} not found", extra={'execution_time': log.timeUsed(start_time, end_time)})
@@ -1807,7 +1807,7 @@ def find_article_chunk(fk_article_id: int):
         end_time = time.time()
 
         if article_chunk:
-            logger.info(f"Article chunk already exists with fk_article_id: {fk_article_id}.", extra={'execution_time': log.timeUsed(start_time, end_time)})
+            logger.debug(f"Article chunk already exists with fk_article_id: {fk_article_id}.", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return article_chunk  # Повертаємо article_chunk, якщо знайдено
         else:
             logger.warning(f"Article chunk not found", extra={'execution_time': log.timeUsed(start_time, end_time)})
@@ -1850,7 +1850,7 @@ def add_article_chunk(fk_article_id: int, start_index: int, end_index: int, is_p
         session.add(new_article_chunk)
         session.commit()
         end_time = time.time()
-        logger.info(f"Article chunk added with fk_article_id: {fk_article_id}, start_index: {start_index}, and end_index: {end_index}", extra={'execution_time': log.timeUsed(start_time, end_time)})
+        logger.debug(f"Article chunk added with fk_article_id: {fk_article_id}, start_index: {start_index}, and end_index: {end_index}", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
 def add_article_chunk_df(df: pd.DataFrame):
     """Завантажує DataFrame у таблицю dimArticleChunks, перевіряючи наявність записів перед додаванням."""
@@ -1892,7 +1892,7 @@ def get_article_chunk(chunk_id: int) -> pd.Series:
                 'end_index': article_chunk.end_index,
                 'is_processed': article_chunk.is_processed
             }
-            logger.info(f"Article chunk found with chunk_id: {chunk_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
+            logger.debug(f"Article chunk found with chunk_id: {chunk_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.Series(article_chunk_dict)
         else:
             logger.warning(f"Article chunk with chunk_id {chunk_id} not found", extra={'execution_time': log.timeUsed(start_time, end_time)})
@@ -1961,7 +1961,7 @@ def delete_article_chunk(chunk_id: int):
         session.delete(article_chunk)
         session.commit()
         end_time = time.time()
-        logger.info(f"Article chunk with chunk_id={chunk_id} deleted successfully", extra={'execution_time': log.timeUsed(start_time, end_time)})
+        logger.debug(f"Article chunk with chunk_id={chunk_id} deleted successfully", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
 def delete_article_chunks(article_chunk_ids: list):
     """Видаляє записи з dimArticleChunks за списком chunk_id."""
