@@ -1,7 +1,7 @@
 import logging, time, sys, os
 
 LOGGING_LEVEL = logging.INFO
-CONSOLE_LOG = True
+CONSOLE_LOG = False
 
 SAVE_TO = './logs/'
 if not os.path.exists(SAVE_TO):
@@ -17,6 +17,10 @@ class CustomFormatter(logging.Formatter):
         if not hasattr(record, 'execution_time'):
             record.execution_time = 'N/A'
         return super().format(record)
+
+# Remove all existing handlers to avoid conflicts
+for handler in logging.root.handlers[:]:
+    logging.root.removeHandler(handler)
 
 def setup_logger(name: str, log_file: str) -> logging.Logger:
     """
