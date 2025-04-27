@@ -46,7 +46,7 @@ def setup_logger(name: str, log_file: str) -> logging.Logger:
     # File handler for individual file logging
     file_path = os.path.join(SAVE_TO, log_file)
     file_handler = logging.FileHandler(file_path)
-    formatter = CustomFormatter('%(asctime)s - %(name)s - %(levelname)s - %(execution_time)s - %(message)s')
+    formatter = CustomFormatter('%(asctime)s - %(name)s \t- %(levelname)s - %(execution_time)s - %(message)s')
     formatter.converter = lambda *args: time.localtime(*args)
     formatter.default_time_format = '%Y-%m-%d %H:%M:%S'
     formatter.default_msec_format = ''

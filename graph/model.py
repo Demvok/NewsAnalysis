@@ -9,7 +9,7 @@ from langchain_openai.chat_models import ChatOpenAI
 # )
 
 llm = ChatOpenAI(openai_api_base="http://127.0.0.1:1234/v1",
-                 model='gemma-3-4b-it',
+                 model='gemma-3-4b-it-qat',
                  temperature=0)
 
 def llm_invoke(*args, **kwargs):
