@@ -1,6 +1,4 @@
 import os, time
-from logging import DEBUG, INFO, WARNING, ERROR, CRITICAL
-from tqdm import tqdm
 import utils.logger as log
 from datetime import datetime
 import pandas as pd
@@ -1902,7 +1900,7 @@ def add_article_chunk_df(df: pd.DataFrame):
         records = df.to_dict(orient='records')
         added_count = 0
 
-        for record in tqdm(records, desc='Uploading: ', unit='chunk', disable=log.LOGGING_LEVEL != DEBUG):
+        for record in records:
             existing_article_chunk = session.query(DimArticleChunks).filter(
                 DimArticleChunks.fk_article_id == record['fk_article_id'],
                 DimArticleChunks.start_index == record['start_index'],

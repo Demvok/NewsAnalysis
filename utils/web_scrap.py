@@ -4,7 +4,6 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import time
 from datetime import datetime
-from tqdm import tqdm
 from utils.logger import setup_logger
 
 from selenium import webdriver
@@ -13,7 +12,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
 
-from database.DBConnector import find_article_by_conditions, add_article, get_topic_df
+from database.DBConnector import find_article_by_conditions, add_article, get_topic_df, find_topic_by_conditions
 
 
 import pandas as pd
@@ -26,11 +25,13 @@ def init_browser():
     Function to initialize the Chrome browser
     """
     options = Options()
-    # options.add_argument("--headless=new")  # Новий headless режим
+    options.add_argument("--headless=new")  # Новий headless режим
     options.add_argument("--disable-gpu")  # Вимкнути GPU (для стабільності)
     options.add_argument("--no-sandbox")  # Для роботи в Docker
     options.add_argument("--disable-dev-shm-usage")  # Запобігання помилкам у Linux  # Set to True if you don't want the browser window to open
     options.add_argument("--window-size=1920,1080")  # Розмір вікна
+    options.add_argument("--disable-extensions")
+    options.add_argument("--enable-unsafe-swiftshader")
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
     return driver
 
@@ -122,12 +123,11 @@ def scrape_article_content(driver, url, topic_id):
 def main():
     logger.info("--- Starting article scraping process... ---")
 
-    # topics = get_topic_df(find_topic_by_conditions())
-    topics = get_topic_df([25])
+    topics = get_topic_df(find_topic_by_conditions())
 
 
     for _, topic in topics.iterrows():
-        for page in tqdm(range(1, 6)):
+        for page in range(1, 6):
 
             logger.info(f"Scrapping topic: {topic.topic_name} (Page {page})")
             link = f'https://edition.cnn.com/search?q={"+".join(topic.query.split(" "))}&from={(page-1)*30}&size=30&page={page}&sort=newest&types=all&section='

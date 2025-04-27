@@ -9,7 +9,8 @@ if __name__ == "__main__":
 
     app = create_app() # Creating LangGraph
 
-    unprocessed_chunks_df = t_get_unprocessed_chunks_input(is_processed=False).head(10) # Obviously temporary
+    unprocessed_chunks_df = t_get_unprocessed_chunks_input(is_processed=False)
+    # .head(10) # Obviously temporary
 
     for _, row in unprocessed_chunks_df.iterrows():
 
