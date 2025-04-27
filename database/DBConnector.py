@@ -650,7 +650,7 @@ def find_person(person_name: str, get_id=True):
             logger.debug(f'Person already exists with person_id: {person.person_id}', extra={"execution_time": log.timeUsed(start_time, end_time)})
             return person if not get_id else person.person_id # Повертаємо person, якщо знайдено
         else:
-            logger.warning(f'Person not found', extra={"execution_time": log.timeUsed(start_time, end_time)})
+            logger.info(f'Person not found', extra={"execution_time": log.timeUsed(start_time, end_time)})
             return None  # Повертаємо None, якщо не знайдено
 
 def find_person_by_conditions(**conditions):
@@ -673,7 +673,7 @@ def find_person_by_conditions(**conditions):
         if person_ids:
             logger.info(f"Found {len(person_ids)} persons matching conditions", extra={'execution_time': log.timeUsed(start_time, end_time)})
         else:
-            logger.warning(f"No persons found matching conditions", extra={'execution_time': log.timeUsed(start_time, end_time)})
+            logger.info(f"No persons found matching conditions", extra={'execution_time': log.timeUsed(start_time, end_time)})
         return person_ids
 
 def add_person(
@@ -780,7 +780,7 @@ def get_person(person_id: int) -> pd.Series:
             logger.info(f"Person found with person_id: {person_id}", extra={"execution_time": log.timeUsed(start_time, end_time)})
             return pd.Series(person_dict)
         else:
-            logger.warning(f"Person with person_id {person_id} not found", extra={"execution_time": log.timeUsed(start_time, end_time)})
+            logger.info(f"Person with person_id {person_id} not found", extra={"execution_time": log.timeUsed(start_time, end_time)})
             return pd.Series()
 
 def get_person_df(person_ids: list) -> pd.DataFrame:
@@ -849,7 +849,7 @@ def delete_person(person_id: int):
         start_time = time.time()
         person = session.query(DimPerson).filter(DimPerson.person_id == person_id).first()
         if not person:
-            logger.warning(f"Person with person_id={person_id} not found")
+            logger.info(f"Person with person_id={person_id} not found")
             return
         
         session.delete(person)
@@ -891,7 +891,7 @@ def find_opinion(fk_origin_article_id: int, fk_person_id: int, citation: str, ge
             logger.debug(f"Opinion already exists with opinion_id: {opinion.opinion_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return opinion if not get_id else opinion.opinion_id # Повертаємо opinion, якщо знайдено
         else:
-            logger.warning(f"Opinion not found", extra={'execution_time': log.timeUsed(start_time, end_time)})
+            logger.info(f"Opinion not found", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return None  # Повертаємо None, якщо не знайдено
 
 def find_opinion_by_conditions(processing_stage=-1, **conditions):
@@ -1080,7 +1080,7 @@ def get_opinion(opinion_id: int) -> pd.Series:
             logger.info(f"Opinion found with opinion_id: {opinion_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.Series(opinion_dict)
         else:
-            logger.warning(f"Opinion with opinion_id {opinion_id} not found", extra={'execution_time': log.timeUsed(start_time, end_time)})
+            logger.info(f"Opinion with opinion_id {opinion_id} not found", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.Series()
 
 def get_opinion_df(opinion_ids: list) -> pd.DataFrame:
@@ -1171,7 +1171,7 @@ def delete_opinion(opinion_id: int):
         start_time = time.time()
         opinion = session.query(DimOpinion).filter(DimOpinion.opinion_id == opinion_id).first()
         if not opinion:
-            logger.warning(f"Opinion with opinion_id={opinion_id} not found")
+            logger.info(f"Opinion with opinion_id={opinion_id} not found")
             return
         
         session.delete(opinion)
@@ -1212,7 +1212,7 @@ def find_article(title: str, article_date: datetime, get_id=True):
             logger.debug(f"Article already exists with article_id: {article.article_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return article if not get_id else article.article_id # Повертаємо article, якщо знайдено
         else:
-            logger.warning(f"Article not found", extra={'execution_time': log.timeUsed(start_time, end_time)})
+            logger.info(f"Article not found", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return None  # Повертаємо None, якщо не знайдено
 
 def find_article_by_conditions(**conditions):
@@ -1235,7 +1235,7 @@ def find_article_by_conditions(**conditions):
         if article_ids:
             logger.info(f"Found {len(article_ids)} articles matching conditions", extra={'execution_time': log.timeUsed(start_time, end_time)})
         else:
-            logger.warning(f"No articles found matching conditions", extra={'execution_time': log.timeUsed(start_time, end_time)})
+            logger.info(f"No articles found matching conditions", extra={'execution_time': log.timeUsed(start_time, end_time)})
         
         return article_ids
 
@@ -1331,7 +1331,7 @@ def get_article(article_id: int) -> pd.Series:
             logger.debug(f"Article found with article_id: {article_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.Series(article_dict)
         else:
-            logger.warning(f"Article with article_id {article_id} not found", extra={'execution_time': log.timeUsed(start_time, end_time)})
+            logger.debug(f"Article with article_id {article_id} not found", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.Series()
 
 def get_article_df(article_ids: list) -> pd.DataFrame:
@@ -1371,7 +1371,7 @@ def update_article(
         start_time = time.time()
         article = session.query(DimArticle).filter(DimArticle.article_id == int(article_id)).first()
         if not article:
-            logger.warning(f"Article with article_id={int(article_id)} not found")
+            logger.info(f"Article with article_id={int(article_id)} not found")
             return
 
         # Оновлення лише переданих параметрів
@@ -1394,7 +1394,7 @@ def delete_article(article_id: int):
         start_time = time.time()
         article = session.query(DimArticle).filter(DimArticle.article_id == article_id).first()
         if not article:
-            logger.warning(f"Article with article_id={article_id} not found")
+            logger.debug(f"Article with article_id={article_id} not found")
             return
         
         session.delete(article)
@@ -1432,7 +1432,7 @@ def find_topic(topic_name: str, get_id=True):
             logger.debug(f"Topic already exists with topic_id: {topic.topic_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return topic if not get_id else topic.topic_id # Повертаємо topic, якщо знайдено
         else:
-            logger.warning(f"Topic not found", extra={'execution_time': log.timeUsed(start_time, end_time)})
+            logger.debug(f"Topic not found", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return None  # Повертаємо None, якщо не знайдено
 
 def find_topic_by_conditions(**conditions):
@@ -1529,7 +1529,7 @@ def get_topic(topic_id: int) -> pd.Series:
             logger.debug(f"Topic found with topic_id: {topic_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.Series(topic_dict)
         else:
-            logger.warning(f"Topic with topic_id {topic_id} not found", extra={'execution_time': log.timeUsed(start_time, end_time)})
+            logger.info(f"Topic with topic_id {topic_id} not found", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.Series()
 
 def get_topic_df(topic_ids: list) -> pd.DataFrame:
@@ -1582,7 +1582,7 @@ def delete_topic(topic_id: int):
         start_time = time.time()
         topic = session.query(DimTopic).filter(DimTopic.topic_id == topic_id).first()
         if not topic:
-            logger.warning(f"Topic with topic_id={topic_id} not found")
+            logger.debug(f"Topic with topic_id={topic_id} not found")
         
         session.delete(topic)
         session.commit()
@@ -1622,7 +1622,7 @@ def find_attitude(fk_topic_id: int, fk_person_id: int):
             logger.debug(f"Attitude already exists with fk_topic_id: {fk_topic_id} and fk_person_id: {fk_person_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return {'fk_topic_id': attitude.fk_topic_id, 'fk_person_id': attitude.fk_person_id}  # Повертаємо attitude, якщо знайдено
         else:
-            logger.warning(f"Attitude not found", extra={'execution_time': log.timeUsed(start_time, end_time)})
+            logger.info(f"Attitude not found", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return None  # Повертаємо None, якщо не знайдено
 
 def find_attitude_by_conditions(**conditions):

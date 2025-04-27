@@ -1,6 +1,7 @@
+import os
 import json
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from typing import Optional
 from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts import PromptTemplate
@@ -67,6 +68,8 @@ prompt = PromptTemplate.from_template(
     """
 ).partial(format_instructions=parser.get_format_instructions())
 
+FIELD_LENGTH_POLICY = os.getenv("FIELD_LENGTH_POLICY").upper()
+
 def _validate_event_lengths(event):
     """Validate the lengths of fields in the event."""
     if event.get("general_event"):
@@ -77,6 +80,36 @@ def _validate_event_lengths(event):
             return False
     return True
 
+def _truncate_event_fields(event):
+    """Truncate fields to their maximum allowed lengths."""
+    if event.get("general_event"):
+        event["general_event"]["title"] = event["general_event"]["title"][:50]
+        event["general_event"]["description"] = event["general_event"]["description"][:200]
+    if event.get("person_event"):
+        event["person_event"]["person_name"] = event["person_event"]["person_name"][:150]
+        event["person_event"]["citation"] = event["person_event"]["citation"][:300]
+    return event
+
+def _refine_event_field(field_name, field_value, max_length):
+    """Refine a single field using the LLM to fit within the maximum length."""
+    refinement_prompt = f"Refine the following text to fit within {max_length} characters:\n\n{field_value}"
+    response = llm_invoke(refinement_prompt)
+    return response.content[:max_length]
+
+def _refine_event_fields(event):
+    """Refine fields that exceed their maximum allowed lengths."""
+    if event.get("general_event"):
+        if len(event["general_event"]["title"]) > 50:
+            event["general_event"]["title"] = _refine_event_field("title", event["general_event"]["title"], 50)
+        if len(event["general_event"]["description"]) > 200:
+            event["general_event"]["description"] = _refine_event_field("description", event["general_event"]["description"], 200)
+    if event.get("person_event"):
+        if len(event["person_event"]["person_name"]) > 150:
+            event["person_event"]["person_name"] = _refine_event_field("person_name", event["person_event"]["person_name"], 150)
+        if len(event["person_event"]["citation"]) > 300:
+            event["person_event"]["citation"] = _refine_event_field("citation", event["person_event"]["citation"], 300)
+    return event
+
 def _parse_event_output(response: str):
     events = {"general_event": None, "person_event": None}
 
@@ -84,17 +117,41 @@ def _parse_event_output(response: str):
         # Parse the JSON response
         jsoned = json.loads(response.strip('```json').strip())
 
-        # Validate lengths
-        if not _validate_event_lengths(jsoned):
-            raise ValueError("LLM output does not meet length constraints.")
+        if FIELD_LENGTH_POLICY == "IGNORE":
+            logger.debug("Ignoring field length policy")
+            # Skip validation and directly parse
+            events['general_event'] = GeneralEvent(**jsoned['general_event']) if jsoned.get('general_event') else None
+            events['person_event'] = PersonEvent(**jsoned['person_event']) if jsoned.get('person_event') else None
 
-        # Handle general_event only if it exists and is not None
-        if jsoned.get('general_event') is not None:
-            events['general_event'] = GeneralEvent(**jsoned['general_event'])
+        elif FIELD_LENGTH_POLICY == "RETRY":
+            logger.debug("Retrying field length policy")
+            # Validate lengths and raise errors if invalid
+            if not _validate_event_lengths(jsoned):
+                raise ValueError("LLM output does not meet length constraints.")
+            events['general_event'] = GeneralEvent(**jsoned['general_event']) if jsoned.get('general_event') else None
+            events['person_event'] = PersonEvent(**jsoned['person_event']) if jsoned.get('person_event') else None
 
-        # Handle person_event only if it exists and is not None
-        if jsoned.get('person_event') is not None:
-            events['person_event'] = PersonEvent(**jsoned['person_event'])
+        elif FIELD_LENGTH_POLICY == "REFINE":
+            logger.debug("Refining field length policy")
+            # Attempt to refine fields if validation fails
+            try:
+                events['general_event'] = GeneralEvent(**jsoned['general_event']) if jsoned.get('general_event') else None
+                events['person_event'] = PersonEvent(**jsoned['person_event']) if jsoned.get('person_event') else None
+            except ValidationError:
+                jsoned = _refine_event_fields(jsoned)
+                events['general_event'] = GeneralEvent(**jsoned['general_event']) if jsoned.get('general_event') else None
+                events['person_event'] = PersonEvent(**jsoned['person_event']) if jsoned.get('person_event') else None
+
+        elif FIELD_LENGTH_POLICY == "TRUNCATE":
+            logger.debug("Truncating field length policy")
+            # Truncate fields if validation fails
+            try:
+                events['general_event'] = GeneralEvent(**jsoned['general_event']) if jsoned.get('general_event') else None
+                events['person_event'] = PersonEvent(**jsoned['person_event']) if jsoned.get('person_event') else None
+            except ValidationError:
+                jsoned = _truncate_event_fields(jsoned)
+                events['general_event'] = GeneralEvent(**jsoned['general_event']) if jsoned.get('general_event') else None
+                events['person_event'] = PersonEvent(**jsoned['person_event']) if jsoned.get('person_event') else None
 
     except Exception as e:
         print(f"Error while parsing response: {e}")
@@ -116,6 +173,9 @@ def extract_events(topic, content, max_retries=3):
             logger.warning(f"Retry {retries + 1}/{max_retries} due to invalid output: {e}")
             retries += 1
 
+        if FIELD_LENGTH_POLICY == "IGNORE":
+            break  # Skip retries for IGNORE mode
+
     raise ValueError("Failed to extract valid events after multiple retries.")
 
 def main(state):
@@ -136,5 +196,5 @@ def main(state):
     if extracted['person_event'] is not None:
         state['person_event'].append(extracted['person_event'].dict())  # Convert Pydantic model to dict
 
-    logger.debug(f"Chunk {state['chunk_id']} processed, ({len(state['general_event'])}) general events, ({len(state['person_event'])}) opinions.")
+    logger.info(f"Chunk {state['chunk_id']} processed, ({len(state['general_event'])}) general events, ({len(state['person_event'])}) opinions.")
     return state
