@@ -1,5 +1,5 @@
 from langgraph.graph import StateGraph
-from nodes import  write_event, event_classifier
+from nodes import  write_event, event_classifier, sentiment_analysis
 
 from typing import Optional, List, TypedDict
 
@@ -15,12 +15,19 @@ class ChunkState(TypedDict, total=False):
 def create_app():
     graph = StateGraph(state_schema=ChunkState)
 
-    # Stage 0: Extracting events from chunks
     graph.add_node("extract_events", event_classifier.main)
-    graph.add_node("write_events_to_db", write_event.main)
-       
+    graph.add_node("sentiment_analysis", sentiment_analysis.main)
+    graph.add_node("write_events_to_db", write_event.main)    
     
-    graph.add_edge("extract_events", "write_events_to_db")  
+
+    def condition_event_or_opinion(state):
+        if bool(state.get("person_event")):
+            return 'sentiment_analysis'
+        else:
+            return 'write_events_to_db'
+
+    graph.add_conditional_edges('extract_events', condition_event_or_opinion)
+    graph.add_edge("sentiment_analysis", "write_events_to_db")
     
     graph.set_entry_point("extract_events")
     graph.set_finish_point("write_events_to_db")
