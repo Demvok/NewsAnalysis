@@ -219,7 +219,7 @@ def extract_events(topic, content, max_retries=3):
             return None
         end_time = time.time()  # End timing
         logger.info(
-            f"Successfully extracted events for topic '{topic}'",
+            f"Successfully extracted events from chunk",
             extra={"execution_time": log.timeUsed(start_time, end_time)}
         )
         return parsed  # Return if parsing and validation succeed
@@ -241,7 +241,7 @@ def extract_events(topic, content, max_retries=3):
             parsed = _parse_event_output(response.content)
             end_time = time.time()  # End timing
             logger.info(
-                f"Successfully extracted events for topic '{topic}' after {retries} retries.",
+                f"Successfully extracted events after {retries} retries.",
                 extra={"execution_time": log.timeUsed(start_time, end_time)}
             )
             return parsed  # Return if parsing and validation succeed
@@ -262,18 +262,6 @@ def main(state):
     logger.info(f"Processing chunk {state['chunk_id']} started")
     topic = state['topic']
     content = state['content']
-
-    if FIELD_LENGTH_POLICY == "IGNORE":
-        logger.debug("Ignoring field length policy")
-    elif FIELD_LENGTH_POLICY == "RETRY":
-        logger.debug("Retrying field length policy")
-    elif FIELD_LENGTH_POLICY == "REFINE":
-        logger.debug("Refining field length policy")
-    elif FIELD_LENGTH_POLICY == "TRUNCATE":
-        logger.debug("Truncating field length policy")
-    else:
-        logger.error(f"Unknown field length policy: {FIELD_LENGTH_POLICY}")
-        raise ValueError(f"Unknown field length policy: {FIELD_LENGTH_POLICY}")
 
     start_time = time.time()  # Start timing the main process
     # Extract events

@@ -1,22 +1,11 @@
-from database.DBConnector import get_article_chunk, add_event, add_opinion, add_person
+from database.DBConnector import add_event, add_opinion, add_person
 from utils.logger import setup_logger
 
 # Initialize logger
 logger = setup_logger(name="write_event", log_file="graph.log")
 
 def main(state):
-    chunk_id = state['chunk_id']
-    origin_article_id = get_article_chunk(chunk_id)['fk_article_id']
-    topic = state['topic']
-    content = state['content']
-    general_events, person_events = [], []
-
-    if state.get('general_event') is not None:
-        general_events = state['general_event']
-    if state.get('person_event') is not None:
-        person_events = state['person_event']
-
-    logger.info(f'Chunk {chunk_id} processed, ({len(general_events)}) general events, ({len(person_events)}) opinions.')
+    origin_article_id = state.get('origin_article_id')
 
     # Process general events
     if state.get('general_event') is not None:
