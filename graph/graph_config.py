@@ -1,16 +1,6 @@
 from langgraph.graph import StateGraph, START, END
 from nodes import  write_event, event_classifier, sentiment_analysis, merge_events, blank
-
-from typing import Optional, List, TypedDict
-
-class ChunkState(TypedDict, total=False):
-    chunk_id: int
-    topic: str
-    origin_article_id:int = None
-    content: str
-    general_event: Optional[List[dict]] = None
-    person_event: Optional[List[dict]] = None
-    is_processed: int = 0
+from states_setup import ChunkState
 
 
 def create_app():

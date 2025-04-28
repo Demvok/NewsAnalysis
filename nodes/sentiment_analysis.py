@@ -1,193 +1,54 @@
 import os
-import json
 import time
 import utils.logger as log
 
-from pydantic import BaseModel, Field, ValidationError
-from typing import Optional
+from pydantic import ValidationError
+from graph.states_setup import PersonEvent, SentimentScore
+
 from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts import PromptTemplate
 
 from graph.model import llm_invoke
 
 logger = log.setup_logger(name="event_classifier", log_file="graph.log")
+FIELD_LENGTH_POLICY = os.getenv("FIELD_LENGTH_POLICY").upper()
 
 import warnings
 warnings.filterwarnings("ignore")
 
 
 # 
-# EQUALS TO STAGE 0
+# EQUALS TO STAGE 1
 # 
 
 
-class GeneralEvent(BaseModel):
-    title: Optional[str] = Field(description="Title of the general event.", max_length=50)
-    description: Optional[str] = Field(description="Brief summary of the event, limited to 200 characters.", max_length=200)
-
-class PersonEvent(BaseModel):
-    person_name: Optional[str] = Field(description="Name of the person involved in the event.", max_length=150)
-    citation: Optional[str] = Field(description="Key statement or citation related to the person and the topic.", max_length=300)
-
-class EventClassification(BaseModel):
-    general_event: Optional[GeneralEvent]
-    person_event: Optional[PersonEvent]
-
-parser = PydanticOutputParser(pydantic_object=EventClassification)
+parser = PydanticOutputParser(pydantic_object=SentimentScore)
 
 prompt = PromptTemplate.from_template(
-    """You are an expert journalist assistant. Your task is to extract:
+    """
+    You are a debate and sentiment analysis expert.  
+    Given the following topic and text, return **only** a single floating-point number between -1.0 and +1.0, where:
+    - -1.0 indicates strongly negative sentiment  
+    -  0.0 indicates neutral sentiment  
+    - +1.0 indicates strongly positive sentiment  
 
-    1. General events related to the topic "{topic}" from the article.
-    2. Person events related to someone’s statement or action regarding "{topic}".
+    Topic: {{topic}}  
+    Text:  
+    {{content}}
 
-    Ensure the following constraints:
-    - The "title" of the general event must not exceed 50 characters.
-    - The "description" of the general event must not exceed 200 characters.
-    - The "person_name" must not exceed 150 characters.
-    - The "citation" must not exceed 300 characters.
-
-    Without superfluous information, just the most important details.
-
-    Return a JSON object in the following format:
-
-    {{
-    "general_event": {{
-        "title": "...",
-        "description": "..."
-    }},
-    "person_event": {{
-        "person_name": "...",
-        "citation": "..."
-    }}
-    }}
-
-    If no event is found, use `null`.
-
-    Article:
-    {chunk}
+    Respond with the number alone (e.g. “-0.75”).
     """
 ).partial(format_instructions=parser.get_format_instructions())
 
-#
-#   Different policies for field length handling
-#
-
-FIELD_LENGTH_POLICY = os.getenv("FIELD_LENGTH_POLICY").upper()
-
-def _validate_event_lengths(event):
-    """Validate the lengths of fields in the event."""
-    if event.get("general_event"):
-        if len(event["general_event"].get("title")) > 50 or len(event["general_event"].get("description")) > 200:
-            return False
-    if event.get("person_event"):
-        if len(event["person_event"].get("person_name")) > 150 or len(event["person_event"].get("citation")) > 300:
-            return False
-    return True
-
-def _truncate_event_fields(event):
-    """Truncate fields to their maximum allowed lengths."""
-    if event.get("general_event"):
-        event["general_event"]["title"] = event["general_event"].get("title")[:50]
-        event["general_event"]["description"] = event["general_event"].get("description")[:200]
-    if event.get("person_event"):
-        event["person_event"]["person_name"] = event["person_event"].get("person_name")[:150]
-        event["person_event"]["citation"] = event["person_event"].get("citation", "")[:300]
-    return event
-
-def _refine_event_field(field_name, field_value, max_length):
-    """Refine a single field using the LLM to fit within the maximum length."""
-    refinement_prompt = f"Refine the following text to fit within {max_length} characters:\n\n{field_value}"
-    response = llm_invoke(refinement_prompt)
-    return response.content[:max_length]
-
-def _refine_event_fields(event):
-    """Refine fields that exceed their maximum allowed lengths."""
-    if event.get("general_event"):
-        if len(event["general_event"].get("title")) > 50:
-            event["general_event"]["title"] = _refine_event_field("title", event["general_event"]["title"], 50)
-        if len(event["general_event"].get("description")) > 200:
-            event["general_event"]["description"] = _refine_event_field("description", event["general_event"]["description"], 200)
-    if event.get("person_event"):
-        if len(event["person_event"].get("person_name")) > 150:
-            event["person_event"]["person_name"] = _refine_event_field("person_name", event["person_event"]["person_name"], 150)
-        if len(event["person_event"].get("citation")) > 300:
-            event["person_event"]["citation"] = _refine_event_field("citation", event["person_event"]["citation"], 300)
-    return event
-
-
-#
-#   
-#
 
 
 def _parse_event_output(response: str):
     """Parse the LLM response and return events."""
     start_time = time.time()  # Start timing the parsing process
-    events = {"general_event": None, "person_event": None}
+    sentiment_score = None
 
     try:
-        # Parse the JSON response
-        jsoned = json.loads(response.strip('```json').strip())
-
-        if FIELD_LENGTH_POLICY == "IGNORE":
-            # Skip validation and directly parse
-            events['general_event'] = (
-                GeneralEvent(**jsoned['general_event']) if jsoned.get('general_event') else None
-            )
-            events['person_event'] = (
-                PersonEvent(**jsoned['person_event']) if jsoned.get('person_event') else None
-            )
-
-        elif FIELD_LENGTH_POLICY == "RETRY":            
-            # Validate lengths and raise errors if invalid
-            if not _validate_event_lengths(jsoned):
-                raise ValueError("LLM output does not meet length constraints.")
-            events['general_event'] = (
-                GeneralEvent(**jsoned['general_event']) if jsoned.get('general_event') else None
-            )
-            events['person_event'] = (
-                PersonEvent(**jsoned['person_event']) if jsoned.get('person_event') else None
-            )
-
-        elif FIELD_LENGTH_POLICY == "REFINE":
-            # Attempt to refine fields if validation fails
-            try:
-                events['general_event'] = (
-                    GeneralEvent(**jsoned['general_event']) if jsoned.get('general_event') else None
-                )
-                events['person_event'] = (
-                    PersonEvent(**jsoned['person_event']) if jsoned.get('person_event') else None
-                )
-            except ValidationError:
-                jsoned = _refine_event_fields(jsoned)
-                events['general_event'] = (
-                    GeneralEvent(**jsoned['general_event']) if jsoned.get('general_event') else None
-                )
-                events['person_event'] = (
-                    PersonEvent(**jsoned['person_event']) if jsoned.get('person_event') else None
-                )
-
-        elif FIELD_LENGTH_POLICY == "TRUNCATE":
-            # Truncate fields if validation fails
-            try:
-                events['general_event'] = (
-                    GeneralEvent(**jsoned['general_event']) if jsoned.get('general_event') else None
-                )
-                events['person_event'] = (
-                    PersonEvent(**jsoned['person_event']) if jsoned.get('person_event') else None
-                )
-            except ValidationError:
-                jsoned = _truncate_event_fields(jsoned)
-                events['general_event'] = (
-                    GeneralEvent(**jsoned['general_event']) if jsoned.get('general_event') else None
-                )
-                events['person_event'] = (
-                    PersonEvent(**jsoned['person_event']) if jsoned.get('person_event') else None
-                )
-
-    except json.JSONDecodeError:
-        logger.warning("Received invalid JSON response. Returning empty events.")
+        sentiment_score = parser.parse(response)
     except Exception as e:
         logger.warning(f"Error while parsing response: {e}")
         raise e  # Re-raise the exception to trigger re-invocation if needed
@@ -199,7 +60,7 @@ def _parse_event_output(response: str):
     )
     return events
 
-def extract_events(topic, content, max_retries=3):
+def get_sentiment_score(topic, content, max_retries=3):
     """Extract events with retry logic for invalid outputs."""
     retries = 0
     start_time = time.time()  # Start timing the extraction process
@@ -259,25 +120,24 @@ def extract_events(topic, content, max_retries=3):
     return None  # Skip the current chunk if retries fail
 
 def main(state):
-    logger.info(f"Processing chunk {state['chunk_id']} started")
-    topic = state['topic']
-    content = state['content']
+    logger.info(f"Sentiment analysis for chunk {state['chunk_id']} started")
+    try:
+        chunk_id = state.get('chunk_id')
+        topic = state.get('topic')
+        content = state.get('content')
+        if state.get('PeronEvent') is not None:
+            person_event = PersonEvent(**state['PersonEvent'])
+        else:
+            return None  # Skip if PersonEvent is not present
+    except Exception as e:
+        logger.warning(f"Error extracting topic or content: {e}")
+        return state
+    
 
-    if FIELD_LENGTH_POLICY == "IGNORE":
-        logger.debug("Ignoring field length policy")
-    elif FIELD_LENGTH_POLICY == "RETRY":
-        logger.debug("Retrying field length policy")
-    elif FIELD_LENGTH_POLICY == "REFINE":
-        logger.debug("Refining field length policy")
-    elif FIELD_LENGTH_POLICY == "TRUNCATE":
-        logger.debug("Truncating field length policy")
-    else:
-        logger.error(f"Unknown field length policy: {FIELD_LENGTH_POLICY}")
-        raise ValueError(f"Unknown field length policy: {FIELD_LENGTH_POLICY}")
 
     start_time = time.time()  # Start timing the main process
     # Extract events
-    extracted = extract_events(topic, content)
+    extracted = get_sentiment_score(topic, content)
 
     if extracted is None:
         end_time = time.time()  # End timing for skipped chunk

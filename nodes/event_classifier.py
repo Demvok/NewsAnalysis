@@ -3,14 +3,16 @@ import json
 import time
 import utils.logger as log
 
-from pydantic import BaseModel, Field, ValidationError
-from typing import Optional
+from pydantic import ValidationError
+from graph.states_setup import GeneralEvent, PersonEvent, EventClassification
+
 from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts import PromptTemplate
 
 from graph.model import llm_invoke
 
 logger = log.setup_logger(name="event_classifier", log_file="graph.log")
+FIELD_LENGTH_POLICY = os.getenv("FIELD_LENGTH_POLICY").upper()
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -20,18 +22,6 @@ warnings.filterwarnings("ignore")
 # EQUALS TO STAGE 0
 # 
 
-
-class GeneralEvent(BaseModel):
-    title: Optional[str] = Field(description="Title of the general event.", max_length=50)
-    description: Optional[str] = Field(description="Brief summary of the event, limited to 200 characters.", max_length=200)
-
-class PersonEvent(BaseModel):
-    person_name: Optional[str] = Field(description="Name of the person involved in the event.", max_length=150)
-    citation: Optional[str] = Field(description="Key statement or citation related to the person and the topic.", max_length=300)
-
-class EventClassification(BaseModel):
-    general_event: Optional[GeneralEvent]
-    person_event: Optional[PersonEvent]
 
 parser = PydanticOutputParser(pydantic_object=EventClassification)
 
@@ -72,8 +62,6 @@ prompt = PromptTemplate.from_template(
 #
 #   Different policies for field length handling
 #
-
-FIELD_LENGTH_POLICY = os.getenv("FIELD_LENGTH_POLICY").upper()
 
 def _validate_event_lengths(event):
     """Validate the lengths of fields in the event."""
