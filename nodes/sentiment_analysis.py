@@ -32,13 +32,13 @@ prompt = PromptTemplate.from_template(
     -  0.0 indicates neutral sentiment  
     - +1.0 indicates strongly positive sentiment  
 
-    Topic: {{topic}}  
+    Topic: {topic}  
     Text:  
-    {{content}}
+    {content}
 
     Respond with the number alone (e.g. “-0.75”).
     """
-).partial(format_instructions=parser.get_format_instructions())
+)
 
 
 
@@ -48,17 +48,20 @@ def _parse_event_output(response: str):
     sentiment_score = None
 
     try:
-        sentiment_score = parser.parse(response)
-    except Exception as e:
-        logger.warning(f"Error while parsing response: {e}")
+        # Attempt to parse the response as a float
+        score = float(response.strip())
+        # Wrap the score in a SentimentScore instance with the correct field name
+        sentiment_score = SentimentScore(sentiment=score)
+    except ValueError as e:
+        logger.warning(f"Error while parsing response as float: {e}")
+        raise e  # Re-raise the exception to trigger re-invocation if needed
+    except ValidationError as e:
+        logger.warning(f"Validation error while creating SentimentScore: {e}")
         raise e  # Re-raise the exception to trigger re-invocation if needed
 
     end_time = time.time()  # End timing for parsing
-    logger.debug(
-        "Finished parsing event output.",
-        extra={"execution_time": log.timeUsed(start_time, end_time)}
-    )
-    return events
+    logger.debug("Finished parsing model output.", extra={"execution_time": log.timeUsed(start_time, end_time)})
+    return sentiment_score
 
 def get_sentiment_score(topic, content, max_retries=3):
     """Extract events with retry logic for invalid outputs."""
@@ -66,31 +69,18 @@ def get_sentiment_score(topic, content, max_retries=3):
     start_time = time.time()  # Start timing the extraction process
 
     # First attempt
-    formatted_prompt = prompt.format(topic=topic, chunk=content)
+    formatted_prompt = prompt.format(topic=topic, content=content)
     response = llm_invoke(formatted_prompt)
 
     try:
         parsed = _parse_event_output(response.content)
-        if parsed['general_event'] is None and parsed['person_event'] is None:
-            # Skip chunk if both events are None
-            logger.warning(
-                f"Skipping chunk due to None output on the first attempt.",
-                extra={"execution_time": log.timeUsed(start_time, time.time())}
-            )
-            return None
         end_time = time.time()  # End timing
-        logger.info(
-            f"Successfully extracted events for topic '{topic}'",
-            extra={"execution_time": log.timeUsed(start_time, end_time)}
-        )
+        logger.info(f"Successfully got sentiment score", extra={"execution_time": log.timeUsed(start_time, end_time)})
         return parsed  # Return if parsing and validation succeed
     except Exception as e:
-        logger.warning(
-            f"Error during first attempt: {e}",
-            extra={"execution_time": log.timeUsed(start_time, time.time())}
-        )
+        logger.warning(f"Error during first attempt: {e}", extra={"execution_time": log.timeUsed(start_time, time.time())})
 
-    # Retry logic for other policies (if applicable)
+    # Retry logic
     while retries < max_retries - 1:  # Subtract 1 because the first attempt is already done
         if FIELD_LENGTH_POLICY == "IGNORE":
             break  # Skip retries for IGNORE mode
@@ -102,7 +92,7 @@ def get_sentiment_score(topic, content, max_retries=3):
             parsed = _parse_event_output(response.content)
             end_time = time.time()  # End timing
             logger.info(
-                f"Successfully extracted events for topic '{topic}' after {retries} retries.",
+                f"Successfully got sentiment score' after {retries} retries.",
                 extra={"execution_time": log.timeUsed(start_time, end_time)}
             )
             return parsed  # Return if parsing and validation succeed
@@ -114,52 +104,66 @@ def get_sentiment_score(topic, content, max_retries=3):
 
     end_time = time.time()  # End timing after retries
     logger.error(
-        f"Skipping extraction after {max_retries} retries.",
+        f"Skipping analysis after {max_retries} retries.",
         extra={"execution_time": log.timeUsed(start_time, end_time)}
     )
     return None  # Skip the current chunk if retries fail
 
 def main(state):
     logger.info(f"Sentiment analysis for chunk {state['chunk_id']} started")
+    
     try:
+        # Extract required fields from the state
         chunk_id = state.get('chunk_id')
         topic = state.get('topic')
         content = state.get('content')
-        if state.get('PeronEvent') is not None:
-            person_event = PersonEvent(**state['PersonEvent'])
-        else:
-            return None  # Skip if PersonEvent is not present
-    except Exception as e:
-        logger.warning(f"Error extracting topic or content: {e}")
-        return state
-    
+        person_events = state.get('person_event', [])
+        
+        if not topic or not content:
+            logger.warning(f"Chunk {chunk_id} is missing topic or content. Skipping.")
+            return state  # Skip processing if required fields are missing
 
+        if not person_events:
+            logger.info(f"No person events found for chunk {chunk_id}. Skipping.")
+            return state  # Skip processing if no person events are present
+    except Exception as e:
+        logger.error(f"Error extracting fields from state for chunk {state.get('chunk_id', 'unknown')}: {e}")
+        return state
 
     start_time = time.time()  # Start timing the main process
-    # Extract events
-    extracted = get_sentiment_score(topic, content)
 
-    if extracted is None:
-        end_time = time.time()  # End timing for skipped chunk
-        logger.warning(
-            f"Skipping chunk {state['chunk_id']} due to None output or repeated failures.",
-            extra={"execution_time": log.timeUsed(start_time, end_time)}
-        )
-        return state  # Skip updating state if extraction fails
+    # Process each person_event and calculate sentiment scores
+    updated_person_events = []
+    for idx, person_event_data in enumerate(person_events):
+        try:
+            person_event = PersonEvent(**person_event_data)
+            logger.info(f"Processing person_event {idx + 1}/{len(person_events)} for chunk {chunk_id}.")
+            
+            # Get sentiment score for the person's citation
+            sentiment_score = get_sentiment_score(topic, person_event.citation)
+            
+            if sentiment_score is not None:
+                # Update the person_event with the sentiment score
+                person_event_data['sentiment'] = sentiment_score.sentiment
+                logger.info(f"Sentiment score for person_event {idx + 1}: {sentiment_score.sentiment}")
+            else:
+                logger.warning(f"Failed to get sentiment score for person_event {idx + 1}.")
+            
+            updated_person_events.append(person_event_data)
+        except Exception as e:
+            logger.error(f"Error processing person_event {idx + 1} for chunk {chunk_id}: {e}")
+            updated_person_events.append(person_event_data)  # Add the original data to avoid data loss
 
-    # Update the state with extracted events
-    state['general_event'] = state.get('general_event', [])
-    state['person_event'] = state.get('person_event', [])
+    # Update the state with the processed person events
+    state['person_event'] = updated_person_events
 
-    if extracted['general_event'] is not None:
-        state['general_event'].append(extracted['general_event'].dict())  # Add only valid general_event
-
-    if extracted['person_event'] is not None:
-        state['person_event'].append(extracted['person_event'].dict())  # Add only valid person_event
-
-    end_time = time.time()  # End timing for successful processing
+    end_time = time.time()  # End timing for the main process
     logger.info(
-        f"Chunk {state['chunk_id']} processed, ({len(state['general_event'])}) general events, ({len(state['person_event'])}) opinions.",
+        f"Chunk {chunk_id} processed successfully. "
+        f"Processed {len(updated_person_events)} person events.",
         extra={"execution_time": log.timeUsed(start_time, end_time)}
     )
+
+    # Mark the chunk as processed and pass it further
+    state['is_processed'] = 1
     return state

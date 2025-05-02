@@ -310,7 +310,7 @@ def t_upload_person_event(
         if opinion_id is not None:
             update_opinion(opinion_id=opinion_id, sentiment_score=sentiment)
         else:
-            logger.warning(f"Opinion not found for article_id={article_id}, person_id={person_id}, citation={citation}")
+            logger.warning(f"Opinion not found for article_id={article_id}, person_id={person_id}")
     elif inconsistency_flag is not None or inconsistency_comment is not None or inconsistency_id is not None:
         # inconsistency upload
         logger.info('Updating inconsistency data')
@@ -424,7 +424,7 @@ def add_event(fk_origin_article_id: int, description: str) -> int:
         session.commit()
         session.refresh(new_event)  # Отримуємо згенерований event_id
         end_time = time.time()
-        logger.info(f"Event added with event_id: {new_event.event_id}, description: {description}", extra={'execution_time': log.timeUsed(start_time, end_time)})
+        logger.info(f"Event added with event_id: {new_event.event_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
         return new_event.event_id
 
 def add_event_full(
@@ -459,7 +459,7 @@ def add_event_full(
         session.commit()
         session.refresh(new_event)
         end_time = time.time()
-        logger.info(f"Event added with event_id: {new_event.event_id}, description: {description}", extra={'execution_time': log.timeUsed(start_time, end_time)})
+        logger.info(f"Event added with event_id: {new_event.event_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
         return new_event.event_id
 
 def add_event_df(df: pd.DataFrame):
@@ -702,7 +702,7 @@ def add_person(
         session.commit()
         session.refresh(new_person)
         end_time = time.time()
-        logger.info(f"Person added with person_id: {new_person.person_id}, person_name: {person_name}", extra={'execution_time': log.timeUsed(start_time, end_time)})
+        logger.info(f"Person added with person_id: {new_person.person_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
         return new_person.person_id
 
 def add_person_full(
@@ -735,7 +735,7 @@ def add_person_full(
         session.commit()
         session.refresh(new_person)
         end_time = time.time()
-        logger.info(f"Person added with person_id: {new_person.person_id}, person_name: {person_name}", extra={'execution_time': log.timeUsed(start_time, end_time)})
+        logger.info(f"Person added with person_id: {new_person.person_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
         return new_person.person_id
 
 def add_person_df(df: pd.DataFrame):
@@ -990,7 +990,7 @@ def add_opinion(
         session.commit()
         session.refresh(new_opinion)
         end_time = time.time()
-        logger.info(f"Opinion added with opinion_id: {new_opinion.opinion_id}, citation: {citation}", extra={'execution_time': log.timeUsed(start_time, end_time)})
+        logger.info(f"Opinion added with opinion_id: {new_opinion.opinion_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
         return new_opinion.opinion_id
 
 def add_opinion_full(

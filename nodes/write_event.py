@@ -26,6 +26,7 @@ def main(state):
         for event in state['person_event']:
             person_name = event.get('person_name')  # Actually, this is not used in the DB, so it can be deleted from prompt
             citation = event.get('citation')
+            sentiment = event.get('sentiment', None)  # Default to None if not provided
 
             # Skip if required fields are missing
             if person_name is None or citation is None:
@@ -33,7 +34,7 @@ def main(state):
                 continue
 
             # Save to DB
-            add_opinion(fk_origin_article_id=origin_article_id, fk_person_id=add_person(person_name=person_name), citation=citation)
+            add_opinion(fk_origin_article_id=origin_article_id, fk_person_id=add_person(person_name=person_name), citation=citation, sentiment_score=sentiment)
 
     # state['is_processed'] = 1
 

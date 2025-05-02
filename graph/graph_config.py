@@ -1,6 +1,6 @@
 from langgraph.graph import StateGraph, START, END
 from nodes import  write_event, event_classifier, sentiment_analysis, merge_events, blank
-from states_setup import ChunkState
+from .states_setup import ChunkState
 
 
 def create_app():
@@ -9,7 +9,7 @@ def create_app():
     graph.add_node("extract_events", event_classifier.main)
 
     # Opinion processing
-    graph.add_node("sentiment_analysis", blank.main)
+    graph.add_node("sentiment_analysis", sentiment_analysis.main)
     graph.add_node("inconsistency_detection", blank.main)
     graph.add_node("person_summary", blank.main)
     graph.add_node("scoring_system_person", blank.main)
