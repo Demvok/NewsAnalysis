@@ -5,19 +5,20 @@ from utils.logger import setup_logger
 logger = setup_logger(name="merge_event", log_file="graph.log")
 
 def main(state):
-    chunk_id = state.get('chunk_id')
+    logger.warning('Merge events node')
+    chunk_id = state.chunk_id
     if chunk_id is None:
         logger.error("Chunk ID is missing in the state.")
         return state
 
-    state['origin_article_id'] = get_article_chunk(chunk_id)['fk_article_id']
+    state.origin_article_id = get_article_chunk(chunk_id)['fk_article_id']
     general_events, person_events = [], []
 
-    if state.get('general_event') is not None:
-        general_events = state['general_event']
-    if state.get('person_event') is not None:
-        person_events = state['person_event']
+    if state.general_event is not None:
+        general_events = state.general_event
+    if state.person_event is not None:
+        person_events = state.person_event
 
     logger.info(f'Chunk {chunk_id} processed, ({len(general_events)}) general events, ({len(person_events)}) opinions.')
-
+        
     return state

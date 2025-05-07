@@ -5,11 +5,12 @@ from utils.logger import setup_logger
 logger = setup_logger(name="write_event", log_file="graph.log")
 
 def main(state):
-    origin_article_id = state.get('origin_article_id')
+    logger.warning('Write events node')
+    origin_article_id = state.origin_article_id
 
     # Process general events
-    if state.get('general_event') is not None:
-        for event in state['general_event']:
+    if state.general_event is not None:
+        for event in state.general_event:
             title = event.get('title')  # Actually, this is not used in the DB, so it can be deleted from prompt
             description = event.get('description')
 
@@ -22,8 +23,8 @@ def main(state):
             add_event(fk_origin_article_id=origin_article_id, description=description)
 
     # Process person events
-    if state.get('person_event') is not None:
-        for event in state['person_event']:
+    if state.person_event is not None:
+        for event in state.person_event:
             person_name = event.get('person_name')  # Actually, this is not used in the DB, so it can be deleted from prompt
             citation = event.get('citation')
             sentiment = event.get('sentiment', None)  # Default to None if not provided

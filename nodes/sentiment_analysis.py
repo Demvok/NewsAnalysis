@@ -10,7 +10,7 @@ from langchain.prompts import PromptTemplate
 
 from graph.model import llm_invoke
 
-logger = log.setup_logger(name="event_classifier", log_file="graph.log")
+logger = log.setup_logger(name="sentiment_analysis", log_file="graph.log")
 FIELD_LENGTH_POLICY = os.getenv("FIELD_LENGTH_POLICY").upper()
 
 import warnings
@@ -110,14 +110,13 @@ def get_sentiment_score(topic, content, max_retries=3):
     return None  # Skip the current chunk if retries fail
 
 def main(state):
-    logger.info(f"Sentiment analysis for chunk {state['chunk_id']} started")
-    
     try:
         # Extract required fields from the state
-        chunk_id = state.get('chunk_id')
-        topic = state.get('topic')
-        content = state.get('content')
-        person_events = state.get('person_event', [])
+        chunk_id = state.chunk_id
+        logger.info(f"Sentiment analysis for chunk {chunk_id} started")
+        topic = state.topic
+        content = state.content
+        person_events = state.person_event
         
         if not topic or not content:
             logger.warning(f"Chunk {chunk_id} is missing topic or content. Skipping.")
@@ -127,8 +126,10 @@ def main(state):
             logger.info(f"No person events found for chunk {chunk_id}. Skipping.")
             return state  # Skip processing if no person events are present
     except Exception as e:
-        logger.error(f"Error extracting fields from state for chunk {state.get('chunk_id', 'unknown')}: {e}")
+        logger.error(f"Error extracting fields from state for chunk {state.chunk_id}: {e}")
         return state
+
+
 
     start_time = time.time()  # Start timing the main process
 
@@ -136,26 +137,28 @@ def main(state):
     updated_person_events = []
     for idx, person_event_data in enumerate(person_events):
         try:
-            person_event = PersonEvent(**person_event_data)
-            logger.info(f"Processing person_event {idx + 1}/{len(person_events)} for chunk {chunk_id}.")
+            logger.debug(f"Processing person_event {idx + 1}/{len(person_events)} for chunk {chunk_id}.")
             
             # Get sentiment score for the person's citation
-            sentiment_score = get_sentiment_score(topic, person_event.citation)
+            citation = person_event_data.get('citation')
+            sentiment_score = get_sentiment_score(topic, citation)
             
             if sentiment_score is not None:
                 # Update the person_event with the sentiment score
-                person_event_data['sentiment'] = sentiment_score.sentiment
-                logger.info(f"Sentiment score for person_event {idx + 1}: {sentiment_score.sentiment}")
+                new_person_event = person_event_data.copy()
+                new_person_event.update({'sentiment': sentiment_score.sentiment})
+                logger.debug(f"Sentiment score for person_event {idx + 1}: {sentiment_score.sentiment}")
+                updated_person_events.append(new_person_event)
             else:
                 logger.warning(f"Failed to get sentiment score for person_event {idx + 1}.")
+                updated_person_events.append(person_event_data)
             
-            updated_person_events.append(person_event_data)
         except Exception as e:
             logger.error(f"Error processing person_event {idx + 1} for chunk {chunk_id}: {e}")
             updated_person_events.append(person_event_data)  # Add the original data to avoid data loss
 
     # Update the state with the processed person events
-    state['person_event'] = updated_person_events
+    state.person_event = updated_person_events
 
     end_time = time.time()  # End timing for the main process
     logger.info(
@@ -163,7 +166,4 @@ def main(state):
         f"Processed {len(updated_person_events)} person events.",
         extra={"execution_time": log.timeUsed(start_time, end_time)}
     )
-
-    # Mark the chunk as processed and pass it further
-    state['is_processed'] = 1
     return state

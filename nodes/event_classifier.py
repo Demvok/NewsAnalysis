@@ -4,7 +4,7 @@ import time
 import utils.logger as log
 
 from pydantic import ValidationError
-from graph.states_setup import GeneralEvent, PersonEvent, EventClassification
+from graph.states_setup import GeneralEvent, PersonEvent, EventClassification, ChunkState
 
 from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts import PromptTemplate
@@ -12,7 +12,7 @@ from langchain.prompts import PromptTemplate
 from graph.model import llm_invoke
 
 logger = log.setup_logger(name="event_classifier", log_file="graph.log")
-FIELD_LENGTH_POLICY = os.getenv("FIELD_LENGTH_POLICY").upper()
+FIELD_LENGTH_POLICY = os.getenv("FIELD_LENGTH_POLICY", "IGNORE").upper()
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -66,20 +66,20 @@ prompt = PromptTemplate.from_template(
 def _validate_event_lengths(event):
     """Validate the lengths of fields in the event."""
     if event.get("general_event"):
-        if len(event["general_event"].get("title")) > 50 or len(event["general_event"].get("description")) > 200:
+        if len(event["general_event"].get("title", "")) > 50 or len(event["general_event"].get("description", "")) > 200:
             return False
     if event.get("person_event"):
-        if len(event["person_event"].get("person_name")) > 150 or len(event["person_event"].get("citation")) > 300:
+        if len(event["person_event"].get("person_name", "")) > 150 or len(event["person_event"].get("citation", "")) > 300:
             return False
     return True
 
 def _truncate_event_fields(event):
     """Truncate fields to their maximum allowed lengths."""
     if event.get("general_event"):
-        event["general_event"]["title"] = event["general_event"].get("title")[:50]
-        event["general_event"]["description"] = event["general_event"].get("description")[:200]
+        event["general_event"]["title"] = event["general_event"].get("title", "")[:50]
+        event["general_event"]["description"] = event["general_event"].get("description", "")[:200]
     if event.get("person_event"):
-        event["person_event"]["person_name"] = event["person_event"].get("person_name")[:150]
+        event["person_event"]["person_name"] = event["person_event"].get("person_name", "")[:150]
         event["person_event"]["citation"] = event["person_event"].get("citation", "")[:300]
     return event
 
@@ -92,14 +92,14 @@ def _refine_event_field(field_name, field_value, max_length):
 def _refine_event_fields(event):
     """Refine fields that exceed their maximum allowed lengths."""
     if event.get("general_event"):
-        if len(event["general_event"].get("title")) > 50:
+        if len(event["general_event"].get("title", "")) > 50:
             event["general_event"]["title"] = _refine_event_field("title", event["general_event"]["title"], 50)
-        if len(event["general_event"].get("description")) > 200:
+        if len(event["general_event"].get("description", "")) > 200:
             event["general_event"]["description"] = _refine_event_field("description", event["general_event"]["description"], 200)
     if event.get("person_event"):
-        if len(event["person_event"].get("person_name")) > 150:
+        if len(event["person_event"].get("person_name", "")) > 150:
             event["person_event"]["person_name"] = _refine_event_field("person_name", event["person_event"]["person_name"], 150)
-        if len(event["person_event"].get("citation")) > 300:
+        if len(event["person_event"].get("citation", "")) > 300:
             event["person_event"]["citation"] = _refine_event_field("citation", event["person_event"]["citation"], 300)
     return event
 
@@ -206,7 +206,7 @@ def extract_events(topic, content, max_retries=3):
             )
             return None
         end_time = time.time()  # End timing
-        logger.info(
+        logger.debug(
             f"Successfully extracted events from chunk",
             extra={"execution_time": log.timeUsed(start_time, end_time)}
         )
@@ -246,10 +246,10 @@ def extract_events(topic, content, max_retries=3):
     )
     return None  # Skip the current chunk if retries fail
 
-def main(state):
-    logger.info(f"Processing chunk {state['chunk_id']} started")
-    topic = state['topic']
-    content = state['content']
+def main(state: ChunkState):
+    logger.info(f"Processing chunk {state.chunk_id} started")
+    topic = state.topic
+    content = state.content
 
     start_time = time.time()  # Start timing the main process
     # Extract events
@@ -258,24 +258,29 @@ def main(state):
     if extracted is None:
         end_time = time.time()  # End timing for skipped chunk
         logger.warning(
-            f"Skipping chunk {state['chunk_id']} due to None output or repeated failures.",
+            f"Skipping chunk {state.chunk_id} due to None output or repeated failures.",
             extra={"execution_time": log.timeUsed(start_time, end_time)}
         )
         return state  # Skip updating state if extraction fails
 
-    # Update the state with extracted events
-    state['general_event'] = state.get('general_event', [])
-    state['person_event'] = state.get('person_event', [])
+    # Ensure general_event and person_event are initialized as lists
+    if state.general_event is None:
+        state.general_event = []  # Initialize as an empty list if None
+    if state.person_event is None:
+        state.person_event = []  # Initialize as an empty list if None
 
+    # Update the state with extracted events
     if extracted['general_event'] is not None:
-        state['general_event'].append(extracted['general_event'].dict())  # Add only valid general_event
+        # Convert the Pydantic model to a dictionary before appending
+        state.general_event.append(extracted['general_event'].dict())
 
     if extracted['person_event'] is not None:
-        state['person_event'].append(extracted['person_event'].dict())  # Add only valid person_event
+        # Convert the Pydantic model to a dictionary before appending
+        state.person_event.append(extracted['person_event'].dict())
 
     end_time = time.time()  # End timing for successful processing
     logger.info(
-        f"Chunk {state['chunk_id']} processed, ({len(state['general_event'])}) general events, ({len(state['person_event'])}) opinions.",
+        f"Chunk {state.chunk_id} processed, ({len(state.general_event)}) general events, ({len(state.person_event)}) opinions.",
         extra={"execution_time": log.timeUsed(start_time, end_time)}
     )
     return state
