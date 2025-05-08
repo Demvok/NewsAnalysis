@@ -1,7 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List, Annotated
-import operator
-from functools import reduce
+from operator import add
 
 # Define custom reducers for different merge strategies
 def keep_latest(old_val, new_val):
@@ -59,7 +58,7 @@ class ChunkState(BaseModel):
     content: Annotated[str, keep_latest]
     general_event: Annotated[Optional[List[dict]], merge_unique_events] = Field(default_factory=list)
     person_event: Annotated[Optional[List[dict]], merge_unique_events] = Field(default_factory=list)
-    is_processed: Annotated[int, operator.add] = 0
+    is_processed: Annotated[int, add] = 0
 
 
 class GeneralEvent(BaseModel):

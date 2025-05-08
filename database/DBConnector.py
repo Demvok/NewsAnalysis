@@ -437,14 +437,26 @@ def add_event_full(
     event_hotness: float = None,
     is_selected: bool = None
 ) -> int:
-    """Додає новий запис у dimEvents з можливістю встановлення всіх полів, якщо його ще немає, і повертає його event_id."""
+    """Додає новий запис у dimEvents або оновлює існуючий, і повертає його event_id."""
     with _get_session() as session:
         start_time = time.time()
-        existing_event = find_event(fk_origin_article_id, description, get_id=False)
+        existing_event_id = find_event(fk_origin_article_id, description)
 
-        if existing_event:
-            return existing_event.event_id
+        if existing_event_id:
+            # Update the existing event
+            update_event(
+                event_id=existing_event_id,
+                event_title=event_title,
+                relevance_score=relevance_score,
+                influence_score=influence_score,
+                novelty_score=novelty_score,
+                event_hotness=event_hotness,
+                is_selected=is_selected
+            )
+            logger.info(f"Event updated with event_id: {existing_event_id}", extra={'execution_time': log.timeUsed(start_time, time.time())})
+            return existing_event_id
 
+        # Add a new event if it doesn't exist
         new_event = DimEvent(
             fk_origin_article_id=fk_origin_article_id,
             description=description,
@@ -714,12 +726,22 @@ def add_person_full(
     attribute_3: str = None,
     attribute_4: str = None
 ) -> int:
-    """Додає новий запис у dimPerson з можливістю встановлення всіх полів, якщо його ще немає, і повертає його person_id."""
+    """Додає новий запис у dimPerson з можливістю встановлення всіх полів, або оновлює існуючий запис, і повертає його person_id."""
     with _get_session() as session:
         start_time = time.time()
         existing_person = find_person(person_name, get_id=False)
 
         if existing_person:
+            update_person(
+                person_id=existing_person.person_id,
+                person_name=person_name,
+                image_url=image_url,
+                political_party=political_party,
+                attribute_1=attribute_1,
+                attribute_2=attribute_2,
+                attribute_3=attribute_3,
+                attribute_4=attribute_4
+            )
             return existing_person.person_id
 
         new_person = DimPerson(
@@ -1007,9 +1029,32 @@ def add_opinion_full(
     opinion_hotness: float = None,
     is_selected: bool = None
 ) -> int:
-    """Додає новий запис у dimOpinion з можливістю встановлення всіх полів, якщо його ще немає, і повертає його opinion_id."""
+    """Додає новий запис у dimOpinion або оновлює існуючий, і повертає його opinion_id."""
     with _get_session() as session:
         start_time = time.time()
+        existing_opinion_id = find_opinion(fk_origin_article_id, fk_person_id, citation)
+
+        if existing_opinion_id:
+            # Update the existing opinion
+            update_opinion(
+                opinion_id=existing_opinion_id,
+                fk_origin_article_id=fk_origin_article_id,
+                fk_person_id=fk_person_id,
+                citation=citation,
+                sentiment_score=sentiment_score,
+                inconsistency_flag=inconsistency_flag,
+                inconsistency_with_id=inconsistency_with_id,
+                inconsistency_comment=inconsistency_comment,
+                controversy_score=controversy_score,
+                relevancy_score=relevancy_score,
+                contribution_score=contribution_score,
+                opinion_hotness=opinion_hotness,
+                is_selected=is_selected
+            )
+            logger.info(f"Opinion updated with opinion_id: {existing_opinion_id}", extra={'execution_time': log.timeUsed(start_time, time.time())})
+            return existing_opinion_id
+
+        # Add a new opinion if it doesn't exist
         new_opinion = DimOpinion(
             fk_origin_article_id=fk_origin_article_id,
             fk_person_id=fk_person_id,
@@ -1268,9 +1313,26 @@ def add_article_full(
     article_date: str = None,
     content: str = None
 ) -> int:
-    """Додає новий запис у dimArticle з можливістю встановлення всіх полів, якщо його ще немає, і повертає його article_id."""
+    """Додає новий запис у dimArticle з можливістю встановлення всіх полів, або оновлює існуючий запис, і повертає його article_id."""
     with _get_session() as session:
         start_time = time.time()
+        existing_article = session.query(DimArticle).filter(
+            DimArticle.title == title,
+            DimArticle.url == url
+        ).first()
+
+        if existing_article:
+            update_article(
+                article_id=existing_article.article_id,
+                title=title,
+                fk_topic_id=fk_topic_id,
+                url=url,
+                article_date=article_date,
+                content=content
+            )
+            logger.info(f"Article updated with article_id: {existing_article.article_id}", extra={'execution_time': log.timeUsed(start_time, time.time())})
+            return existing_article.article_id
+
         new_article = DimArticle(
             title=title,
             fk_topic_id=fk_topic_id,
@@ -1671,15 +1733,25 @@ def add_attitude(fk_topic_id: int, fk_person_id: int, sentiment_deviation: float
         logger.info(f"Attitude added with fk_topic_id: {fk_topic_id} and fk_person_id: {fk_person_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
 def add_attitude_full(fk_topic_id: int, fk_person_id: int, sentiment_deviation: float = None, stance: str = None, person_summary: str = None, is_expert_flag: bool = None) -> None:
-    """Додає новий запис у fctAttitude з можливістю встановлення всіх полів, якщо його ще немає."""
+    """Додає новий запис у fctAttitude з можливістю встановлення всіх полів, або оновлює існуючий запис."""
     with _get_session() as session:
         start_time = time.time()
         existing_attitude = find_attitude(fk_topic_id, fk_person_id)
         
         if existing_attitude:
-            logger.warning(f"Attitude already exists with fk_topic_id: {fk_topic_id} and fk_person_id: {fk_person_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
+            # Update the existing attitude
+            update_attitude(
+                fk_topic_id=fk_topic_id,
+                fk_person_id=fk_person_id,
+                sentiment_deviation=sentiment_deviation,
+                stance=stance,
+                person_summary=person_summary,
+                is_expert_flag=is_expert_flag
+            )
+            logger.info(f"Attitude updated with fk_topic_id: {fk_topic_id} and fk_person_id: {fk_person_id}", extra={'execution_time': log.timeUsed(start_time, time.time())})
             return
 
+        # Add a new attitude if it doesn't exist
         new_attitude = FctAttitude(
             fk_topic_id=fk_topic_id,
             fk_person_id=fk_person_id,
