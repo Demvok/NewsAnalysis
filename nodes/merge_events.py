@@ -1,11 +1,11 @@
-from database.DBConnector import get_article_chunk, add_event, add_opinion, add_person
+from database.DBConnector import get_article_chunk
 from utils.logger import setup_logger
 
 # Initialize logger
 logger = setup_logger(name="merge_event", log_file="graph.log")
 
 def main(state):
-    logger.warning('Merge events node')
+    logger.debug('Merge events node reached')
     chunk_id = state.chunk_id
     if chunk_id is None:
         logger.error("Chunk ID is missing in the state.")

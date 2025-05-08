@@ -5,7 +5,7 @@ from utils.logger import setup_logger
 logger = setup_logger(name="write_event", log_file="graph.log")
 
 def main(state):
-    logger.warning('Write events node')
+    logger.debug('Write events node')
     origin_article_id = state.origin_article_id
 
     # Process general events

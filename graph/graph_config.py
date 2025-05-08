@@ -48,10 +48,8 @@ def create_app():
     graph.add_edge('inconsistency_detection', 'person_summary')
     graph.add_edge('inconsistency_detection', 'scoring_system_person')
     graph.add_edge('person_summary', 'scoring_system_person')
-    graph.add_edge('scoring_system_person', 'merge_events')
 
-    # General event processing
-    graph.add_edge("scoring_system_general", "merge_events")
+    graph.add_edge(['scoring_system_person', 'scoring_system_general'], 'merge_events')
 
     graph.add_edge("merge_events", "write_events_to_db")
     graph.add_edge("write_events_to_db", END)
