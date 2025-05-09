@@ -10,6 +10,7 @@ from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts import PromptTemplate
 
 from graph.model import llm_invoke
+from database.DBConnector import get_article_chunk
 
 logger = log.setup_logger(name="event_classifier", log_file="graph.log")
 
@@ -245,10 +246,12 @@ def extract_events(topic, content, max_retries=3):
     )
     return None  # Skip the current chunk if retries fail
 
-def main(state: ChunkState):
-    logger.info(f"Processing chunk {state.chunk_id} started")
+def main(state: ChunkState):    
+    chunk_id = state.chunk_id
     topic = state.topic
     content = state.content
+    state.origin_article_id = get_article_chunk(chunk_id)['fk_article_id']
+    logger.info(f"Processing chunk {chunk_id} started")
 
     start_time = time.time()  # Start timing the main process
     # Extract events

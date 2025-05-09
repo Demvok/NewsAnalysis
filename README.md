@@ -3,6 +3,8 @@
 - optimize scraper, paralellize if possible
 - fine tune event extraction, there are too many of them
 - fix person duplication because of different model outputs
+- add usege type to `llm_invoke` for better traking
+- add cleaner for logs
 
 
 #### Time usage:

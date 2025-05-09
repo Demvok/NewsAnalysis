@@ -77,3 +77,6 @@ class EventClassification(BaseModel):
 
 class SentimentScore(BaseModel):
     sentiment: float = Field(description="Sentiment score of the opinion.", ge=-1, le=1)
+
+class InconsistencyComment(BaseModel):
+    inconsistency_comment: str = Field(description="Comment explaining the inconsistency.", max_length=200)

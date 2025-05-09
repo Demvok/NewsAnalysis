@@ -1,4 +1,3 @@
-from database.DBConnector import get_article_chunk
 from utils.logger import setup_logger
 
 # Initialize logger
@@ -10,8 +9,7 @@ def main(state):
     if chunk_id is None:
         logger.error("Chunk ID is missing in the state.")
         return state
-
-    state.origin_article_id = get_article_chunk(chunk_id)['fk_article_id']
+    
     general_events, person_events = [], []
 
     if state.general_event is not None:
