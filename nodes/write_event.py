@@ -1,5 +1,6 @@
 from database.DBConnector import add_event_full, add_opinion_full, add_person, update_article_chunk
 from utils.logger import setup_logger
+from config import EVENTS_HOTNESS_THRESHOLD, OPINION_HOTNESS_THRESHOLD
 
 # Initialize logger
 logger = setup_logger(name="write_node", log_file="graph.log")
@@ -37,7 +38,7 @@ def main(state):
                 event_hotness = event.get('event_hotness', None)
 
                 is_selected = 0
-                if event_hotness >= 0.6:
+                if event_hotness >= EVENTS_HOTNESS_THRESHOLD:
                     is_selected = 1
 
                 add_event_full(
@@ -114,7 +115,7 @@ def main(state):
                 opinion_hotness = event.get('opinion_hotness')
 
                 is_selected = 0
-                if opinion_hotness >= 0.6:
+                if opinion_hotness >= OPINION_HOTNESS_THRESHOLD:
                     is_selected = 1
 
                 add_opinion_full(

@@ -1,5 +1,5 @@
 from langgraph.graph import StateGraph, START, END
-from nodes import  write_event, event_classifier, sentiment_analysis, merge_events, blank
+from nodes import  write_event, event_classifier, sentiment_analysis, inconsistency_detection, merge_events, blank
 from .states_setup import ChunkState
 from typing import List
 

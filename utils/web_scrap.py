@@ -17,7 +17,7 @@ from database.DBConnector import find_article_by_conditions, add_article, get_to
 
 import pandas as pd
 
-logger = setup_logger(__name__, "scrap_articles.log")
+logger = setup_logger('scrap', "scrap_articles.log")
 
 
 def init_browser():
@@ -68,54 +68,60 @@ def scrape_article_content(driver, url, topic_id):
     """
 
     logger.debug(f"Opening page: {url}")
+    
+    try:
+        driver.get(url)
+        time.sleep(10)  # Wait for the page to load
 
-    driver.get(url)
-    time.sleep(10)  # Wait for the page to load
+        search_results = driver.find_element(By.CLASS_NAME, "search__results-list")
 
-    search_results = driver.find_element(By.CLASS_NAME, "search__results-list")
+        # Знайдіть усі дочірні елементи з класом 'card container__item'
+        cards = search_results.find_elements(By.CLASS_NAME, "card.container__item")
+        
+        if not cards:
+            logger.info("No articles found on this page")
+            driver.close()
+            return True  # Return True to break out of loop (no more articles)
 
-    # Знайдіть усі дочірні елементи з класом 'card container__item'
-    cards = search_results.find_elements(By.CLASS_NAME, "card.container__item")
+        # Обробка кожної картки
+        for card in cards:
+            try:
+                link_element = card.find_element(By.CLASS_NAME, "container__text")
+                link_href = card.find_element(By.TAG_NAME, "a").get_attribute("href")
 
-    # Обробка кожної картки
-    for card in cards:
-        try:
+                headline = link_element.find_element(By.CLASS_NAME, "container__headline-text").text
+                date = link_element.find_element(By.CLASS_NAME, "container__date").text
+                description = link_element.find_element(By.CLASS_NAME, "container__description").text
 
-            link_element = card.find_element(By.CLASS_NAME, "container__text")
-            link_href = card.find_element(By.TAG_NAME, "a").get_attribute("href")
+                # Перевіряємо, чи стаття вже є в базі
+                exists_in_db = find_article_by_conditions(title=headline)
 
+                if exists_in_db:
+                    logger.warning(f"Article exist in database! Skip. (Link {link_href})")
+                    continue  # Skip this article but continue with others
 
-            headline = link_element.find_element(By.CLASS_NAME, "container__headline-text").text
-            date = link_element.find_element(By.CLASS_NAME, "container__date").text
-            description = link_element.find_element(By.CLASS_NAME, "container__description").text
+                # Додаємо статтю в базу за допомогою функції add_article
+                add_article(
+                    title=headline,
+                    url=link_href,
+                    article_date=datetime.strptime(date, "%b %d, %Y").strftime("%Y-%m-%d"),
+                    content=scrape_articles(link_href),
+                    fk_topic_id=topic_id
+                )
 
-            # Перевіряємо, чи стаття вже є в базі
-            exists_in_db = find_article_by_conditions(title=headline)
+                logger.debug(f"Article adding: {headline} ({date})")
 
-            if exists_in_db:
-                logger.warning(f"Article exist in database! Skip. (Link {link_href})")
-                # return False
+            except Exception as e:
+                logger.error(f"--- Error {link_href}: {e} ---")
+                continue 
 
-
-            # Додаємо статтю в базу за допомогою функції add_article
-            add_article(
-                title=headline,
-                url=link_href,
-                article_date=datetime.strptime(date, "%b %d, %Y").strftime("%Y-%m-%d"),
-                content=scrape_articles(link_href),
-                fk_topic_id=topic_id
-            )
-
-            logger.debug(f"Article adding: {headline} ({date})")
-
-        except Exception as e:
-            logger.error(f"--- Error {link_href}: {e} ---")
-            continue 
-
-
-    driver.close()
-
-    return True
+        driver.close()
+        return False  # Return False to continue with next page
+        
+    except Exception as e:
+        logger.error(f"Error processing page {url}: {e}")
+        driver.close()
+        return False  # Continue to next page on error
 
 
 
@@ -125,15 +131,14 @@ def main():
 
     topics = get_topic_df(find_topic_by_conditions())
 
-
     for _, topic in topics.iterrows():
         for page in range(1, 6):
-
             logger.info(f"Scrapping topic: {topic.topic_name} (Page {page})")
             link = f'https://edition.cnn.com/search?q={"+".join(topic.query.split(" "))}&from={(page-1)*30}&size=30&page={page}&sort=newest&types=all&section='
-            if (scrape_article_content(init_browser(), link, topic.topic_id)):
+            should_break = scrape_article_content(init_browser(), link, topic.topic_id)
+            if should_break:
+                logger.info(f"No more articles for topic {topic.topic_name}. Moving to next topic.")
                 break
-            
     
     logger.info("--- Scrapping has ended successfully! ---")
 
