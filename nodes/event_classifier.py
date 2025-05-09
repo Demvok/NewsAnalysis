@@ -1,4 +1,4 @@
-import os
+from config import FIELD_LENGTH_POLICY
 import json
 import time
 import utils.logger as log
@@ -12,7 +12,6 @@ from langchain.prompts import PromptTemplate
 from graph.model import llm_invoke
 
 logger = log.setup_logger(name="event_classifier", log_file="graph.log")
-FIELD_LENGTH_POLICY = os.getenv("FIELD_LENGTH_POLICY", "IGNORE").upper()
 
 import warnings
 warnings.filterwarnings("ignore")

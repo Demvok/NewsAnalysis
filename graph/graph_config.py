@@ -11,7 +11,7 @@ def create_app():
 
     # Opinion processing
     graph.add_node("sentiment_analysis", sentiment_analysis.main)
-    graph.add_node("inconsistency_detection", blank.main)
+    graph.add_node("inconsistency_detection", inconsistency_detection.main)
     graph.add_node("person_summary", blank.main)
     graph.add_node("scoring_system_person", blank.main)
 

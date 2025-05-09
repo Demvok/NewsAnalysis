@@ -340,6 +340,66 @@ def t_upload_person_event(
         else:
             logger.warning(f"Opinion not found for article_id={article_id}, person_id={person_id}, citation={citation}")
 
+
+def t_get_person_opinions(person_id: int, limit: int = 15) -> pd.DataFrame:
+    """
+    Gets a person's recent opinions with article information in descending date order.
+    
+    Args:
+        person_id: The ID of the person whose opinions to retrieve
+        limit: Maximum number of opinions to return (default 15)
+        
+    Returns:
+        DataFrame containing opinion data with related article and person information
+    """
+    with _get_session() as session:
+        start_time = time.time()
+        
+        # Build query joining all three tables
+        query = (session.query(
+                DimOpinion.opinion_id,
+                DimPerson.person_name,
+                DimOpinion.citation,
+                DimArticle.article_date,
+                DimOpinion.sentiment_score,
+                DimOpinion.inconsistency_flag,
+                DimOpinion.inconsistency_with_id,
+                DimOpinion.inconsistency_comment
+            )
+            .join(DimArticle, DimOpinion.fk_origin_article_id == DimArticle.article_id)
+            .join(DimPerson, DimOpinion.fk_person_id == DimPerson.person_id)
+            .filter(DimOpinion.fk_person_id == person_id)
+            .order_by(DimArticle.article_date.desc())
+            .limit(limit)
+        )
+        
+        # Execute query and fetch results
+        results = query.all()
+        
+        # Convert to DataFrame
+        if results:
+            df = pd.DataFrame([{
+                'opinion_id': r.opinion_id,
+                'person_name': r.person_name,
+                'citation': r.citation,
+                'article_date': r.article_date,
+                'sentiment_score': r.sentiment_score,
+                'inconsistency_flag': r.inconsistency_flag,
+                'inconsistency_with_id': r.inconsistency_with_id,
+                'inconsistency_comment': r.inconsistency_comment
+            } for r in results])
+            
+            end_time = time.time()
+            logger.info(f"Found {len(results)} opinions for person_id {person_id}", 
+                       extra={'execution_time': log.timeUsed(start_time, end_time)})
+            return df
+        else:
+            end_time = time.time()
+            logger.warning(f"No opinions found for person_id {person_id}", 
+                          extra={'execution_time': log.timeUsed(start_time, end_time)})
+            return pd.DataFrame()
+
+
 # 
 # DimEvent
 # 

@@ -1,4 +1,4 @@
-import os
+from config import FIELD_LENGTH_POLICY, INCONSISTENCY_TOLERANCE, OPINION_FRESHNESS_THRESHOLD
 import time
 import utils.logger as log
 
@@ -9,17 +9,23 @@ from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts import PromptTemplate
 
 from graph.model import llm_invoke
+from database.DBConnector import t_get_person_opinions
 
 logger = log.setup_logger(name="inconsistency_detection", log_file="graph.log")
-FIELD_LENGTH_POLICY = os.getenv("FIELD_LENGTH_POLICY").upper()
 
 import warnings
 warnings.filterwarnings("ignore")
 
 
 # 
-# EQUALS TO STAGE 1
+# EQUALS TO STAGE 2
 # 
+
+def get_inconsistent_opinions(person_id, sentiment_score, date):    
+    df = t_get_person_opinions(person_id)
+    df = df.loc[abs(sentiment_score - df['sentiment_score']) > INCONSISTENCY_TOLERANCE]  # filter off consistent opinions
+    df = df.loc[(date - df['article_date']).dt.days < OPINION_FRESHNESS_THRESHOLD]  # filter off old opinions
+    return df.loc[:, 'opinion_id'].tolist()
 
 
 parser = PydanticOutputParser(pydantic_object=SentimentScore)
