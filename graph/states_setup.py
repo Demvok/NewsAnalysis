@@ -63,14 +63,23 @@ def save_state_as_json(state, filename):
     with open(filename, 'w') as f:
         # Option 1: Use model_dump() to get a Python dict directly
         json.dump(state.model_dump(), f, indent=4)
-        
-        # Option 2: Or parse the JSON string properly
-        # json.dump(json.loads(state.model_dump_json()), f, indent=4)
+
+def save_output_as_json(state, filename):
+    """
+    Save the given state as a JSON file.
+
+    Args:
+        state (dict): The state to save.
+        filename (str): The name of the file to save the state to.
+    """
+    with open(filename, 'w') as f:
+        json.dump(dict(state.items()), f, indent=4)
 
 # Full chunk state with all fields
 class ChunkState(BaseModel):
     chunk_id: Annotated[int, keep_latest] = Field(description="Unique identifier for the chunk")
     topic: Annotated[str, keep_latest]
+    topic_id: Annotated[Optional[int], keep_latest]
     origin_article_id: Annotated[Optional[int], keep_latest] = None
     content: Annotated[str, keep_latest]
     general_event: Annotated[Optional[List[dict]], merge_unique_events] = Field(default_factory=list)

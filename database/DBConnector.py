@@ -250,6 +250,7 @@ def t_get_unprocessed_chunks_input(*args, **kwargs):
                 DimArticleChunks.fk_article_id,
                 DimArticleChunks.start_index,
                 DimArticleChunks.end_index,
+                DimTopic.topic_id,
                 DimTopic.topic_name,
                 DimArticle.content
             )
@@ -275,6 +276,7 @@ def t_get_unprocessed_chunks_input(*args, **kwargs):
                 "chunk_id": row.chunk_id,
                 "content": row.content[row.start_index:row.end_index],
                 "topic": row.topic_name,
+                "topic_id": row.topic_id,
             }
             for row in results
         ]

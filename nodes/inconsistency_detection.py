@@ -209,6 +209,12 @@ def main(state):
             
             person_name = person_event_data.get('person_name')
             person_id = find_person(person_name=person_name)
+
+            if person_id is None:
+                logger.debug(f"Person ID not yet exists for {person_name} in chunk {chunk_id}.")
+                updated_person_events.append(person_event_data)
+                continue
+
             citation = person_event_data.get('citation')
             sentiment_score = person_event_data.get('sentiment')
             
@@ -221,11 +227,14 @@ def main(state):
 
             if inconsistent_with.empty:
                 logger.debug(f"No inconsistent opinions found for person_event {idx + 1} in chunk {chunk_id}.")
+                new_person_event = person_event_data.copy()
+                new_person_event.update({'person_id': person_id})
                 updated_person_events.append(person_event_data)
                 continue
             else:
                 logger.debug(f"Inconsistent opinions found for person_event {idx + 1} in chunk {chunk_id}.")
                 new_person_event = person_event_data.copy()
+                new_person_event.update({'person_id': person_id})
                 
                 # Convert to a list of IDs or records
                 inconsistent_ids = inconsistent_with['opinion_id'].tolist()  # Assuming 'opinion_id' exists

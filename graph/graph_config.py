@@ -46,8 +46,7 @@ def create_app():
     # Opinion processing
     graph.add_edge('sentiment_analysis', 'inconsistency_detection')
     graph.add_edge('inconsistency_detection', 'person_summary')
-    graph.add_edge('inconsistency_detection', 'scoring_system_person')
-    graph.add_edge('person_summary', 'scoring_system_person')
+    graph.add_edge(['inconsistency_detection', 'person_summary'], 'scoring_system_person')
 
     graph.add_edge(['scoring_system_person', 'scoring_system_general'], 'merge_events')
 

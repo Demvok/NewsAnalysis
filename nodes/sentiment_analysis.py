@@ -1,6 +1,6 @@
 import time
 import utils.logger as log
-from config import FIELD_LENGTH_POLICY
+from config import FIELD_LENGTH_POLICY, MAX_RETRIES
 
 from pydantic import ValidationError
 from graph.states_setup import SentimentScore
@@ -62,7 +62,7 @@ def _parse_event_output(response: str):
     logger.debug("Finished parsing model output.", extra={"execution_time": log.timeUsed(start_time, end_time)})
     return sentiment_score
 
-def get_sentiment_score(topic, content, max_retries=3):
+def get_sentiment_score(topic, content, max_retries=MAX_RETRIES):
     """Extract events with retry logic for invalid outputs."""
     retries = 0
     start_time = time.time()  # Start timing the extraction process
