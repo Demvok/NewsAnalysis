@@ -41,6 +41,24 @@ Previous citations (up to 15):
 Write **only one paragraph**, max **200 characters**, pointing out the sentiment inconsistency. Do not include quotes or metadata—just the concise comment.
 """
 
+#
+#   Different policies for field length handling
+#
+
+def _validate_comment_length(comment_text):
+    """Validate the length of an inconsistency comment."""
+    return len(comment_text) <= 200
+
+def _truncate_comment(comment_text):
+    """Truncate comment to maximum allowed length."""
+    return comment_text[:200]
+
+def _refine_comment(comment_text):
+    """Refine comment to fit within character limit using the LLM."""
+    refinement_prompt = f"Summarize this inconsistency comment in under 200 characters:\n\n{comment_text}"
+    response = llm_invoke(refinement_prompt)
+    return response.content[:200]
+
 # Format previous opinions function
 def format_previous_opinions(previous_opinions):
     """Helper function to format previous opinions consistently"""
@@ -52,12 +70,39 @@ def format_previous_opinions(previous_opinions):
 def _parse_event_output(response: str):
     """Parse the LLM response and comment."""
     start_time = time.time()
+    comment_text = response.strip()
     
     try:
-        inconsistency_comment = InconsistencyComment(inconsistency_comment=response.strip())
+        if FIELD_LENGTH_POLICY == "IGNORE":
+            # Skip validation and directly parse
+            inconsistency_comment = InconsistencyComment(inconsistency_comment=comment_text)
+        
+        elif FIELD_LENGTH_POLICY == "RETRY":
+            # Validate length and raise error if invalid
+            if not _validate_comment_length(comment_text):
+                raise ValueError(f"Comment exceeds 200 characters (length: {len(comment_text)})")
+            inconsistency_comment = InconsistencyComment(inconsistency_comment=comment_text)
+                
+        elif FIELD_LENGTH_POLICY == "REFINE":
+            # Attempt to refine comment if validation fails
+            try:
+                inconsistency_comment = InconsistencyComment(inconsistency_comment=comment_text)
+            except ValidationError:
+                refined_comment = _refine_comment(comment_text)
+                inconsistency_comment = InconsistencyComment(inconsistency_comment=refined_comment)
+                
+        elif FIELD_LENGTH_POLICY == "TRUNCATE":
+            # Truncate comment if validation fails
+            try:
+                inconsistency_comment = InconsistencyComment(inconsistency_comment=comment_text)
+            except ValidationError:
+                truncated_comment = _truncate_comment(comment_text)
+                inconsistency_comment = InconsistencyComment(inconsistency_comment=truncated_comment)
+        
         end_time = time.time()
         logger.debug("Finished parsing model output.", extra={"execution_time": log.timeUsed(start_time, end_time)})
         return inconsistency_comment
+        
     except ValidationError as e:
         logger.warning(f"Validation error while creating InconsistencyComment: {e}")
         raise e  # Re-raise the exception to trigger re-invocation if needed
@@ -107,12 +152,10 @@ def get_inconsistency_comment(person, topic, new_opinion, previous_opinions, max
 
         try:
             parsed = _parse_event_output(response.content)
-            end_time = time.time()  # End timing
-            logger.info(
-                f"Successfully got comment' after {retries} retries.",
-                extra={"execution_time": log.timeUsed(start_time, end_time)}
-            )
-            return parsed  # Return if parsing and validation succeed
+            end_time = time.time()
+            logger.info(f"Successfully got comment after {retries} retries.",
+                extra={"execution_time": log.timeUsed(start_time, end_time)})
+            return parsed
         except Exception as e:
             logger.warning(f"Retry {retries}/{max_retries} due to invalid output: {e}",
                 extra={"execution_time": log.timeUsed(start_time, time.time())})
