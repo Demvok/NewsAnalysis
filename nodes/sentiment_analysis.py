@@ -1,9 +1,9 @@
-import os
 import time
 import utils.logger as log
+from config import FIELD_LENGTH_POLICY
 
 from pydantic import ValidationError
-from graph.states_setup import PersonEvent, SentimentScore
+from graph.states_setup import SentimentScore
 
 from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts import PromptTemplate
@@ -11,7 +11,6 @@ from langchain.prompts import PromptTemplate
 from graph.model import llm_invoke
 
 logger = log.setup_logger(name="sentiment_analysis", log_file="graph.log")
-FIELD_LENGTH_POLICY = os.getenv("FIELD_LENGTH_POLICY").upper()
 
 import warnings
 warnings.filterwarnings("ignore")
