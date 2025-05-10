@@ -108,7 +108,7 @@ class DimOpinion(Base):
     citation = Column(String(300), nullable=True)
     sentiment_score = Column(Float, nullable=True)
     inconsistency_flag = Column(Boolean, nullable=True)
-    inconsistency_with_id = Column(Integer, ForeignKey('dimOpinion.opinion_id', ondelete="SET NULL"), nullable=True)
+    inconsistency_with_id = Column(String(200), nullable=True)
     inconsistency_comment = Column(String(200), nullable=True)
     controversy_score = Column(Float, nullable=True)
     relevancy_score = Column(Float, nullable=True)
@@ -120,10 +120,6 @@ class DimOpinion(Base):
     article = relationship("DimArticle", back_populates="opinions")
     # Many-to-one relationship with DimPerson
     person = relationship("DimPerson", back_populates="opinions")
-    # Self-referential relationship for inconsistent opinions
-    inconsistent_opinion = relationship(
-        "DimOpinion", remote_side=[opinion_id], backref="inconsistent_with"
-    )
 
 class DimPerson(Base):
     __tablename__ = 'dimPerson'
@@ -290,7 +286,7 @@ def t_upload_person_event(
         citation: str,
         sentiment: float = None,
         inconsistency_flag: bool = None,
-        inconsistency_id: int = None,
+        inconsistency_id: list = None,
         inconsistency_comment: str = None,
         controversy: float = None,
         relevance: float = None,
@@ -322,8 +318,9 @@ def t_upload_person_event(
             else:
                 inconsistency_flag = None
             inconsistency_id = None if inconsistency_id is None else inconsistency_id
+            inconsistency_id_str = t_ids_list_to_string(inconsistency_id) if inconsistency_id else None
             inconsistency_comment = None if inconsistency_comment is None else inconsistency_comment
-            update_opinion(opinion_id=opinion_id, inconsistency_flag=inconsistency_flag, inconsistency_with_id=inconsistency_id, inconsistency_comment=inconsistency_comment)
+            update_opinion(opinion_id=opinion_id, inconsistency_flag=inconsistency_flag, inconsistency_with_id=inconsistency_id_str, inconsistency_comment=inconsistency_comment)
         else:
             logger.warning(f"Opinion not found for article_id={article_id}, person_id={person_id}, citation={citation}")
     else:
@@ -399,6 +396,17 @@ def t_get_person_opinions(person_id: int, limit: int = 15) -> pd.DataFrame:
                           extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.DataFrame()
 
+def t_ids_list_to_string(ids_list):
+    """Convert a list of IDs to a comma-separated string."""
+    if ids_list is None:
+        return None
+    return str(ids_list)
+
+def t_ids_string_to_list(ids_string):
+    """Convert a comma-separated string of IDs to a list of integers."""
+    if not ids_string:
+        return []
+    return [int(id_str) for id_str in ids_string.split(',') if id_str.strip()]
 
 # 
 # DimEvent
@@ -1040,7 +1048,7 @@ def add_opinion(
         citation: str,
         sentiment_score: float = None,
         inconsistency_flag: bool = None,
-        inconsistency_with_id: int = None,
+        inconsistency_with_id: list = None,
         inconsistency_comment: str = None,
         controversy_score: float = None,
         relevancy_score: float = None,
@@ -1054,13 +1062,16 @@ def add_opinion(
 
         if existing_opinion: return existing_opinion.opinion_id
 
+        # Convert list of IDs to string
+        inconsistency_with_ids_str = t_ids_list_to_string(inconsistency_with_id) if inconsistency_with_id else None
+
         new_opinion = DimOpinion(
             fk_origin_article_id=fk_origin_article_id,
             fk_person_id=fk_person_id,
             citation=citation,
             sentiment_score=sentiment_score,
             inconsistency_flag=bool(inconsistency_flag),
-            inconsistency_with_id=inconsistency_with_id,
+            inconsistency_with_id=inconsistency_with_ids_str,
             inconsistency_comment=inconsistency_comment,
             controversy_score=controversy_score,
             relevancy_score=relevancy_score,
@@ -1081,7 +1092,7 @@ def add_opinion_full(
     citation: str = None,
     sentiment_score: float = None,
     inconsistency_flag: bool = None,
-    inconsistency_with_id: int = None,
+    inconsistency_with_id: list = None,
     inconsistency_comment: str = None,
     controversy_score: float = None,
     relevancy_score: float = None,
@@ -1094,6 +1105,9 @@ def add_opinion_full(
         start_time = time.time()
         existing_opinion_id = find_opinion(fk_origin_article_id, fk_person_id, citation)
 
+        # Convert list of IDs to string
+        inconsistency_with_ids_str = t_ids_list_to_string(inconsistency_with_id) if inconsistency_with_id else None  
+
         if existing_opinion_id:
             # Update the existing opinion
             update_opinion(
@@ -1103,7 +1117,7 @@ def add_opinion_full(
                 citation=citation,
                 sentiment_score=sentiment_score,
                 inconsistency_flag=inconsistency_flag,
-                inconsistency_with_id=inconsistency_with_id,
+                inconsistency_with_id=inconsistency_with_ids_str,
                 inconsistency_comment=inconsistency_comment,
                 controversy_score=controversy_score,
                 relevancy_score=relevancy_score,
@@ -1121,7 +1135,7 @@ def add_opinion_full(
             citation=citation,
             sentiment_score=sentiment_score,
             inconsistency_flag=bool(inconsistency_flag),
-            inconsistency_with_id=inconsistency_with_id,
+            inconsistency_with_id=inconsistency_with_ids_str,
             inconsistency_comment=inconsistency_comment,
             controversy_score=controversy_score,
             relevancy_score=relevancy_score,
@@ -1170,7 +1184,7 @@ def get_opinion(opinion_id: int) -> pd.Series:
                 'citation': opinion.citation,
                 'sentiment_score': opinion.sentiment_score,
                 'inconsistency_flag': opinion.inconsistency_flag,
-                'inconsistency_with_id': opinion.inconsistency_with_id,
+                'inconsistency_with_id': t_ids_string_to_list(opinion.inconsistency_with_id),
                 'inconsistency_comment': opinion.inconsistency_comment,
                 'controversy_score': opinion.controversy_score,
                 'relevancy_score': opinion.relevancy_score,
@@ -1201,7 +1215,7 @@ def get_opinion_df(opinion_ids: list) -> pd.DataFrame:
                 'citation': opinion.citation,
                 'sentiment_score': opinion.sentiment_score,
                 'inconsistency_flag': opinion.inconsistency_flag,
-                'inconsistency_with_id': opinion.inconsistency_with_id,
+                'inconsistency_with_id': t_ids_string_to_list(opinion.inconsistency_with_id),
                 'inconsistency_comment': opinion.inconsistency_comment,
                 'controversy_score': opinion.controversy_score,
                 'relevancy_score': opinion.relevancy_score,
@@ -1224,7 +1238,7 @@ def update_opinion(
     citation: str = None,
     sentiment_score: float = None,
     inconsistency_flag: bool = None,
-    inconsistency_with_id: int = None,
+    inconsistency_with_id: list = None,
     inconsistency_comment: str = None,
     controversy_score: float = None,
     relevancy_score: float = None,
@@ -1251,7 +1265,7 @@ def update_opinion(
         if inconsistency_flag is not None:
             opinion.inconsistency_flag = bool(inconsistency_flag)
         if inconsistency_with_id is not None:
-            opinion.inconsistency_with_id = int(inconsistency_with_id)
+            opinion.inconsistency_with_id = t_ids_list_to_string(inconsistency_with_id)
         if inconsistency_comment is not None:
             opinion.inconsistency_comment = str(inconsistency_comment)
         if controversy_score is not None:

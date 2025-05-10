@@ -1,4 +1,4 @@
-from config import FIELD_LENGTH_POLICY, INCONSISTENCY_TOLERANCE, OPINION_FRESHNESS_THRESHOLD
+from config import FIELD_LENGTH_POLICY, INCONSISTENCY_TOLERANCE, OPINION_FRESHNESS_THRESHOLD, MAX_RETRIES
 import time
 import utils.logger as log
 
@@ -24,36 +24,40 @@ warnings.filterwarnings("ignore")
 
 parser = PydanticOutputParser(pydantic_object=InconsistencyComment)
 
-prompt = PromptTemplate.from_template(
-    """
-    You are an expert journalist skilled in deduction and speech analysis.  
-    Given the following inputs, compare the new citation to previous ones and comment on any inconsistency.
+# Define prompt template at module level
+inconsistency_comment_template = """
+You are an expert journalist skilled in deduction and speech analysis.  
+Given the following inputs, compare the new citation to previous ones and comment on any inconsistency.
 
-    Person: {person}  
-    Topic: {topic} 
-    New citation:  
-    - Text: {new.citation}  
-    - Date: {new.article_date}  
-    - Score: {new.sentiment_score}  
-    Previous citations (up to 15):  
-    {{#each previous}}
-    - Text: {this.citation}  
-        Date: {this.article_date}, Score: {this.sentiment_score}
-    {{/each}}
+Person: {person}  
+Topic: {topic} 
+New citation:  
+- Text: {new_citation}  
+- Date: {new_date}  
+- Score: {new_score}  
+Previous citations (up to 15):  
+{previous_formatted}
 
-    Write **only one paragraph**, max **200 characters**, pointing out the sentiment inconsistency. Do not include quotes or metadata—just the concise comment.
-    """
-)
+Write **only one paragraph**, max **200 characters**, pointing out the sentiment inconsistency. Do not include quotes or metadata—just the concise comment.
+"""
 
-
+# Format previous opinions function
+def format_previous_opinions(previous_opinions):
+    """Helper function to format previous opinions consistently"""
+    formatted_previous = ""
+    for prev in previous_opinions:
+        formatted_previous += f"- Text: {prev['citation']}\n  Date: {prev['article_date']}, Score: {prev['sentiment_score']}\n"
+    return formatted_previous
 
 def _parse_event_output(response: str):
     """Parse the LLM response and comment."""
-    start_time = time.time()  # Start timing the parsing process
-    inconsistency_comment = None
-
+    start_time = time.time()
+    
     try:
         inconsistency_comment = InconsistencyComment(inconsistency_comment=response.strip())
+        end_time = time.time()
+        logger.debug("Finished parsing model output.", extra={"execution_time": log.timeUsed(start_time, end_time)})
+        return inconsistency_comment
     except ValidationError as e:
         logger.warning(f"Validation error while creating InconsistencyComment: {e}")
         raise e  # Re-raise the exception to trigger re-invocation if needed
@@ -61,24 +65,30 @@ def _parse_event_output(response: str):
         logger.error(f"Unexpected error while parsing output: {e}")
         raise e
 
-    end_time = time.time()  # End timing for parsing
-    logger.debug("Finished parsing model output.", extra={"execution_time": log.timeUsed(start_time, end_time)})
-    return inconsistency_comment
-
-def get_inconsistency_comment(person, topic, new_opinion, previous_opinions, max_retries=3):
+def get_inconsistency_comment(person, topic, new_opinion, previous_opinions, max_retries=MAX_RETRIES):
     """Make inconsistency comment with retry logic for invalid outputs."""
     retries = 0
-    start_time = time.time()  # Start timing the extraction process
-
-    # First attempt
-    formatted_prompt = prompt.format(
+    start_time = time.time()
+    
+    # Format data for prompt
+    formatted_previous = format_previous_opinions(previous_opinions)
+    
+    # Create prompt using module-level template
+    formatted_prompt = PromptTemplate.from_template(
+        inconsistency_comment_template
+    ).format(
         person=person,
         topic=topic,
-        new=new_opinion,
-        previous=previous_opinions
+        new_citation=new_opinion['citation'],
+        new_date=new_opinion['article_date'],
+        new_score=new_opinion['sentiment_score'],
+        previous_formatted=formatted_previous
     )
+    
+    # First attempt
     response = llm_invoke(formatted_prompt)
 
+    # Rest of the function remains the same
     try:
         parsed = _parse_event_output(response.content)
         end_time = time.time()  # End timing
@@ -104,10 +114,8 @@ def get_inconsistency_comment(person, topic, new_opinion, previous_opinions, max
             )
             return parsed  # Return if parsing and validation succeed
         except Exception as e:
-            logger.warning(
-                f"Retry {retries}/{max_retries} due to invalid output: {e}",
-                extra={"execution_time": log.timeUsed(start_time, time.time())}
-            )
+            logger.warning(f"Retry {retries}/{max_retries} due to invalid output: {e}",
+                extra={"execution_time": log.timeUsed(start_time, time.time())})
 
     end_time = time.time()  # End timing after retries
     logger.error(
@@ -134,7 +142,7 @@ def main(state):
         content = state.content
         person_events = state.person_event
         origin_article_id = state.origin_article_id
-        article_date = get_article(origin_article_id).loc[0, 'article_date']
+        article_date = get_article(origin_article_id).loc['article_date']
         
         if not topic or not content:
             logger.warning(f"Chunk {chunk_id} is missing topic or content. Skipping.")
@@ -166,27 +174,34 @@ def main(state):
                 updated_person_events.append(person_event_data)
                 raise ValueError(f"Missing sentiment score for person_event {idx + 1} in chunk {chunk_id}.")
 
-            incosistent_with = get_inconsistent_opinions(person_id=person_id, sentiment_score=sentiment_score, date=article_date)
+            inconsistent_with = get_inconsistent_opinions(person_id=person_id, sentiment_score=sentiment_score, date=article_date)
 
-            if incosistent_with.empty:
+            if inconsistent_with.empty:
                 logger.debug(f"No inconsistent opinions found for person_event {idx + 1} in chunk {chunk_id}.")
                 updated_person_events.append(person_event_data)
                 continue
             else:
                 logger.debug(f"Inconsistent opinions found for person_event {idx + 1} in chunk {chunk_id}.")
                 new_person_event = person_event_data.copy()
-                new_person_event.update({'inconsistency_with_id': incosistent_with})
+                
+                # Convert to a list of IDs or records
+                inconsistent_ids = inconsistent_with['opinion_id'].tolist()  # Assuming 'opinion_id' exists
+                new_person_event.update({'inconsistency_with_id': inconsistent_ids})
                 new_person_event.update({'inconsistency_flag': True})
 
                 inconsistency_comment = get_inconsistency_comment(
                     person=person_name,
                     topic=topic,
                     new_opinion={'citation': citation, 'article_date': article_date, 'sentiment_score': sentiment_score},
-                    previous_opinions=incosistent_with.loc[:, ['citation', 'article_date', 'sentiment_score']].to_dict(orient='records')
+                    previous_opinions=inconsistent_with.loc[:, ['citation', 'article_date', 'sentiment_score']].to_dict(orient='records')
                 )
-                new_person_event.update({'inconsistency_comment': inconsistency_comment})
                 
-                # inconsistent_opinions = incosistent_with.to_dict(orient='records')
+                # Extract the string from the Pydantic model instead of storing the whole object
+                if inconsistency_comment is not None:
+                    new_person_event.update({'inconsistency_comment': inconsistency_comment.inconsistency_comment})
+                else:
+                    new_person_event.update({'inconsistency_comment': None})
+                
                 updated_person_events.append(new_person_event)            
             
         except Exception as e:

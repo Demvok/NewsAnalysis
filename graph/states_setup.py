@@ -1,6 +1,8 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List, Annotated
 from operator import add
+import json
+from ast import literal_eval
 
 # Define custom reducers for different merge strategies
 def keep_latest(old_val, new_val):
@@ -49,6 +51,21 @@ def merge_unique_events(old_events, new_events):
     
     # Return the list of most complete events
     return list(event_dict.values())
+
+def save_state_as_json(state, filename):
+    """
+    Save the given state as a JSON file.
+
+    Args:
+        state (dict): The state to save.
+        filename (str): The name of the file to save the state to.
+    """
+    with open(filename, 'w') as f:
+        # Option 1: Use model_dump() to get a Python dict directly
+        json.dump(state.model_dump(), f, indent=4)
+        
+        # Option 2: Or parse the JSON string properly
+        # json.dump(json.loads(state.model_dump_json()), f, indent=4)
 
 # Full chunk state with all fields
 class ChunkState(BaseModel):
