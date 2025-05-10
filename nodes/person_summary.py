@@ -1,4 +1,4 @@
-from config import FIELD_LENGTH_POLICY, INCONSISTENCY_TOLERANCE, OPINION_FRESHNESS_THRESHOLD, MAX_RETRIES
+from config import FIELD_LENGTH_POLICY, MAX_RETRIES, MIXED_INTERVAL
 import time
 import utils.logger as log
 
@@ -9,7 +9,7 @@ from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts import PromptTemplate
 
 from graph.model import llm_invoke
-from database.DBConnector import t_get_person_opinions, find_person
+from database.DBConnector import t_get_person_topic_sentiment_history
 
 logger = log.setup_logger(name="inconsistency_detection", log_file="graph.log")
 
@@ -167,13 +167,43 @@ def get_inconsistency_comment(person, topic, new_opinion, previous_opinions, max
     )
     return None  # Skip the current chunk if retries fail
 
+def get_weighted_sentiment(df):
+    df['index'] = df.index
 
-def get_inconsistent_opinions(person_id, sentiment_score, date):    
-    df = t_get_person_opinions(person_id)
-    df = df.loc[abs(sentiment_score - df['sentiment_score']) > INCONSISTENCY_TOLERANCE]  # filter off consistent opinions
-    df = df.loc[(date - df['article_date']).dt.days < OPINION_FRESHNESS_THRESHOLD]  # filter off old opinions
-    return df
+    def calculate_valuability(index, size, method=1, minimal_value=0.2, slope=0.66):
+        """
+        Calculate the valuability of a chunk based on its index in the list of chunks.
+        :param index: The index of the chunk in the list.
+        :param size: The total number of chunks.
+        :param method: The method to use for calculating valuability (1-linear, 2-exponential, or 3-degrading constant).
+        :param minimal_value: The minimum valuability value.
+        :param slope: The slope for the exponential method.
+        :return: The valuability of the chunk.
+        """
+        if method == 1: # Linear case
+            return 1 - (index - 1) * (1-minimal_value)/(size - 1)
+        elif method == 2: # Exponential case
+            return minimal_value + (1-minimal_value) * (2.71828182846)**(-slope * (index - 1))
+        elif method == 3: # Degrading linear case
+            return 1 - slope ** (size - index) + minimal_value
+    
+    df['valuability'] = df['index'].apply(lambda x: calculate_valuability(x, df.shape[0], method=3))
+    df['weighted_sentiment'] = df['valuability'] * df['sentiment_score']
+    
+    return df.drop(['index', 'valuability'], axis=1)
 
+def get_stance(stance_int: int):
+    """
+    Get the stance based on the stance intensity.
+    :param stance_int: The stance intensity.
+    :return: The stance.
+    """
+    if stance_int > MIXED_INTERVAL:
+        return 'pro'
+    elif stance_int < -MIXED_INTERVAL:
+        return 'against'
+    else:
+        return 'mixed'
 
 
 def main(state):
@@ -184,6 +214,7 @@ def main(state):
         topic = state.topic
         content = state.content
         person_events = state.person_event
+        origin_article_id = state.origin_article_id
         article_date = state.article_date
         
         if not topic or not content or not article_date:
@@ -208,12 +239,6 @@ def main(state):
             
             person_name = person_event_data.get('person_name')
             person_id = find_person(person_name=person_name)
-
-            if person_id is None:
-                logger.debug(f"Person ID not yet exists for {person_name} in chunk {chunk_id}.")
-                updated_person_events.append(person_event_data)
-                continue
-
             citation = person_event_data.get('citation')
             sentiment_score = person_event_data.get('sentiment')
             
@@ -226,14 +251,11 @@ def main(state):
 
             if inconsistent_with.empty:
                 logger.debug(f"No inconsistent opinions found for person_event {idx + 1} in chunk {chunk_id}.")
-                new_person_event = person_event_data.copy()
-                new_person_event.update({'person_id': person_id})
                 updated_person_events.append(person_event_data)
                 continue
             else:
                 logger.debug(f"Inconsistent opinions found for person_event {idx + 1} in chunk {chunk_id}.")
                 new_person_event = person_event_data.copy()
-                new_person_event.update({'person_id': person_id})
                 
                 # Convert to a list of IDs or records
                 inconsistent_ids = inconsistent_with['opinion_id'].tolist()  # Assuming 'opinion_id' exists

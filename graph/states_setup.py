@@ -3,6 +3,7 @@ from typing import Optional, List, Annotated
 from operator import add
 import json
 from ast import literal_eval
+from pandas import Timestamp
 
 # Define custom reducers for different merge strategies
 def keep_latest(old_val, new_val):
@@ -62,7 +63,7 @@ def save_state_as_json(state, filename):
     """
     with open(filename, 'w') as f:
         # Option 1: Use model_dump() to get a Python dict directly
-        json.dump(state.model_dump(), f, indent=4)
+        json.dump(state.model_dump(), f, indent=4, default=str)
 
 def save_output_as_json(state, filename):
     """
@@ -73,14 +74,17 @@ def save_output_as_json(state, filename):
         filename (str): The name of the file to save the state to.
     """
     with open(filename, 'w') as f:
-        json.dump(dict(state.items()), f, indent=4)
+        json.dump(dict(state.items()), f, indent=4, default=str)
 
 # Full chunk state with all fields
 class ChunkState(BaseModel):
+    model_config = {"arbitrary_types_allowed": True}
+    
     chunk_id: Annotated[int, keep_latest] = Field(description="Unique identifier for the chunk")
     topic: Annotated[str, keep_latest]
     topic_id: Annotated[Optional[int], keep_latest]
     origin_article_id: Annotated[Optional[int], keep_latest] = None
+    article_date: Annotated[Optional[Timestamp], keep_latest] = None
     content: Annotated[str, keep_latest]
     general_event: Annotated[Optional[List[dict]], merge_unique_events] = Field(default_factory=list)
     person_event: Annotated[Optional[List[dict]], merge_unique_events] = Field(default_factory=list)
