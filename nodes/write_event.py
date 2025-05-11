@@ -148,10 +148,10 @@ def main(state):
                     is_expert_flag=event.get('is_expert_flag', None)
                 )
 
-    # state.is_processed = 1
-    # update_article_chunk(
-    #     chunk_id=state.chunk_id,
-    #     is_processed=True
-    # )
+    state.is_processed = 1
+    update_article_chunk(
+        chunk_id=state.chunk_id,
+        is_processed=True
+    )
 
     return state

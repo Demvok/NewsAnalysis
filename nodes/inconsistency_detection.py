@@ -41,7 +41,7 @@ def _truncate_comment(comment_text):
 def _refine_comment(comment_text):
     """Refine comment to fit within character limit using the LLM."""
     refinement_prompt = f"Summarize this inconsistency comment in under 200 characters:\n\n{comment_text}"
-    response = llm_invoke(refinement_prompt)
+    response = llm_invoke(refinement_prompt, usage_type='refine')
     return response.content[:200]
 
 # Format previous opinions function
@@ -114,7 +114,7 @@ def get_inconsistency_comment(person, topic, new_opinion, previous_opinions, max
     )
     
     # First attempt
-    response = llm_invoke(formatted_prompt)
+    response = llm_invoke(formatted_prompt, usage_type='inconsistency_comment')
 
     # Rest of the function remains the same
     try:
@@ -131,7 +131,7 @@ def get_inconsistency_comment(person, topic, new_opinion, previous_opinions, max
             break  # Skip retries for IGNORE mode
                 
         retries += 1
-        response = llm_invoke(formatted_prompt)
+        response = llm_invoke(formatted_prompt, usage_type='inconsistency_comment')
 
         try:
             parsed = _parse_event_output(response.content)

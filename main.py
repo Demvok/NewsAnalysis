@@ -25,8 +25,7 @@ if __name__ == "__main__":
         logger.error(f"Unknown field length policy: {FIELD_LENGTH_POLICY}")
         raise ValueError(f"Unknown field length policy: {FIELD_LENGTH_POLICY}")
 
-    unprocessed_chunks_df = t_get_unprocessed_chunks_input(is_processed=False)
-    # .head(10) # Obviously temporary
+    unprocessed_chunks_df = t_get_unprocessed_chunks_input(first_run=True, is_processed=False).head(10) # Obviously temporary
 
     for _, row in unprocessed_chunks_df.iterrows():
 

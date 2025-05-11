@@ -91,7 +91,7 @@ def get_event_scores(
         topic=topic,
         content=content
     )
-    response = llm_invoke(formatted_prompt)
+    response = llm_invoke(formatted_prompt, usage_type='event_scoring')
 
     try:
         parsed = _parse_scoring_output(response.content)
@@ -109,7 +109,7 @@ def get_event_scores(
             break
                 
         retries += 1
-        response = llm_invoke(formatted_prompt)
+        response = llm_invoke(formatted_prompt, usage_type='event_scoring')
 
         try:
             parsed = _parse_scoring_output(response.content)

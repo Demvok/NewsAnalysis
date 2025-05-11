@@ -54,7 +54,7 @@ def _truncate_event_fields(event):
 
 def _refine_event_field(field_name, field_value, max_length):
     """Refine a single field using the LLM to fit within the maximum length."""
-    response = llm_invoke(REFINING_PROMPT.format(max_length=max_length, field_value=field_value))
+    response = llm_invoke(REFINING_PROMPT.format(max_length=max_length, field_value=field_value), usage_type='refine')
     return response.content[:max_length]
 
 def _refine_event_fields(event):
@@ -279,7 +279,7 @@ def extract_events(topic, content, max_retries=3):
 
     # First attempt
     formatted_prompt = prompt.format(topic=topic, chunk=content)
-    response = llm_invoke(formatted_prompt)
+    response = llm_invoke(formatted_prompt, usage_type='event_extraction')
 
     parsed = _parse_event_output(response.content)
     # It's okay if both events are None - this is valid and shouldn't be treated as an error
