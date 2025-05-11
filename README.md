@@ -1,12 +1,14 @@
 #### TO DO:
 
-- optimize scraper, paralellize if possible
+- optimize scraper, paralellise if possible
+  
 - fine tune event extraction, there are too many of them
+
 - fix person duplication because of different model outputs
-- add usege type to `llm_invoke` for better traking
-- possibly remove merge node
-- parallelize graph
 - add `is_expert_flag` logic
+- add usage type to `llm_invoke` for better traking
+- possibly remove merge node
+- parallelise graph
 - test different `FIELD_LENGTH_POLICY`
 
 

@@ -237,10 +237,13 @@ def t_get_articles_without_chunks_input():
         return pd.DataFrame()  # Return an empty DataFrame as a precaution
     return get_article_df(article_ids)
 
-def t_get_unprocessed_chunks_input(*args, **kwargs):
+def t_get_unprocessed_chunks_input(first_run=False, *args, **kwargs):
     """
     Fetches unprocessed chunks along with their topics and content in a single query.
     Call with is_processed=False to get unprocessed chunks.
+    
+    Args:
+        first_run (bool): If True, sorts results by article_date ascending for chronological processing
     """
     with _get_session() as session:
         # Query to fetch unprocessed chunks
@@ -264,6 +267,10 @@ def t_get_unprocessed_chunks_input(*args, **kwargs):
         # Apply additional conditions if provided
         for attr, value in kwargs.items():
             query = query.filter(getattr(DimArticleChunks, attr) == value)
+            
+        # Add ordering by article_date if first_run is True
+        if first_run:
+            query = query.order_by(DimArticle.article_date.asc())
 
         # Fetch results
         results = query.all()

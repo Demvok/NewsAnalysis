@@ -138,3 +138,8 @@ class OpinionScores(BaseModel):
     relevancy: float = Field(description="Relevancy score from 0 to 1", ge=0, le=1)
     contribution: float = Field(description="Contribution score from 0 to 1", ge=0, le=1)
     controversy: float = Field(description="Controversy score from 0 to 1", ge=0, le=1)
+
+class EventScores(BaseModel):
+    relevance: float = Field(description="Relevance score from 0 to 1")
+    influence: float = Field(description="Influence score from 0 to 1")
+    novelty: float = Field(description="Novelty score from 0 to 1")

@@ -8,7 +8,11 @@
     "general_event": [
         {
             "title": "Desert Crop Startup HyveGeo",
-            "description": "Moroccan startup HyveGeo aims to grow crops in the UAE desert using innovative methods."
+            "description": "Moroccan startup HyveGeo aims to grow crops in the UAE desert using innovative methods.",
+            "relevance_score": 0.9,
+            "influence_score": 0.7,
+            "novelty_score": 0.6,
+            "event_hotness": 0.745
         }
     ],
     "person_event": [
@@ -18,13 +22,13 @@
             "sentiment": -0.2,
             "person_id": 63,
             "inconsistency_flag": false,
-            "sentiment_deviation": 0.061518006242075166,
+            "sentiment_deviation": 0.06069930091854435,
             "stance": "mixed",
-            "person_summary": "Dr. Fernandes de Souza\u2019s stance remains mixed on green energy, despite new research questioning soil regeneration timelines for desert crops. As a non-expert, she's unlikely to shift her view significantly.",
+            "person_summary": "Dr. Fernandes de Souza\u2019s stance remains mixed on green energy, citing complex soil dynamics and irrigation needs for desert crops. As a non-expert, her views are evolving slowly, despite recent research questioning regeneration times.",
             "relevancy_score": 0.75,
             "contribution_score": 0.6,
-            "controversy_score": 0.2,
-            "opinion_hotness": 0.54
+            "controversy_score": 0.3,
+            "opinion_hotness": 0.5700000000000001
         }
     ],
     "is_processed": 0

@@ -12,7 +12,10 @@ Ensure the following constraints:
 - The "person_name" must not exceed 150 characters.
 - The "citation" must not exceed 300 characters.
 
-Without superfluous information, just the most important details. Provide only the anwear, do not include any additional text or explanations.
+Without superfluous information, just the most important details. Provide only the answear, do not include any additional text or explanations.
+If general event is not found, use `null` for the "general_event" field.
+If person event is not found, use `null` for the "person_event" field.
+If both events are not found, return `null` for the entire response.
 
 Return a JSON object in the following format:
 
@@ -116,7 +119,27 @@ Found inconsistency: {inconsistency}
 {{/if}}  
 """
 
+EVENT_SCORING_PROMPT = """
+You are an expert journalist proficient in analyzing events. Given the following inputs, score the general event in the topic of discussion:
+Make 3 scores:
+1. Relevance: 0-1 floating-point number (how relevant the event is to the topic)
+2. Influence: 0-1 floating-point number (how much the event influences the topic)
+3. Novelty: 0-1 floating-point number (how novel the event is)
+Use 0 if score in close to useless, 1 if score is absolutely useful. Be as precise as possible.
 
+Provide **only** the scores in the following format:
+{{
+    "relevance": <relevance>,
+    "influence": <influence>, 
+    "novelty": <novelty>
+}}
+
+Inputs:
+Topic: {topic}
+Event title: {title}
+Event description: {description}
+Article chunk content (for context): {content}
+"""
 
 
 
