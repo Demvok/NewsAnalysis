@@ -211,7 +211,10 @@ def main(state):
                 logger.debug(f"No inconsistent opinions found for person_event {idx + 1} in chunk {chunk_id}.")
                 new_person_event = person_event_data.copy()
                 new_person_event.update({'person_id': person_id})
-                updated_person_events.append(person_event_data)
+                # Set inconsistency_flag to False explicitly
+                new_person_event.update({'inconsistency_flag': False})
+                # Add the updated event data, not the original
+                updated_person_events.append(new_person_event)
                 continue
             else:
                 logger.debug(f"Inconsistent opinions found for person_event {idx + 1} in chunk {chunk_id}.")

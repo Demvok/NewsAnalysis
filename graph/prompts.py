@@ -89,6 +89,32 @@ Recently found inconsistency: {inconsistency}
 {{/if}}
 """
 
+OPINION_SCORING_PROMPT = """
+You are an expert journalist proficient in analyzing political stances. Given the following inputs, score the opinion (citation) on the topic.:
+Make 3 scores:
+1. Relevancy: 0-1 floating-point number (how relevant the opinion is to the topic)
+2. Contribution: 0-1 floating-point number (how much the opinion contributes to the topic)
+3. Controversy: 0-1 floating-point number (how controversial the opinion is)
+Use 0 if score in close to useless, 1 if score is absolutely useful. Be as precise as possible.
+
+Provide **only** the scores in the following format:
+{{
+    "relevancy": <relevancy>,
+    "contribution": <contribution>, 
+    "controversy": <controversy>
+}}
+
+Inputs:
+Topic: {topic}
+Person: {person}  
+Person summary: {person_summary}
+Tendency to change stance: {sentiment_deviation}
+Citation: {citation}
+Recent inconsistesies found: {inconsistency_flag}
+{{#if inconsistency}}
+Found inconsistency: {inconsistency}  
+{{/if}}  
+"""
 
 
 

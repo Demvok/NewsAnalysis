@@ -99,17 +99,17 @@ def main(state):
                     inconsistency_with_id=inconsistency_with_id,
                     inconsistency_comment=inconsistency_comment
                 )
-            elif event.get('opinion_hotness') is not None: # Scored case
+            elif event.get('opinion_hotness'): # Scored case
                 logger.debug('(Stage 3) Scored case')
 
                 sentiment = event.get('sentiment')
 
-                inconsistency_flag = event.get('inconsistency_flag')
+                inconsistency_flag = event.get('inconsistency_flag', False)
                 inconsistency_with_id = event.get('inconsistency_with_id')
                 inconsistency_comment = event.get('inconsistency_comment')
 
                 controversy_score = event.get('controversy_score')
-                relevance_score = event.get('relevance_score')
+                relevance_score = event.get('relevancy_score')
                 contribution_score = event.get('contribution_score')
                 opinion_hotness = event.get('opinion_hotness')
 
@@ -126,7 +126,7 @@ def main(state):
                     inconsistency_with_id=inconsistency_with_id,
                     inconsistency_comment=inconsistency_comment,
                     controversy_score=controversy_score,
-                    relevance_score=relevance_score,
+                    relevancy_score=relevance_score,
                     contribution_score=contribution_score,
                     opinion_hotness=opinion_hotness,
                     is_selected=is_selected

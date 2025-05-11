@@ -133,3 +133,8 @@ class InconsistencyComment(BaseModel):
 
 class PersonSummary(BaseModel):
     person_summary: str = Field(description="Summary of the person's stance on topic.", max_length=300)
+
+class OpinionScores(BaseModel):
+    relevancy: float = Field(description="Relevancy score from 0 to 1", ge=0, le=1)
+    contribution: float = Field(description="Contribution score from 0 to 1", ge=0, le=1)
+    controversy: float = Field(description="Controversy score from 0 to 1", ge=0, le=1)

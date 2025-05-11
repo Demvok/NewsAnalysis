@@ -1,0 +1,31 @@
+{
+    "chunk_id": 70,
+    "topic": "Green energy",
+    "topic_id": 1,
+    "origin_article_id": 25,
+    "article_date": "2025-03-30 00:00:00",
+    "content": "This Moroccan startup is growing crops in the desertBin Redha said HyveGeo\u2019s product could be used to grow staple crops in the UAE like cowpea, millet, wheat and rice, as well as leafy greens and fruit and vegetables.Dr. Marcella Fernandes de Souza, a postdoctoral researcher at Ghent University, in Belgium, and an expert in algae biotechnology, who is not involved with HyveGeo, told CNN in an email that \u201cit seems they (HyveGeo) are covering all bases to make the soil arable.\u201cHowever,\u201d she continued, \u201csoil dynamics are very complex and it can take some time for the soil to fully regenerate and regain its health, so I do not know what time frame would be realistic to fully recover this soil.\u201dShe also questioned the irrigation requirements for crop cultivation in desert regions.Producing enough microalgae to meet demand and make HyveGeo\u2019s model commercially viable are just two of many challenges the startup faces.\u201cIt\u2019s really difficult,\u201d bin Redha conceded. \u201cWe have seen startups that are very well funded and have been running for 15 years and unfortunately gone into administration (growing microalgae) in the desert.\u201cIt\u2019s about finding a way to grow at scale at a cost-effective way \u2013 and I think we\u2019re very, very close to cracking that.\u201dOne positive is the location of HyveGeo\u2019s operation. Dr. de Souza noted that algae farms \u201cneed to focus on locations with large available land and good weather and sun irradiation\u201d \u2013 three elements the UAE has in abundance.HyveGeo will announce its next round of venture capital funding this summer, and has entered into partnership with a state-owned company on its commercial biochar processing site.Long term, Redha says he wants the company to export its model worldwide through licensing deals in places with desert and degenerated land. HyveGeo\u2019s goal is to regenerate 10,000 hectares of land and remove 1 million tons of carbon dioxide from the atmosphere by 2035.\u201cClimate is a long-term thing and climate is apolitical,\u201d added Welch. \u201cWe have a big challenge to solve, and if we can do our bit to solve the problem, that\u2019s a wonderful thing.\u201d",
+    "general_event": [
+        {
+            "title": "Desert Crop Startup HyveGeo",
+            "description": "Moroccan startup HyveGeo aims to grow crops in the UAE desert using innovative methods."
+        }
+    ],
+    "person_event": [
+        {
+            "person_name": "Dr. Marcella Fernandes de Souza",
+            "citation": "Researcher questioned soil regeneration time and irrigation needs for desert crop cultivation, citing complex soil dynamics.",
+            "sentiment": -0.2,
+            "person_id": 63,
+            "inconsistency_flag": false,
+            "sentiment_deviation": 0.061518006242075166,
+            "stance": "mixed",
+            "person_summary": "Dr. Fernandes de Souza\u2019s stance remains mixed on green energy, despite new research questioning soil regeneration timelines for desert crops. As a non-expert, she's unlikely to shift her view significantly.",
+            "relevancy_score": 0.75,
+            "contribution_score": 0.6,
+            "controversy_score": 0.2,
+            "opinion_hotness": 0.54
+        }
+    ],
+    "is_processed": 0
+}
