@@ -1,5 +1,5 @@
 import time
-from utils.logger import log
+import utils.logger as log
 from config import FIELD_LENGTH_POLICY, MAX_RETRIES
 
 from pydantic import ValidationError

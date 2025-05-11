@@ -1,4 +1,4 @@
-import os
+from config import FIELD_LENGTH_POLICY
 from graph.graph_config import create_app
 from database.DBConnector import *
 # from utils.article_splitter import main as split_articles
@@ -6,7 +6,6 @@ from database.DBConnector import *
 from utils.logger import setup_logger
 
 logger = setup_logger(name="main", log_file="graph.log")
-FIELD_LENGTH_POLICY = os.getenv("FIELD_LENGTH_POLICY").upper()
 
 if __name__ == "__main__":
 

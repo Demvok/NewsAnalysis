@@ -12,7 +12,7 @@ Ensure the following constraints:
 - The "person_name" must not exceed 150 characters.
 - The "citation" must not exceed 300 characters.
 
-Without superfluous information, just the most important details.
+Without superfluous information, just the most important details. Provide only the anwear, do not include any additional text or explanations.
 
 Return a JSON object in the following format:
 
@@ -64,13 +64,15 @@ Write **only one paragraph**, max **200 characters**, pointing out the sentiment
 """
 
 PERSON_SUMMARY_PROMPT = """
-You are an expert journalist proficient in analyzing political stances. Given the following inputs, produce **only one text** (max 300 characters) that:
- 1. Summarizes the person’s current position on the topic.
- 2. Notes their expert status and openness to change.
- 3. Highlights any recent contradiction, if present.
- 4. Integrates key details from the new citation and, if available, the previous summary.
-  
-If a previous summary exists, start your response like “In light of recent events,”.
+You are an expert journalist proficient in analyzing political stances. Given the following inputs, produce **only** the final person_summary text (max 300 characters) that:
+
+1. Summarizes the person’s current position on the topic.
+2. Notes their expert status and openness to change.
+3. Highlights any recent contradiction, if present.
+4. Integrates key details from the new citation and, if available, the previous summary.
+
+If a previous summary exists, should make an updated version of it.  
+Respond with no bullet points, no options, no additional commentary—just the **single person_summary string** of given length. Do **not** start with typical phrases like "Here's a summary under 300 characters:", start already with option text. Output **only** the most full option's text.
 
 Inputs:
 Person: {person}  
@@ -80,10 +82,10 @@ Citation: {citation}
 Stance: {stance}  
 Tendency to change stance: {sentiment_deviation}  
 {{#if previous_summary}}
-Previous summary: {previous_summary}
+Previous summary: {previous_summary}  
 {{/if}}
 {{#if inconsistency}}
-Recently found inconsistency: {inconsistency}
+Recently found inconsistency: {inconsistency}  
 {{/if}}
 """
 
