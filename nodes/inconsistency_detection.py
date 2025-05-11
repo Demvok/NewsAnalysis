@@ -9,7 +9,8 @@ from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts import PromptTemplate
 
 from graph.model import llm_invoke
-from database.DBConnector import t_get_person_opinions, find_person, get_article
+from graph.prompts import INCONSISTENCY_COMMENT_PROMPT
+from database.DBConnector import t_get_person_opinions, find_person
 
 logger = log.setup_logger(name="inconsistency_detection", log_file="graph.log")
 
@@ -24,22 +25,24 @@ warnings.filterwarnings("ignore")
 
 parser = PydanticOutputParser(pydantic_object=InconsistencyComment)
 
-# Define prompt template at module level
-inconsistency_comment_template = """
-You are an expert journalist skilled in deduction and speech analysis.  
-Given the following inputs, compare the new citation to previous ones and comment on any inconsistency.
 
-Person: {person}  
-Topic: {topic} 
-New citation:  
-- Text: {new_citation}  
-- Date: {new_date}  
-- Score: {new_score}  
-Previous citations (up to 15):  
-{previous_formatted}
+#
+#   Different policies for field length handling
+#
 
-Write **only one paragraph**, max **200 characters**, pointing out the sentiment inconsistency. Do not include quotes or metadata—just the concise comment.
-"""
+def _validate_comment_length(comment_text):
+    """Validate the length of an inconsistency comment."""
+    return len(comment_text) <= 200
+
+def _truncate_comment(comment_text):
+    """Truncate comment to maximum allowed length."""
+    return comment_text[:200]
+
+def _refine_comment(comment_text):
+    """Refine comment to fit within character limit using the LLM."""
+    refinement_prompt = f"Summarize this inconsistency comment in under 200 characters:\n\n{comment_text}"
+    response = llm_invoke(refinement_prompt)
+    return response.content[:200]
 
 # Format previous opinions function
 def format_previous_opinions(previous_opinions):
@@ -52,12 +55,39 @@ def format_previous_opinions(previous_opinions):
 def _parse_event_output(response: str):
     """Parse the LLM response and comment."""
     start_time = time.time()
+    comment_text = response.strip()
     
     try:
-        inconsistency_comment = InconsistencyComment(inconsistency_comment=response.strip())
+        if FIELD_LENGTH_POLICY == "IGNORE":
+            # Skip validation and directly parse
+            inconsistency_comment = InconsistencyComment(inconsistency_comment=comment_text)
+        
+        elif FIELD_LENGTH_POLICY == "RETRY":
+            # Validate length and raise error if invalid
+            if not _validate_comment_length(comment_text):
+                raise ValueError(f"Comment exceeds 200 characters (length: {len(comment_text)})")
+            inconsistency_comment = InconsistencyComment(inconsistency_comment=comment_text)
+                
+        elif FIELD_LENGTH_POLICY == "REFINE":
+            # Attempt to refine comment if validation fails
+            try:
+                inconsistency_comment = InconsistencyComment(inconsistency_comment=comment_text)
+            except ValidationError:
+                refined_comment = _refine_comment(comment_text)
+                inconsistency_comment = InconsistencyComment(inconsistency_comment=refined_comment)
+                
+        elif FIELD_LENGTH_POLICY == "TRUNCATE":
+            # Truncate comment if validation fails
+            try:
+                inconsistency_comment = InconsistencyComment(inconsistency_comment=comment_text)
+            except ValidationError:
+                truncated_comment = _truncate_comment(comment_text)
+                inconsistency_comment = InconsistencyComment(inconsistency_comment=truncated_comment)
+        
         end_time = time.time()
         logger.debug("Finished parsing model output.", extra={"execution_time": log.timeUsed(start_time, end_time)})
         return inconsistency_comment
+        
     except ValidationError as e:
         logger.warning(f"Validation error while creating InconsistencyComment: {e}")
         raise e  # Re-raise the exception to trigger re-invocation if needed
@@ -74,9 +104,7 @@ def get_inconsistency_comment(person, topic, new_opinion, previous_opinions, max
     formatted_previous = format_previous_opinions(previous_opinions)
     
     # Create prompt using module-level template
-    formatted_prompt = PromptTemplate.from_template(
-        inconsistency_comment_template
-    ).format(
+    formatted_prompt = PromptTemplate.from_template(INCONSISTENCY_COMMENT_PROMPT).format(
         person=person,
         topic=topic,
         new_citation=new_opinion['citation'],
@@ -107,12 +135,10 @@ def get_inconsistency_comment(person, topic, new_opinion, previous_opinions, max
 
         try:
             parsed = _parse_event_output(response.content)
-            end_time = time.time()  # End timing
-            logger.info(
-                f"Successfully got comment' after {retries} retries.",
-                extra={"execution_time": log.timeUsed(start_time, end_time)}
-            )
-            return parsed  # Return if parsing and validation succeed
+            end_time = time.time()
+            logger.info(f"Successfully got comment after {retries} retries.",
+                extra={"execution_time": log.timeUsed(start_time, end_time)})
+            return parsed
         except Exception as e:
             logger.warning(f"Retry {retries}/{max_retries} due to invalid output: {e}",
                 extra={"execution_time": log.timeUsed(start_time, time.time())})
@@ -137,15 +163,14 @@ def main(state):
     try:
         # Extract required fields from the state
         chunk_id = state.chunk_id
-        logger.info(f"Inconsistency analysis for chunk {chunk_id} started")
+        logger.info(f"(Stage 2) Inconsistency analysis for chunk {chunk_id} started")
         topic = state.topic
         content = state.content
         person_events = state.person_event
-        origin_article_id = state.origin_article_id
-        article_date = get_article(origin_article_id).loc['article_date']
+        article_date = state.article_date
         
-        if not topic or not content:
-            logger.warning(f"Chunk {chunk_id} is missing topic or content. Skipping.")
+        if not topic or not content or not article_date:
+            logger.warning(f"Chunk {chunk_id} is missing topic, content or article date. Skipping.")
             return state  # Skip processing if required fields are missing
 
         if not person_events:
@@ -166,6 +191,12 @@ def main(state):
             
             person_name = person_event_data.get('person_name')
             person_id = find_person(person_name=person_name)
+
+            if person_id is None:
+                logger.debug(f"Person ID not yet exists for {person_name} in chunk {chunk_id}.")
+                updated_person_events.append(person_event_data)
+                continue
+
             citation = person_event_data.get('citation')
             sentiment_score = person_event_data.get('sentiment')
             
@@ -178,11 +209,14 @@ def main(state):
 
             if inconsistent_with.empty:
                 logger.debug(f"No inconsistent opinions found for person_event {idx + 1} in chunk {chunk_id}.")
+                new_person_event = person_event_data.copy()
+                new_person_event.update({'person_id': person_id})
                 updated_person_events.append(person_event_data)
                 continue
             else:
                 logger.debug(f"Inconsistent opinions found for person_event {idx + 1} in chunk {chunk_id}.")
                 new_person_event = person_event_data.copy()
+                new_person_event.update({'person_id': person_id})
                 
                 # Convert to a list of IDs or records
                 inconsistent_ids = inconsistent_with['opinion_id'].tolist()  # Assuming 'opinion_id' exists

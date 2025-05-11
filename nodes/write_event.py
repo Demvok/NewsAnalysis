@@ -1,4 +1,4 @@
-from database.DBConnector import add_event_full, add_opinion_full, add_person, update_article_chunk
+from database.DBConnector import add_event_full, add_opinion_full, add_person, add_attitude_full, update_article_chunk
 from utils.logger import setup_logger
 from config import EVENTS_HOTNESS_THRESHOLD, OPINION_HOTNESS_THRESHOLD
 
@@ -63,7 +63,6 @@ def main(state):
             if person_name is None or citation is None:
                 logger.warning(f"(Stage -1) Skipping person event due to missing fields: {event}")
                 continue
-
             if event.get('sentiment') is None:    # Unanalysed event case
                 logger.debug('(Stage 0) No sentiment case')
                 add_opinion_full(
@@ -131,6 +130,22 @@ def main(state):
                     contribution_score=contribution_score,
                     opinion_hotness=opinion_hotness,
                     is_selected=is_selected
+                )
+            else:
+                continue
+
+            if event.get('sentiment_deviation') or event.get('stance') or event.get('person_summary'):
+                logger.debug('(Stage 2.1) Summary full case')
+                topic_id = state.topic_id
+                if topic_id is None:
+                    raise ValueError("topic_id is missing in the state.")
+                add_attitude_full(
+                    fk_person_id=fk_person_id,
+                    fk_topic_id=topic_id,
+                    sentiment_deviation=event.get('sentiment_deviation', None),
+                    stance=event.get('stance', None),
+                    person_summary=event.get('person_summary', None),
+                    is_expert_flag=event.get('is_expert_flag', None)
                 )
 
     # state.is_processed = 1

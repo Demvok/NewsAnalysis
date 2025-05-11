@@ -13,7 +13,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 llm = ChatOpenAI(openai_api_base="http://127.0.0.1:1234/v1",
                  model='gemma-3-4b-it-qat',
-                 temperature=0)
+                 temperature=0.1)
 
 
 # Configure logging

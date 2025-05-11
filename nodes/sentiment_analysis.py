@@ -1,6 +1,6 @@
 import time
 import utils.logger as log
-from config import FIELD_LENGTH_POLICY
+from config import FIELD_LENGTH_POLICY, MAX_RETRIES
 
 from pydantic import ValidationError
 from graph.states_setup import SentimentScore
@@ -9,6 +9,7 @@ from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts import PromptTemplate
 
 from graph.model import llm_invoke
+from graph.prompts import SENTIMENT_ANALYSIS_PROMPT
 
 logger = log.setup_logger(name="sentiment_analysis", log_file="graph.log")
 
@@ -23,22 +24,7 @@ warnings.filterwarnings("ignore")
 
 parser = PydanticOutputParser(pydantic_object=SentimentScore)
 
-prompt = PromptTemplate.from_template(
-    """
-    You are a debate and sentiment analysis expert.  
-    Given the following topic and text, return **only** a single floating-point number between -1.0 and +1.0, where:
-    - -1.0 indicates strongly negative sentiment  
-    -  0.0 indicates neutral sentiment  
-    - +1.0 indicates strongly positive sentiment  
-
-    Topic: {topic}  
-    Text:  
-    {content}
-
-    Respond with the number alone (e.g. “-0.75”).
-    """
-)
-
+prompt = PromptTemplate.from_template(SENTIMENT_ANALYSIS_PROMPT)
 
 
 def _parse_event_output(response: str):
@@ -62,7 +48,7 @@ def _parse_event_output(response: str):
     logger.debug("Finished parsing model output.", extra={"execution_time": log.timeUsed(start_time, end_time)})
     return sentiment_score
 
-def get_sentiment_score(topic, content, max_retries=3):
+def get_sentiment_score(topic, content, max_retries=MAX_RETRIES):
     """Extract events with retry logic for invalid outputs."""
     retries = 0
     start_time = time.time()  # Start timing the extraction process
@@ -112,7 +98,7 @@ def main(state):
     try:
         # Extract required fields from the state
         chunk_id = state.chunk_id
-        logger.info(f"Sentiment analysis for chunk {chunk_id} started")
+        logger.info(f"(Stage 1) Sentiment analysis for chunk {chunk_id} started")
         topic = state.topic
         content = state.content
         person_events = state.person_event

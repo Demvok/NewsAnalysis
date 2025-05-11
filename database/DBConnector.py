@@ -250,8 +250,11 @@ def t_get_unprocessed_chunks_input(*args, **kwargs):
                 DimArticleChunks.fk_article_id,
                 DimArticleChunks.start_index,
                 DimArticleChunks.end_index,
+                DimTopic.topic_id,
                 DimTopic.topic_name,
-                DimArticle.content
+                DimArticle.content,
+                DimArticle.article_date,
+                DimArticle.article_id
             )
             .join(DimArticle, DimArticleChunks.fk_article_id == DimArticle.article_id)
             .join(DimTopic, DimArticle.fk_topic_id == DimTopic.topic_id)
@@ -275,6 +278,9 @@ def t_get_unprocessed_chunks_input(*args, **kwargs):
                 "chunk_id": row.chunk_id,
                 "content": row.content[row.start_index:row.end_index],
                 "topic": row.topic_name,
+                "topic_id": row.topic_id,
+                "article_date": row.article_date,
+                "origin_article_id": row.article_id,
             }
             for row in results
         ]
@@ -336,7 +342,6 @@ def t_upload_person_event(
             update_opinion(opinion_id=opinion_id, controversy_score=controversy, relevancy_score=relevance, contribution_score=contribution, opinion_hotness=overall)
         else:
             logger.warning(f"Opinion not found for article_id={article_id}, person_id={person_id}, citation={citation}")
-
 
 def t_get_person_opinions(person_id: int, limit: int = 15) -> pd.DataFrame:
     """
@@ -407,6 +412,53 @@ def t_ids_string_to_list(ids_string):
     if not ids_string:
         return []
     return [int(id_str) for id_str in ids_string.split(',') if id_str.strip()]
+
+def t_get_person_topic_sentiment_history(person_id: int, topic_id: int) -> pd.DataFrame:
+    """
+    Gets a person's sentiment history for a specific topic in chronological order.
+    
+    Args:
+        person_id: The ID of the person whose sentiment history to retrieve
+        topic_id: The ID of the topic to filter by
+        
+    Returns:
+        DataFrame containing sentiment scores and article dates for the specified person and topic
+    """
+    with _get_session() as session:
+        start_time = time.time()
+        
+        # Build query joining all four tables with specific columns
+        query = (session.query(
+                DimOpinion.sentiment_score,
+                DimArticle.article_date
+            )
+            .join(DimPerson, DimOpinion.fk_person_id == DimPerson.person_id)
+            .join(DimArticle, DimOpinion.fk_origin_article_id == DimArticle.article_id)
+            .join(DimTopic, DimArticle.fk_topic_id == DimTopic.topic_id)
+            .filter(DimPerson.person_id == person_id)
+            .filter(DimTopic.topic_id == topic_id)
+            .order_by(DimArticle.article_date.desc())
+        )
+        
+        # Execute query and fetch results
+        results = query.all()
+        
+        # Convert to DataFrame
+        if results:
+            df = pd.DataFrame([{
+                'sentiment_score': r.sentiment_score,
+                'article_date': r.article_date
+            } for r in results])
+            
+            end_time = time.time()
+            logger.info(f"Found {len(results)} sentiment records for person_id {person_id} on topic_id {topic_id}", 
+                       extra={'execution_time': log.timeUsed(start_time, end_time)})
+            return df
+        else:
+            end_time = time.time()
+            logger.warning(f"No sentiment history found for person_id {person_id} on topic_id {topic_id}", 
+                          extra={'execution_time': log.timeUsed(start_time, end_time)})
+            return pd.DataFrame()
 
 # 
 # DimEvent
@@ -1883,10 +1935,10 @@ def get_attitude(fk_topic_id: int, fk_person_id: int) -> pd.Series:
                 'created_at': attitude.created_at,
                 'modified_at': attitude.modified_at
             }
-            logger.info(f"Attitude found with fk_topic_id: {fk_topic_id} and fk_person_id: {fk_person_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
+            logger.debug(f"Attitude found with fk_topic_id: {fk_topic_id} and fk_person_id: {fk_person_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.Series(attitude_dict)
         else:
-            logger.warning(f"Attitude with fk_topic_id {fk_topic_id} and fk_person_id {fk_person_id} not found", extra={'execution_time': log.timeUsed(start_time, end_time)})
+            logger.info(f"Attitude with fk_topic_id {fk_topic_id} and fk_person_id {fk_person_id} not found", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.Series()
 
 def get_attitude_df(attitude_ids: list) -> pd.DataFrame:

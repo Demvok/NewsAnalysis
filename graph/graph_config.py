@@ -1,5 +1,5 @@
 from langgraph.graph import StateGraph, START, END
-from nodes import  write_event, event_classifier, sentiment_analysis, inconsistency_detection, merge_events, blank
+from nodes import  write_event, event_classifier, sentiment_analysis, inconsistency_detection, person_summary, merge_events, blank
 from .states_setup import ChunkState
 from typing import List
 
@@ -12,7 +12,7 @@ def create_app():
     # Opinion processing
     graph.add_node("sentiment_analysis", sentiment_analysis.main)
     graph.add_node("inconsistency_detection", inconsistency_detection.main)
-    graph.add_node("person_summary", blank.main)
+    graph.add_node("person_summary", person_summary.main)
     graph.add_node("scoring_system_person", blank.main)
 
     # General event processing
@@ -46,8 +46,7 @@ def create_app():
     # Opinion processing
     graph.add_edge('sentiment_analysis', 'inconsistency_detection')
     graph.add_edge('inconsistency_detection', 'person_summary')
-    graph.add_edge('inconsistency_detection', 'scoring_system_person')
-    graph.add_edge('person_summary', 'scoring_system_person')
+    graph.add_edge(['inconsistency_detection', 'person_summary'], 'scoring_system_person')
 
     graph.add_edge(['scoring_system_person', 'scoring_system_general'], 'merge_events')
 
