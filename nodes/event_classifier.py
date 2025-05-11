@@ -10,6 +10,7 @@ from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts import PromptTemplate
 
 from graph.model import llm_invoke
+from graph.prompts import EVENT_CLASSIFICATION_PROMPT, REFINING_PROMPT
 from database.DBConnector import get_article_chunk, get_article
 
 logger = log.setup_logger(name="event_classifier", log_file="graph.log")
@@ -25,39 +26,7 @@ warnings.filterwarnings("ignore")
 
 parser = PydanticOutputParser(pydantic_object=EventClassification)
 
-prompt = PromptTemplate.from_template(
-    """You are an expert journalist assistant. Your task is to extract:
-
-    1. General events related to the topic "{topic}" from the article.
-    2. Person events related to someone’s statement or action regarding "{topic}".
-
-    Ensure the following constraints:
-    - The "title" of the general event must not exceed 50 characters.
-    - The "description" of the general event must not exceed 200 characters.
-    - The "person_name" must not exceed 150 characters.
-    - The "citation" must not exceed 300 characters.
-
-    Without superfluous information, just the most important details.
-
-    Return a JSON object in the following format:
-
-    {{
-    "general_event": {{
-        "title": "...",
-        "description": "..."
-    }},
-    "person_event": {{
-        "person_name": "...",
-        "citation": "..."
-    }}
-    }}
-
-    If no event is found, use `null`.
-
-    Article:
-    {chunk}
-    """
-).partial(format_instructions=parser.get_format_instructions())
+prompt = PromptTemplate.from_template(EVENT_CLASSIFICATION_PROMPT).partial(format_instructions=parser.get_format_instructions())
 
 #
 #   Different policies for field length handling
@@ -85,8 +54,7 @@ def _truncate_event_fields(event):
 
 def _refine_event_field(field_name, field_value, max_length):
     """Refine a single field using the LLM to fit within the maximum length."""
-    refinement_prompt = f"Refine the following text to fit within {max_length} characters:\n\n{field_value}"
-    response = llm_invoke(refinement_prompt)
+    response = llm_invoke(REFINING_PROMPT.format(max_length=max_length, field_value=field_value))
     return response.content[:max_length]
 
 def _refine_event_fields(event):
@@ -247,7 +215,7 @@ def extract_events(topic, content, max_retries=3):
     return None  # Skip the current chunk if retries fail
 
 def main(state: ChunkState):
-    logger.info(f"Processing chunk {state.chunk_id} started")
+    logger.info(f"(Stage 0) Processing chunk {state.chunk_id} started")
 
     chunk_id = state.chunk_id
     topic = state.topic

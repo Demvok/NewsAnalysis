@@ -76,6 +76,27 @@ def save_output_as_json(state, filename):
     with open(filename, 'w') as f:
         json.dump(dict(state.items()), f, indent=4, default=str)
 
+def load_state_from_json(filename):
+    """
+    Load a state from a JSON file and convert it to a ChunkState object.
+    
+    Args:
+        filename (str): The path to the JSON file to load.
+        
+    Returns:
+        ChunkState: The loaded state as a ChunkState object.
+    """
+    with open(filename, 'r') as f:
+        data = json.load(f)
+    
+    # Handle timestamp conversion if needed
+    if 'article_date' in data and data['article_date'] is not None:
+        data['article_date'] = Timestamp(data['article_date'])
+    
+    # Create a ChunkState object from the loaded data
+    return ChunkState(**data)
+
+
 # Full chunk state with all fields
 class ChunkState(BaseModel):
     model_config = {"arbitrary_types_allowed": True}
@@ -91,6 +112,7 @@ class ChunkState(BaseModel):
     is_processed: Annotated[int, add] = 0
 
 
+# Parser setup
 class GeneralEvent(BaseModel):
     title: Optional[str] = Field(description="Title of the general event.", max_length=50)
     description: Optional[str] = Field(description="Brief summary of the event, limited to 200 characters.", max_length=200)
@@ -99,8 +121,6 @@ class PersonEvent(BaseModel):
     person_name: Optional[str] = Field(description="Name of the person involved in the event.", max_length=150)
     citation: Optional[str] = Field(description="Key statement or citation related to the person and the topic.", max_length=300)
 
-
-# Parser setup
 class EventClassification(BaseModel):
     general_event: Optional[GeneralEvent]
     person_event: Optional[PersonEvent]
@@ -110,3 +130,6 @@ class SentimentScore(BaseModel):
 
 class InconsistencyComment(BaseModel):
     inconsistency_comment: str = Field(description="Comment explaining the inconsistency.", max_length=200)
+
+class PersonSummary(BaseModel):
+    person_summary: str = Field(description="Summary of the person's stance on topic.", max_length=300)

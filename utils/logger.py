@@ -30,7 +30,7 @@ def setup_logger(name: str, log_file: str) -> logging.Logger:
     :param log_file: Path to the log file for this logger.
     :return: Configured Logger object.
     """
-    name = name.ljust(20, ' ')
+    name = name.ljust(25, ' ')
     # FORCE RESET: Remove any existing logger with this name
     if name in logging.Logger.manager.loggerDict:
         del logging.Logger.manager.loggerDict[name]

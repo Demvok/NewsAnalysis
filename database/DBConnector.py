@@ -1935,10 +1935,10 @@ def get_attitude(fk_topic_id: int, fk_person_id: int) -> pd.Series:
                 'created_at': attitude.created_at,
                 'modified_at': attitude.modified_at
             }
-            logger.info(f"Attitude found with fk_topic_id: {fk_topic_id} and fk_person_id: {fk_person_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
+            logger.debug(f"Attitude found with fk_topic_id: {fk_topic_id} and fk_person_id: {fk_person_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.Series(attitude_dict)
         else:
-            logger.warning(f"Attitude with fk_topic_id {fk_topic_id} and fk_person_id {fk_person_id} not found", extra={'execution_time': log.timeUsed(start_time, end_time)})
+            logger.info(f"Attitude with fk_topic_id {fk_topic_id} and fk_person_id {fk_person_id} not found", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.Series()
 
 def get_attitude_df(attitude_ids: list) -> pd.DataFrame:

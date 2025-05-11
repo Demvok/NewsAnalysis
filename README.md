@@ -5,6 +5,7 @@
 - fix person duplication because of different model outputs
 - add usege type to `llm_invoke` for better traking
 - add cleaner for logs
+- possibly remove merge node
 
 
 #### Time usage:

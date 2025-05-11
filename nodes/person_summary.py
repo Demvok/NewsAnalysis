@@ -1,45 +1,29 @@
 from config import FIELD_LENGTH_POLICY, MAX_RETRIES, MIXED_INTERVAL
 import time
 import utils.logger as log
+import pandas as pd
 
 from pydantic import ValidationError
-from graph.states_setup import InconsistencyComment
+from graph.states_setup import PersonSummary, save_state_as_json
 
 from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts import PromptTemplate
 
 from graph.model import llm_invoke
-from database.DBConnector import t_get_person_topic_sentiment_history
+from graph.prompts import PERSON_SUMMARY_PROMPT
+from database.DBConnector import t_get_person_topic_sentiment_history, get_person, get_attitude
 
-logger = log.setup_logger(name="inconsistency_detection", log_file="graph.log")
+logger = log.setup_logger(name="person_summary", log_file="graph.log")
 
 import warnings
 warnings.filterwarnings("ignore")
 
 
 # 
-# EQUALS TO STAGE 2
+# EQUALS TO STAGE 2.1
 # 
 
 
-parser = PydanticOutputParser(pydantic_object=InconsistencyComment)
-
-# Define prompt template at module level
-inconsistency_comment_template = """
-You are an expert journalist skilled in deduction and speech analysis.  
-Given the following inputs, compare the new citation to previous ones and comment on any inconsistency.
-
-Person: {person}  
-Topic: {topic} 
-New citation:  
-- Text: {new_citation}  
-- Date: {new_date}  
-- Score: {new_score}  
-Previous citations (up to 15):  
-{previous_formatted}
-
-Write **only one paragraph**, max **200 characters**, pointing out the sentiment inconsistency. Do not include quotes or metadata—just the concise comment.
-"""
 
 #
 #   Different policies for field length handling
@@ -47,91 +31,55 @@ Write **only one paragraph**, max **200 characters**, pointing out the sentiment
 
 def _validate_comment_length(comment_text):
     """Validate the length of an inconsistency comment."""
-    return len(comment_text) <= 200
+    return len(comment_text) <= 300
 
 def _truncate_comment(comment_text):
     """Truncate comment to maximum allowed length."""
-    return comment_text[:200]
+    return comment_text[:300]
 
 def _refine_comment(comment_text):
     """Refine comment to fit within character limit using the LLM."""
-    refinement_prompt = f"Summarize this inconsistency comment in under 200 characters:\n\n{comment_text}"
+    refinement_prompt = f"Summarize this inconsistency comment in under 300 characters:\n\n{comment_text}"
     response = llm_invoke(refinement_prompt)
-    return response.content[:200]
-
-# Format previous opinions function
-def format_previous_opinions(previous_opinions):
-    """Helper function to format previous opinions consistently"""
-    formatted_previous = ""
-    for prev in previous_opinions:
-        formatted_previous += f"- Text: {prev['citation']}\n  Date: {prev['article_date']}, Score: {prev['sentiment_score']}\n"
-    return formatted_previous
+    return response.content[:300]
 
 def _parse_event_output(response: str):
-    """Parse the LLM response and comment."""
+    """Parse the LLM response into a PersonSummary object."""
     start_time = time.time()
     comment_text = response.strip()
     
     try:
-        if FIELD_LENGTH_POLICY == "IGNORE":
-            # Skip validation and directly parse
-            inconsistency_comment = InconsistencyComment(inconsistency_comment=comment_text)
+        # Create PersonSummary object directly from text
+        # Assuming PersonSummary has a 'person_summary' field or similar
+        person_summary = PersonSummary(person_summary=comment_text)
         
-        elif FIELD_LENGTH_POLICY == "RETRY":
-            # Validate length and raise error if invalid
-            if not _validate_comment_length(comment_text):
-                raise ValueError(f"Comment exceeds 200 characters (length: {len(comment_text)})")
-            inconsistency_comment = InconsistencyComment(inconsistency_comment=comment_text)
-                
-        elif FIELD_LENGTH_POLICY == "REFINE":
-            # Attempt to refine comment if validation fails
-            try:
-                inconsistency_comment = InconsistencyComment(inconsistency_comment=comment_text)
-            except ValidationError:
-                refined_comment = _refine_comment(comment_text)
-                inconsistency_comment = InconsistencyComment(inconsistency_comment=refined_comment)
-                
-        elif FIELD_LENGTH_POLICY == "TRUNCATE":
-            # Truncate comment if validation fails
-            try:
-                inconsistency_comment = InconsistencyComment(inconsistency_comment=comment_text)
-            except ValidationError:
-                truncated_comment = _truncate_comment(comment_text)
-                inconsistency_comment = InconsistencyComment(inconsistency_comment=truncated_comment)
+        # Apply field length policies if needed
+        if FIELD_LENGTH_POLICY != "IGNORE" and len(comment_text) > 300:
+            if FIELD_LENGTH_POLICY == "TRUNCATE":
+                person_summary.person_summary = _truncate_comment(comment_text)
+            elif FIELD_LENGTH_POLICY == "REFINE":
+                person_summary.person_summary = _refine_comment(comment_text)
+            elif FIELD_LENGTH_POLICY == "RETRY":
+                raise ValueError(f"Comment exceeds 300 characters (length: {len(comment_text)})")
         
         end_time = time.time()
         logger.debug("Finished parsing model output.", extra={"execution_time": log.timeUsed(start_time, end_time)})
-        return inconsistency_comment
+        return person_summary
         
     except ValidationError as e:
-        logger.warning(f"Validation error while creating InconsistencyComment: {e}")
-        raise e  # Re-raise the exception to trigger re-invocation if needed
+        logger.warning(f"Validation error while creating PersonSummary: {e}")
+        raise e
     except Exception as e:
         logger.error(f"Unexpected error while parsing output: {e}")
         raise e
 
-def get_inconsistency_comment(person, topic, new_opinion, previous_opinions, max_retries=MAX_RETRIES):
+def _get_summary_from_llm(prompt, max_retries=MAX_RETRIES):
     """Make inconsistency comment with retry logic for invalid outputs."""
     retries = 0
     start_time = time.time()
     
-    # Format data for prompt
-    formatted_previous = format_previous_opinions(previous_opinions)
-    
-    # Create prompt using module-level template
-    formatted_prompt = PromptTemplate.from_template(
-        inconsistency_comment_template
-    ).format(
-        person=person,
-        topic=topic,
-        new_citation=new_opinion['citation'],
-        new_date=new_opinion['article_date'],
-        new_score=new_opinion['sentiment_score'],
-        previous_formatted=formatted_previous
-    )
-    
     # First attempt
-    response = llm_invoke(formatted_prompt)
+    response = llm_invoke(prompt)
 
     # Rest of the function remains the same
     try:
@@ -148,7 +96,7 @@ def get_inconsistency_comment(person, topic, new_opinion, previous_opinions, max
             break  # Skip retries for IGNORE mode
                 
         retries += 1
-        response = llm_invoke(formatted_prompt)
+        response = llm_invoke(prompt)
 
         try:
             parsed = _parse_event_output(response.content)
@@ -166,6 +114,54 @@ def get_inconsistency_comment(person, topic, new_opinion, previous_opinions, max
         extra={"execution_time": log.timeUsed(start_time, end_time)}
     )
     return None  # Skip the current chunk if retries fail
+
+def get_person_summary(
+    person_name: str,
+    topic: str,
+    citation: str,
+    stance: str,
+    sentiment_deviation: str,
+    is_expert_flag: bool = False,
+    inconsistency_comment: str = None,
+    prev_person_summary: str = None 
+):
+
+    prompt = PromptTemplate.from_template(PERSON_SUMMARY_PROMPT).format(
+        person=person_name,        
+        is_expert=is_expert_flag,
+        topic=topic,
+        citation=citation,
+        stance=stance,
+        sentiment_deviation=sentiment_deviation,
+        previous_summary=prev_person_summary,
+        inconsistency=inconsistency_comment
+    )
+
+    return _get_summary_from_llm(prompt)
+
+
+# Small helper functions
+
+def add_row_and_sort(df, new_row):
+    """
+    Adds a new row to the DataFrame and sorts it by article_date in descending order.
+
+    Parameters:
+    df (pd.DataFrame): The original DataFrame.
+    new_row (dict): The new row to add.
+
+    Returns:
+    pd.DataFrame: The updated and sorted DataFrame.
+    """
+    # Add the new row
+    df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+
+    # Ensure article_date is in datetime format
+    df['article_date'] = pd.to_datetime(df['article_date'])
+
+    # Sort by article_date in descending order
+    df = df.sort_values(by='article_date', ascending=False).reset_index(drop=True)
+    return df
 
 def get_weighted_sentiment(df):
     df['index'] = df.index
@@ -205,89 +201,130 @@ def get_stance(stance_int: int):
     else:
         return 'mixed'
 
+def get_deviation_score(deviation: float):
+    """
+    Get the deviation score based on the deviation value.
+    :param deviation: The deviation value.
+    :return: The deviation score.
+    """
+    if deviation < 0.1:
+        return 'low'
+    elif 0.1 <= deviation < 0.3:
+        return 'medium'
+    else:
+        return 'high'
+
+
 
 def main(state):
     try:
-        # Extract required fields from the state
         chunk_id = state.chunk_id
-        logger.info(f"Inconsistency analysis for chunk {chunk_id} started")
-        topic = state.topic
+        logger.info(f"(Stage 2.1) Person attitude analysis for chunk {chunk_id} started")
+
+        topic_id = state.topic_id
+        topic = state.topic        
         content = state.content
         person_events = state.person_event
-        origin_article_id = state.origin_article_id
         article_date = state.article_date
         
-        if not topic or not content or not article_date:
+        if not topic_id or not content or not article_date or not topic:
             logger.warning(f"Chunk {chunk_id} is missing topic, content or article date. Skipping.")
             return state  # Skip processing if required fields are missing
-
         if not person_events:
             logger.info(f"No person events found for chunk {chunk_id}. Skipping.")
-            return state  # Skip processing if no person events are present
-        
+            return state  # Skip processing if no person events are present    
     except Exception as e:
         logger.error(f"Error extracting fields from state for chunk {state.chunk_id}: {e}")
         return state
 
-    start_time = time.time()  # Start timing the main process
+    start_time = time.time()
 
-    # Process each person_event and calculate sentiment scores
+    # Process each person_event
     updated_person_events = []
     for idx, person_event_data in enumerate(person_events):
         try:
             logger.debug(f"Processing person_event {idx + 1}/{len(person_events)} for chunk {chunk_id}.")
             
             person_name = person_event_data.get('person_name')
-            person_id = find_person(person_name=person_name)
-            citation = person_event_data.get('citation')
-            sentiment_score = person_event_data.get('sentiment')
-            
-            if sentiment_score is None:
+            person_id = person_event_data.get('person_id')
+            sentiment = person_event_data.get('sentiment')
+            citation = person_event_data.get('citation') 
+
+            # Additional checks for required fields
+            if sentiment is None:
                 logger.error(f"Missing sentiment score for person_event {idx + 1} in chunk {chunk_id}.")
                 updated_person_events.append(person_event_data)
                 raise ValueError(f"Missing sentiment score for person_event {idx + 1} in chunk {chunk_id}.")
-
-            inconsistent_with = get_inconsistent_opinions(person_id=person_id, sentiment_score=sentiment_score, date=article_date)
-
-            if inconsistent_with.empty:
-                logger.debug(f"No inconsistent opinions found for person_event {idx + 1} in chunk {chunk_id}.")
+            if person_id is None:
+                logger.error(f"Missing person ID for person_event {idx + 1} in chunk {chunk_id}.")
                 updated_person_events.append(person_event_data)
-                continue
-            else:
-                logger.debug(f"Inconsistent opinions found for person_event {idx + 1} in chunk {chunk_id}.")
-                new_person_event = person_event_data.copy()
-                
-                # Convert to a list of IDs or records
-                inconsistent_ids = inconsistent_with['opinion_id'].tolist()  # Assuming 'opinion_id' exists
-                new_person_event.update({'inconsistency_with_id': inconsistent_ids})
-                new_person_event.update({'inconsistency_flag': True})
+                raise ValueError(f"Missing person ID for person_event {idx + 1} in chunk {chunk_id}.")
+            if person_name is None and person_id:
+                logger.warning(f"Missing person name and ID for person_event {idx + 1} in chunk {chunk_id}.")
+                person_name = get_person(person_id=person_id)['person_name']
+                if person_name is None:
+                    logger.error(f"Person name not found for person_event {idx + 1} in chunk {chunk_id}.")
+                    updated_person_events.append(person_event_data)
+                    raise ValueError(f"Person name not found for person_event {idx + 1} in chunk {chunk_id}.")                
+            elif person_name is None: 
+                logger.error(f"Missing person name for person_event {idx + 1} in chunk {chunk_id}.")
+                updated_person_events.append(person_event_data)
+                raise ValueError(f"Missing person name for person_event {idx + 1} in chunk {chunk_id}.")
+            if citation is None:
+                logger.error(f"Missing citation for person_event {idx + 1} in chunk {chunk_id}.")
+                updated_person_events.append(person_event_data)
+                raise ValueError(f"Missing citation for person_event {idx + 1} in chunk {chunk_id}.")
 
-                inconsistency_comment = get_inconsistency_comment(
-                    person=person_name,
-                    topic=topic,
-                    new_opinion={'citation': citation, 'article_date': article_date, 'sentiment_score': sentiment_score},
-                    previous_opinions=inconsistent_with.loc[:, ['citation', 'article_date', 'sentiment_score']].to_dict(orient='records')
-                )
+            sentiment_history = t_get_person_topic_sentiment_history(person_id=person_id, topic_id=topic_id)
+            sentiment_history = add_row_and_sort(sentiment_history, {'sentiment_score': sentiment, 'article_date': article_date})
+
+            inconsistency_comment = person_event_data.get('inconsistency_comment', None)
+            previous_summary = get_attitude(fk_topic_id=topic_id, fk_person_id=person_id)
+            previous_summary = None if previous_summary is None or previous_summary.empty else previous_summary
+
+            new_person_event = person_event_data.copy()
+
+            if sentiment_history.empty or sentiment_history is None: # CASE - no history, generaing new summary
+                logger.info(f"No sentiment history found for person {person_name} in chunk {chunk_id}, generating new.")
                 
-                # Extract the string from the Pydantic model instead of storing the whole object
-                if inconsistency_comment is not None:
-                    new_person_event.update({'inconsistency_comment': inconsistency_comment.inconsistency_comment})
-                else:
-                    new_person_event.update({'inconsistency_comment': None})
-                
-                updated_person_events.append(new_person_event)            
+                stance = get_stance(sentiment)
+                sentiment_deviation = 0
+                new_person_event.update({'sentiment_deviation': sentiment_deviation})
+                new_person_event.update({'stance': stance}) 
+            else:  # CASE - history exists
+                logger.info(f"Sentiment history found for person {person_name} in chunk {chunk_id}.")
+
+                sentiment_history = get_weighted_sentiment(sentiment_history)
+                stance = get_stance(sentiment_history.weighted_sentiment.mean())
+                sentiment_deviation = sentiment_history.weighted_sentiment.std()
+                new_person_event.update({'sentiment_deviation': sentiment_deviation})
+                new_person_event.update({'stance': stance})                
+
+            person_summary = get_person_summary(
+                person_name=person_name,
+                topic=topic,
+                citation=citation,
+                stance=stance,
+                sentiment_deviation=get_deviation_score(sentiment_deviation),
+                inconsistency_comment=inconsistency_comment,
+                prev_person_summary=previous_summary
+            )
+
+            new_person_event.update({'person_summary': person_summary})
+            updated_person_events.append(new_person_event)
             
         except Exception as e:
             logger.error(f"Error processing person_event {idx + 1} for chunk {chunk_id}: {e}")
             updated_person_events.append(person_event_data)  # Add the original data to avoid data loss
 
-    # Update the state with the processed person events
+    
     state.person_event = updated_person_events
 
-    end_time = time.time()  # End timing for the main process
+    end_time = time.time()  
     logger.info(
         f"Chunk {chunk_id} processed successfully. "
         f"Processed {len(updated_person_events)} person events.",
         extra={"execution_time": log.timeUsed(start_time, end_time)}
     )
+    save_state_as_json(state, "person_summary.json")
     return state

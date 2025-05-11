@@ -9,6 +9,7 @@ from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts import PromptTemplate
 
 from graph.model import llm_invoke
+from graph.prompts import INCONSISTENCY_COMMENT_PROMPT
 from database.DBConnector import t_get_person_opinions, find_person
 
 logger = log.setup_logger(name="inconsistency_detection", log_file="graph.log")
@@ -24,22 +25,6 @@ warnings.filterwarnings("ignore")
 
 parser = PydanticOutputParser(pydantic_object=InconsistencyComment)
 
-# Define prompt template at module level
-inconsistency_comment_template = """
-You are an expert journalist skilled in deduction and speech analysis.  
-Given the following inputs, compare the new citation to previous ones and comment on any inconsistency.
-
-Person: {person}  
-Topic: {topic} 
-New citation:  
-- Text: {new_citation}  
-- Date: {new_date}  
-- Score: {new_score}  
-Previous citations (up to 15):  
-{previous_formatted}
-
-Write **only one paragraph**, max **200 characters**, pointing out the sentiment inconsistency. Do not include quotes or metadata—just the concise comment.
-"""
 
 #
 #   Different policies for field length handling
@@ -119,9 +104,7 @@ def get_inconsistency_comment(person, topic, new_opinion, previous_opinions, max
     formatted_previous = format_previous_opinions(previous_opinions)
     
     # Create prompt using module-level template
-    formatted_prompt = PromptTemplate.from_template(
-        inconsistency_comment_template
-    ).format(
+    formatted_prompt = PromptTemplate.from_template(INCONSISTENCY_COMMENT_PROMPT).format(
         person=person,
         topic=topic,
         new_citation=new_opinion['citation'],
@@ -180,7 +163,7 @@ def main(state):
     try:
         # Extract required fields from the state
         chunk_id = state.chunk_id
-        logger.info(f"Inconsistency analysis for chunk {chunk_id} started")
+        logger.info(f"(Stage 2) Inconsistency analysis for chunk {chunk_id} started")
         topic = state.topic
         content = state.content
         person_events = state.person_event
