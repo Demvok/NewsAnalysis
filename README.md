@@ -1,12 +1,13 @@
 #### TO DO:
 
-- optimize scraper, paralellize if possible
+- optimize scraper, paralellise if possible
+  
 - fine tune event extraction, there are too many of them
+
 - fix person duplication because of different model outputs
-- add usege type to `llm_invoke` for better traking
-- possibly remove merge node
-- parallelize graph
 - add `is_expert_flag` logic
+- possibly remove merge node
+- parallelise graph
 - test different `FIELD_LENGTH_POLICY`
 
 
@@ -21,3 +22,4 @@
 1. 74 chunks (extraction+sentiment) (26m) = 0.35135 m/ch (stages 0-1)
 2. 324 chunks (1hr 53m) = 0.348756 m/ch (stages 0-1)
 3. 10 chunks (5m) = 0.5 m/ch (stages 0-2.1)
+4. 10 chunks (10m) = 1 m/ch (full)

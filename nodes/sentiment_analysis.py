@@ -55,7 +55,7 @@ def get_sentiment_score(topic, content, max_retries=MAX_RETRIES):
 
     # First attempt
     formatted_prompt = prompt.format(topic=topic, content=content)
-    response = llm_invoke(formatted_prompt)
+    response = llm_invoke(formatted_prompt, usage_type="sentiment_analysis")
 
     try:
         parsed = _parse_event_output(response.content)
@@ -71,7 +71,7 @@ def get_sentiment_score(topic, content, max_retries=MAX_RETRIES):
             break  # Skip retries for IGNORE mode
                 
         retries += 1
-        response = llm_invoke(formatted_prompt)
+        response = llm_invoke(formatted_prompt, usage_type="sentiment_analysis")
 
         try:
             parsed = _parse_event_output(response.content)

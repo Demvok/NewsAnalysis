@@ -28,7 +28,18 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S"
 )
 
-def llm_invoke(*args, **kwargs):
+def llm_invoke(*args, usage_type="unspecified", **kwargs):
+    """
+    Invoke the language model with logging of token usage and purpose.
+    
+    Args:
+        *args: Arguments to pass to the model's invoke method
+        usage_type: String describing what the LLM is being used for (e.g. "event_scoring", "sentiment_analysis")
+        **kwargs: Keyword arguments to pass to the model's invoke method
+    
+    Returns:
+        The model's response
+    """
     response = llm.invoke(*args, **kwargs)
     
     # Extract token usage from response metadata
@@ -37,7 +48,7 @@ def llm_invoke(*args, **kwargs):
     prompt_tokens = token_usage.get('prompt_tokens', 0)
     completion_tokens = token_usage.get('completion_tokens', 0)
     
-    # Log the token usage
-    logging.info(f"total_tokens: {total_tokens}, prompt_tokens: {prompt_tokens}, completion_tokens: {completion_tokens}")
+    # Log the token usage with usage type
+    logging.info(f"{usage_type} - total_tokens: {total_tokens}, prompt_tokens: {prompt_tokens}, completion_tokens: {completion_tokens}")
     
     return response
