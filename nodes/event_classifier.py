@@ -1,6 +1,7 @@
 from config import FIELD_LENGTH_POLICY
 import json
 import time
+import re
 import utils.logger as log
 
 from pydantic import ValidationError
@@ -11,7 +12,6 @@ from langchain.prompts import PromptTemplate
 
 from graph.model import llm_invoke
 from graph.prompts import EVENT_CLASSIFICATION_PROMPT, REFINING_PROMPT
-from database.DBConnector import get_article_chunk, get_article
 
 logger = log.setup_logger(name="event_classifier", log_file="graph.log")
 
@@ -83,9 +83,135 @@ def _parse_event_output(response: str):
     events = {"general_event": None, "person_event": None}
 
     try:
+        # First, attempt to extract from code blocks
+        content = response
+        if "```" in response:
+            # Find content between code block markers using regex
+            pattern = r'```(?:json)?\s*([\s\S]*?)```'
+            matches = re.search(pattern, response)
+            if matches:
+                content = matches.group(1).strip()
+            
+        # Clean up any remaining whitespace or special characters
+        content = content.strip()
+        
         # Parse the JSON response
-        jsoned = json.loads(response.strip('```json').strip())
+        jsoned = json.loads(content)
+        # Apply field length policy to the JSON
+        return _apply_field_length_policy(jsoned)
 
+    except json.JSONDecodeError as e:
+        logger.warning(f"Received invalid JSON response: {str(e)}. Attempting to fix...")
+        
+        # Special case for code blocks with backticks - try another extraction method
+        if "```json" in response:
+            try:
+                # Extract just the JSON part from the code block
+                start_idx = response.find("```json") + 7
+                end_idx = response.find("```", start_idx)
+                if end_idx > start_idx:
+                    clean_json = response[start_idx:end_idx].strip()
+                    try:
+                        jsoned = json.loads(clean_json)
+                        logger.info("Successfully extracted JSON from code block using substring method")
+                        return _apply_field_length_policy(jsoned)
+                    except json.JSONDecodeError:
+                        logger.warning("Failed parsing code block content with substring method")
+                        # Continue with other methods
+            except Exception as code_block_error:
+                logger.warning(f"Error processing code block: {code_block_error}")
+        
+        # Direct pattern extraction for field-by-field approach
+        try:
+            # Extract each field directly using regex
+            general_title = re.search(r'"title":\s*"([^"]*)"', content)
+            general_desc = re.search(r'"description":\s*"([^"]*)"', content)
+            person_name = re.search(r'"person_name":\s*"([^"]*)"', content)
+            person_citation = re.search(r'"citation":\s*"([^"]*)"', content)
+            
+            # Build a new clean JSON string
+            json_parts = []
+            
+            if general_title or general_desc:
+                general_parts = []
+                if general_title:
+                    general_parts.append(f'"title": "{general_title.group(1)}"')
+                if general_desc:
+                    general_parts.append(f'"description": "{general_desc.group(1)}"')
+                json_parts.append(f'"general_event": {{{", ".join(general_parts)}}}')
+            
+            if person_name or person_citation:
+                person_parts = []
+                if person_name:
+                    person_parts.append(f'"person_name": "{person_name.group(1)}"')
+                if person_citation:
+                    person_parts.append(f'"citation": "{person_citation.group(1)}"')
+                json_parts.append(f'"person_event": {{{", ".join(person_parts)}}}')
+            
+            clean_json = f'{{{", ".join(json_parts)}}}'
+            
+            # Attempt to parse the cleaned JSON
+            jsoned = json.loads(clean_json)
+            logger.info("Successfully reconstructed JSON with regex field extraction")
+            return _apply_field_length_policy(jsoned)
+        except Exception as regex_error:
+            logger.warning(f"Failed to extract with regex: {str(regex_error)}")
+        
+        # If we still can't parse it, try a manual approach with the specific structure we've seen in logs
+        try:
+            # Try to manually extract the structure from the logs
+            lines = content.strip().split('\n')
+            
+            # Initialize our extracted data
+            extracted = {"general_event": {}, "person_event": {}}
+            current_section = None
+            
+            for line in lines:
+                line = line.strip()
+                
+                if '"general_event"' in line:
+                    current_section = "general_event"
+                elif '"person_event"' in line:
+                    current_section = "person_event"
+                elif '"title"' in line and current_section == "general_event":
+                    title = line.split(':', 1)[1].strip().strip('",')
+                    extracted["general_event"]["title"] = title.strip('"')
+                elif '"description"' in line and current_section == "general_event":
+                    desc = line.split(':', 1)[1].strip().strip('",')
+                    extracted["general_event"]["description"] = desc.strip('"')
+                elif '"person_name"' in line and current_section == "person_event":
+                    name = line.split(':', 1)[1].strip().strip('",')
+                    extracted["person_event"]["person_name"] = name.strip('"')
+                elif '"citation"' in line and current_section == "person_event":
+                    cite = line.split(':', 1)[1].strip().strip('",')
+                    extracted["person_event"]["citation"] = cite.strip('"')
+            
+            # Clean up the extracted data
+            if not extracted["general_event"]:
+                extracted["general_event"] = None
+            if not extracted["person_event"]:
+                extracted["person_event"] = None
+                
+            # Apply field length policies
+            return _apply_field_length_policy(extracted)
+        except Exception as manual_error:
+            logger.warning(f"Manual extraction failed: {str(manual_error)}")
+
+    except Exception as e:
+        logger.warning(f"Error while parsing response: {str(e)}")
+
+    end_time = time.time()  # End timing for parsing
+    logger.debug(
+        "Finished parsing event output.",
+        extra={"execution_time": log.timeUsed(start_time, end_time)}
+    )
+    return events
+
+def _apply_field_length_policy(jsoned):
+    """Apply the configured field length policy to parsed JSON data."""
+    events = {"general_event": None, "person_event": None}
+    
+    try:
         if FIELD_LENGTH_POLICY == "IGNORE":
             # Skip validation and directly parse
             events['general_event'] = (
@@ -141,18 +267,9 @@ def _parse_event_output(response: str):
                 events['person_event'] = (
                     PersonEvent(**jsoned['person_event']) if jsoned.get('person_event') else None
                 )
-
-    except json.JSONDecodeError:
-        logger.warning("Received invalid JSON response. Returning empty events.")
     except Exception as e:
-        logger.warning(f"Error while parsing response: {e}")
-        raise e  # Re-raise the exception to trigger re-invocation if needed
-
-    end_time = time.time()  # End timing for parsing
-    logger.debug(
-        "Finished parsing event output.",
-        extra={"execution_time": log.timeUsed(start_time, end_time)}
-    )
+        logger.warning(f"Error applying field length policy: {str(e)}")
+    
     return events
 
 def extract_events(topic, content, max_retries=3):
@@ -164,55 +281,21 @@ def extract_events(topic, content, max_retries=3):
     formatted_prompt = prompt.format(topic=topic, chunk=content)
     response = llm_invoke(formatted_prompt)
 
-    try:
-        parsed = _parse_event_output(response.content)
-        if parsed['general_event'] is None and parsed['person_event'] is None:
-            # Skip chunk if both events are None
-            logger.warning(
-                f"Skipping chunk due to None output on the first attempt.",
-                extra={"execution_time": log.timeUsed(start_time, time.time())}
-            )
-            return None
-        end_time = time.time()  # End timing
-        logger.debug(
-            f"Successfully extracted events from chunk",
-            extra={"execution_time": log.timeUsed(start_time, end_time)}
-        )
-        return parsed  # Return if parsing and validation succeed
-    except Exception as e:
-        logger.warning(
-            f"Error during first attempt: {e}",
+    parsed = _parse_event_output(response.content)
+    # It's okay if both events are None - this is valid and shouldn't be treated as an error
+    if parsed['general_event'] is None and parsed['person_event'] is None:
+        logger.info(
+            f"No events found in chunk on first attempt, which is okay.",
             extra={"execution_time": log.timeUsed(start_time, time.time())}
         )
-
-    # Retry logic for other policies (if applicable)
-    while retries < max_retries - 1:  # Subtract 1 because the first attempt is already done
-        if FIELD_LENGTH_POLICY == "IGNORE":
-            break  # Skip retries for IGNORE mode
-                
-        retries += 1
-        response = llm_invoke(formatted_prompt)
-
-        try:
-            parsed = _parse_event_output(response.content)
-            end_time = time.time()  # End timing
-            logger.info(
-                f"Successfully extracted events after {retries} retries.",
-                extra={"execution_time": log.timeUsed(start_time, end_time)}
-            )
-            return parsed  # Return if parsing and validation succeed
-        except Exception as e:
-            logger.warning(
-                f"Retry {retries}/{max_retries} due to invalid output: {e}",
-                extra={"execution_time": log.timeUsed(start_time, time.time())}
-            )
-
-    end_time = time.time()  # End timing after retries
-    logger.error(
-        f"Skipping extraction after {max_retries} retries.",
+        return parsed  # Return empty events structure, not None
+    
+    end_time = time.time()
+    logger.debug(
+        f"Successfully extracted events from chunk",
         extra={"execution_time": log.timeUsed(start_time, end_time)}
     )
-    return None  # Skip the current chunk if retries fail
+    return parsed
 
 def main(state: ChunkState):
     logger.info(f"(Stage 0) Processing chunk {state.chunk_id} started")
@@ -224,11 +307,13 @@ def main(state: ChunkState):
     origin_article_id = state.origin_article_id
 
     if origin_article_id is None:
+        from database.DBConnector import get_article_chunk
         state.origin_article_id = get_article_chunk(chunk_id)['fk_article_id']
         origin_article_id = state.origin_article_id
 
     article_date = state.article_date
     if article_date is None:
+        from database.DBConnector import get_article
         state.article_date = get_article(origin_article_id).loc['article_date']
         article_date = state.article_date
     

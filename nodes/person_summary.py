@@ -4,13 +4,12 @@ import utils.logger as log
 import pandas as pd
 
 from pydantic import ValidationError
-from graph.states_setup import PersonSummary, save_state_as_json
+from graph.states_setup import PersonSummary
 
-from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts import PromptTemplate
 
 from graph.model import llm_invoke
-from graph.prompts import PERSON_SUMMARY_PROMPT
+from graph.prompts import PERSON_SUMMARY_PROMPT, REFINING_PROMPT
 from database.DBConnector import t_get_person_topic_sentiment_history, get_person, get_attitude
 
 logger = log.setup_logger(name="person_summary", log_file="graph.log")
@@ -40,7 +39,7 @@ def _truncate_comment(comment_text):
 def _refine_comment(comment_text):
     """Refine comment to fit within character limit using the LLM."""
     try:
-        refinement_prompt = f"Summarize this inconsistency comment in under 300 characters:\n\n{comment_text}"
+        refinement_prompt = REFINING_PROMPT.format(max_lenth=300, field_value=comment_text)
         response = llm_invoke(refinement_prompt)
         
         # Handle different response structures
@@ -348,5 +347,4 @@ def main(state):
         f"Processed {len(updated_person_events)} person events.",
         extra={"execution_time": log.timeUsed(start_time, end_time)}
     )
-    save_state_as_json(state, "person_summary.json")
     return state
