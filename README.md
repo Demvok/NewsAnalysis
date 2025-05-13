@@ -3,11 +3,10 @@
 - optimize scraper, paralellise if possible
   
 - fine tune event extraction, there are too many of them
-
 - fix person duplication because of different model outputs
 - add `is_expert_flag` logic
+
 - possibly remove merge node
-- parallelise graph
 - test different `FIELD_LENGTH_POLICY`
 - fix outputting non-utf-8 into console
 

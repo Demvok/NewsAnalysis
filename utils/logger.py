@@ -1,7 +1,18 @@
 import logging, time, sys, os
+from config import FIELD_LENGTH_POLICY, LOGGING_LEVEL, CONSOLE_LOG
 
-LOGGING_LEVEL = logging.DEBUG
-CONSOLE_LOG = False
+if LOGGING_LEVEL == "DEBUG":
+    LEVEL = logging.DEBUG
+elif LOGGING_LEVEL == "INFO":
+    LEVEL = logging.INFO
+elif LOGGING_LEVEL == "WARNING":
+    LEVEL = logging.WARNING
+elif LOGGING_LEVEL == "ERROR":
+    LEVEL = logging.ERROR
+elif LOGGING_LEVEL == "CRITICAL":
+    LEVEL = logging.CRITICAL
+else:
+    raise ValueError(f"Unknown logging level: {LOGGING_LEVEL}")
 
 SAVE_TO = './logs/'
 if not os.path.exists(SAVE_TO):
@@ -55,9 +66,23 @@ def setup_logger(name: str, log_file: str) -> logging.Logger:
     logger.addHandler(file_handler)
     
     # Add console handler
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
+    if not CONSOLE_LOG:
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setFormatter(formatter)
+        logger.addHandler(console_handler)
     
+    if FIELD_LENGTH_POLICY == "IGNORE":
+        logger.debug("Ignoring field length policy")
+    elif FIELD_LENGTH_POLICY == "RETRY":
+        logger.debug("Retrying field length policy")
+    elif FIELD_LENGTH_POLICY == "REFINE":
+        logger.debug("Refining field length policy")
+    elif FIELD_LENGTH_POLICY == "TRUNCATE":
+        logger.debug("Truncating field length policy")
+    else:
+        logger.error(f"Unknown field length policy: {FIELD_LENGTH_POLICY}")
+        raise ValueError(f"Unknown field length policy: {FIELD_LENGTH_POLICY}")
+
+
     return logger
 

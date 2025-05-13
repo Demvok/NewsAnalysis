@@ -1,4 +1,4 @@
-from config import FIELD_LENGTH_POLICY, MAX_RETRIES
+from config import FIELD_LENGTH_POLICY, MAX_RETRIES, calculate_opinion_hotness
 import time
 import utils.logger as log
 
@@ -131,12 +131,6 @@ def get_opinion_scores(
     logger.error(f"Skipping opinion scoring after {max_retries} retries.",
                 extra={"execution_time": log.timeUsed(start_time, end_time)})
     return None
-
-
-def calculate_opinion_hotness(relevancy, contribution, controversy):
-    """Calculate opinion hotness as a weighted sum of scores."""
-    # Mockup formula - replace with your actual formula
-    return 0.4 * relevancy + 0.3 * contribution + 0.3 * controversy
 
 
 def main(state):
