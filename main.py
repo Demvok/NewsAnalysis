@@ -13,7 +13,8 @@ if __name__ == "__main__":
     logger.info("Starting LangGraph")
     app = create_app() # Creating LangGraph
 
-    unprocessed_chunks_df = t_get_unprocessed_chunks_input(first_run=True).head(10) # Obviously temporary
+    unprocessed_chunks_df = t_get_unprocessed_chunks_input(first_run=True)
+    # .head(5) # Obviously temporary
 
     for _, row in tqdm(
             unprocessed_chunks_df.iterrows(),

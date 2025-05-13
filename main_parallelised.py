@@ -1,8 +1,8 @@
 from graph.graph_config import create_app
 from database.DBConnector import *
-# from utils.article_splitter import main as split_articles
 from tqdm import tqdm
 from utils.logger import setup_logger, CONSOLE_LOG
+from config import N_THREADS
 import concurrent.futures
 
 logger = setup_logger(name="main", log_file="graph.log")
@@ -20,8 +20,6 @@ def process_chunk(chunk_row):
 
 if __name__ == "__main__":
     
-    # split_articles(t_get_articles_without_chunks_input())
-    
     logger.info("Starting LangGraph with parallel processing")
 
     unprocessed_chunks_df = t_get_unprocessed_chunks_input(first_run=True).head(10) # Obviously temporary
@@ -29,8 +27,8 @@ if __name__ == "__main__":
     # Convert DataFrame to list of rows for parallel processing
     chunk_rows = [row for _, row in unprocessed_chunks_df.iterrows()]
     
-    # Create a ThreadPoolExecutor with 4 worker threads
-    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+    # Create a ThreadPoolExecutor with n worker threads
+    with concurrent.futures.ThreadPoolExecutor(max_workers=N_THREADS) as executor:
         # Process chunks in parallel and track progress
         results = list(tqdm(
             executor.map(process_chunk, chunk_rows),

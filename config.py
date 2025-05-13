@@ -2,6 +2,7 @@
 # Ignore will skip the error, retry will try again (3) times, refine will call LLM to shrink the length and truncate will cut off extra characters (not recommended).
 FIELD_LENGTH_POLICY = 'REFINE'
 MAX_RETRIES = 3
+N_THREADS = 4 # Number of threads for parallel processing (only for the main_parallelised.py file)
 
 MARK_PROCESSED = False # If True, mark the chunk as processed in the database
 

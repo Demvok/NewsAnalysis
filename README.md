@@ -6,7 +6,6 @@
 - fix person duplication because of different model outputs
 - add `is_expert_flag` logic
 
-- possibly remove merge node
 - test different `FIELD_LENGTH_POLICY`
 - fix outputting non-utf-8 into console
 
