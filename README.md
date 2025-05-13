@@ -9,6 +9,7 @@
 - possibly remove merge node
 - parallelise graph
 - test different `FIELD_LENGTH_POLICY`
+- fix outputting non-utf-8 into console
 
 
 #### Time usage:
@@ -23,3 +24,4 @@
 2. 324 chunks (1hr 53m) = 0.348756 m/ch (stages 0-1)
 3. 10 chunks (5m) = 0.5 m/ch (stages 0-2.1)
 4. 10 chunks (10m) = 1 m/ch (full)
+5. 324? chunks (6h) = 1.11 m/ch (full)

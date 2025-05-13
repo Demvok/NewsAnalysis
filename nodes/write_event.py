@@ -1,6 +1,6 @@
 from database.DBConnector import add_event_full, add_opinion_full, add_person, add_attitude_full, update_article_chunk
 from utils.logger import setup_logger
-from config import EVENTS_HOTNESS_THRESHOLD, OPINION_HOTNESS_THRESHOLD
+from config import EVENTS_HOTNESS_THRESHOLD, OPINION_HOTNESS_THRESHOLD, MARK_PROCESSED
 
 # Initialize logger
 logger = setup_logger(name="write_node", log_file="graph.log")
@@ -148,10 +148,11 @@ def main(state):
                     is_expert_flag=event.get('is_expert_flag', None)
                 )
 
-    state.is_processed = 1
-    update_article_chunk(
-        chunk_id=state.chunk_id,
-        is_processed=True
-    )
+    if MARK_PROCESSED:
+        state.is_processed = 1
+        update_article_chunk(
+            chunk_id=state.chunk_id,
+            is_processed=True
+        )
 
     return state

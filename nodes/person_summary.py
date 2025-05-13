@@ -335,8 +335,7 @@ def main(state):
             
         except Exception as e:
             logger.error(f"Error processing person_event {idx + 1} for chunk {chunk_id}: {e}")
-            # updated_person_events.append(person_event_data)  # Add the original data to avoid data loss
-            updated_person_events = state.person_event
+            updated_person_events.append(person_event_data)  # Add the original data to avoid data loss
 
     
     state.person_event = updated_person_events

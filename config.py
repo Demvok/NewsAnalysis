@@ -2,6 +2,7 @@
 # Ignore will skip the error, retry will try again (3) times, refine will call LLM to shrink the length and truncate will cut off extra characters (not recommended).
 FIELD_LENGTH_POLICY = 'REFINE'
 MAX_RETRIES = 3
+MARK_PROCESSED = False # If True, mark the chunk as processed in the database
 
 
 EVENTS_HOTNESS_THRESHOLD = 0.6  # Threshold for selecting events based on hotness score
