@@ -6,10 +6,10 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.sql.expression import tuple_, or_, and_
 from sqlalchemy import Column, Integer, String, ForeignKey, Float, TIMESTAMP, Boolean, func
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship, scoped_session
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy.orm.exc import DetachedInstanceError
 from contextlib import contextmanager
-
+import threading
 
 ############################################################################################################
 
@@ -18,26 +18,87 @@ logger = log.setup_logger(name='DBConnector', log_file='dbloader.log')
 
 ############################################################################################################
 
-# Create engine and session factory
-engine = create_engine(DATABASE_URL)
+# Create engine with improved connection pooling settings
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,  # Check connection validity before using
+    pool_recycle=1800,   # Recycle connections after 30 minutes
+    pool_size=15,        # Default pool size
+    max_overflow=25,     # Allow extra connections when pool is full
+    pool_timeout=30      # Timeout when waiting for connection from pool
+)
 SessionFactory = sessionmaker(bind=engine, expire_on_commit=False)
 Session = scoped_session(SessionFactory)
 
+# Thread-local storage to track connection state
+_local = threading.local()
+_local.is_session_valid = True
+
 def refresh_connection():
-    """DEPRECATED"""
+    """Refresh database connection when issues occur"""
     global engine, SessionFactory, Session
-    engine = create_engine(DATABASE_URL)
-    SessionFactory = sessionmaker(bind=engine)
+    logger.info('Refreshing database connection')
+    
+    # Close any existing connections in the pool
+    engine.dispose()
+    
+    # Create a new engine with the same settings
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,
+        pool_recycle=1800,
+        pool_size=15,
+        max_overflow=25,
+        pool_timeout=30
+    )
+    
+    # Create new session factory and scoped session
+    SessionFactory = sessionmaker(bind=engine, expire_on_commit=False)
     Session = scoped_session(SessionFactory)
+    
+    # Reset session validity flag
+    _local.is_session_valid = True
+    logger.info('Database connection refreshed')
 
 @contextmanager
 def _get_session():
-    session = Session()
+    session = None
+    retry_count = 0
+    max_retries = 3
+    
+    while retry_count < max_retries:
+        try:
+            # Create a new session
+            session = Session()
+            
+            # Test the connection with a simple query before proceeding
+            session.execute(text('SELECT 1'))
+            
+            # If we get here, the connection is good
+            break
+        except (OperationalError, SQLAlchemyError) as e:
+            retry_count += 1
+            logger.warning(f"Connection error on session creation (attempt {retry_count}/{max_retries}): {e}")
+            
+            if session:
+                session.close()
+                
+            # Refresh the connection on failure
+            refresh_connection()
+            
+            if retry_count >= max_retries:
+                logger.error(f"Failed to establish database connection after {max_retries} attempts")
+                raise
+            
+            # Wait before retrying
+            time.sleep(1)
+    
     try:
         yield session
         session.commit()
     except OperationalError as e:
         session.rollback()
+        _local.is_session_valid = False
         refresh_connection()
         logger.error(f'Connection lost, please retry: {e}')
         raise
@@ -47,10 +108,12 @@ def _get_session():
         raise
     except Exception as e:
         session.rollback()
-        logger.critical(e)
+        logger.critical(f"Database error: {str(e)}")
         raise
     finally:
-        session.close()
+        if session:
+            # Make sure to close the session in all cases
+            session.close()
 
 #
 # Defining ORMs
@@ -293,6 +356,61 @@ def t_get_unprocessed_chunks_input(first_run=False, *args, **kwargs):
         ]
         return pd.DataFrame(data)
 
+def t_get_chunks_input(first_run=False, *args, **kwargs):
+    """
+    Fetches unprocessed chunks along with their topics and content in a single query.
+    Call with is_processed=False to get unprocessed chunks.
+    
+    Args:
+        first_run (bool): If True, sorts results by article_date ascending for chronological processing
+    """
+    with _get_session() as session:
+        # Query to fetch unprocessed chunks
+        query = (
+            session.query(
+                DimArticleChunks.chunk_id,
+                DimArticleChunks.fk_article_id,
+                DimArticleChunks.start_index,
+                DimArticleChunks.end_index,
+                DimTopic.topic_id,
+                DimTopic.topic_name,
+                DimArticle.content,
+                DimArticle.article_date,
+                DimArticle.article_id
+            )
+            .join(DimArticle, DimArticleChunks.fk_article_id == DimArticle.article_id)
+            .join(DimTopic, DimArticle.fk_topic_id == DimTopic.topic_id)
+        )
+
+        # Apply additional conditions if provided
+        for attr, value in kwargs.items():
+            query = query.filter(getattr(DimArticleChunks, attr) == value)
+            
+        # Add ordering by article_date if first_run is True
+        if first_run:
+            query = query.order_by(DimArticle.article_date.asc())
+
+        # Fetch results
+        results = query.all()
+
+        if not results:
+            logger.warning("No unprocessed chunks found")
+            return pd.DataFrame()  # Return an empty DataFrame as a precaution
+
+        # Convert results to a DataFrame
+        data = [
+            {
+                "chunk_id": row.chunk_id,
+                "content": row.content[row.start_index:row.end_index],
+                "topic": row.topic_name,
+                "topic_id": row.topic_id,
+                "article_date": row.article_date,
+                "origin_article_id": row.article_id,
+            }
+            for row in results
+        ]
+        return pd.DataFrame(data)
+
 def t_upload_person_event(
         article_id: str,
         person: str,
@@ -418,7 +536,7 @@ def t_ids_string_to_list(ids_string):
     """Convert a comma-separated string of IDs to a list of integers."""
     if not ids_string:
         return []
-    return [int(id_str) for id_str in ids_string.split(',') if id_str.strip()]
+    return [int(id_str) for id_str in ids_string.lstrip('[').rstrip(']').split(',') if id_str.strip()]
 
 def t_get_person_topic_sentiment_history(person_id: int, topic_id: int) -> pd.DataFrame:
     """

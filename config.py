@@ -4,23 +4,24 @@ FIELD_LENGTH_POLICY = 'REFINE'
 MAX_RETRIES = 3
 N_THREADS = 4 # Number of threads for parallel processing (only for the main_parallelised.py file)
 
-MARK_PROCESSED = False # If True, mark the chunk as processed in the database
+MARK_PROCESSED = True # If True, mark the chunk as processed in the database
+WRITE_TO_DB = True # If True, write the results to the database
 
 CONSOLE_LOG = True # If True, log to console
-LOGGING_LEVEL = 'DEBUG'
+LOGGING_LEVEL = 'INFO' # Logging level for the logger. Options are: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'
 
 EVENTS_HOTNESS_THRESHOLD = 0.6  # Threshold for selecting events based on hotness score
-OPINION_HOTNESS_THRESHOLD = 0.7  # Threshold for selecting opinions based on hotness score
+OPINION_HOTNESS_THRESHOLD = 0.6  # Threshold for selecting opinions based on hotness score
 
 INCONSISTENCY_TOLERANCE = 0.4 # Used for filtering off consistent opinions, possibly can be from 0 to 2
 OPINION_FRESHNESS_THRESHOLD = 365  # Filters off opinions older than n days from given date of event, basically sets the time for person to safely change their opinion
 
 MIXED_INTERVAL = 0.3 # Interval (+- from 0) for telling if opinion is mixed
 
-def get_weighted_sentiment(df):
+def get_weighted_sentiment(df):  # For inconsistency analysis
     df['index'] = df.index
 
-    def calculate_valuability(index, size, method=1, minimal_value=0.2, slope=0.66):
+    def calculate_valuability(index, size, method=3, minimal_value=0.2, slope=0.66):
         """
         Calculate the valuability of a chunk based on its index in the list of chunks.
         :param index: The index of the chunk in the list.
@@ -71,8 +72,8 @@ def get_deviation_score(deviation: float):
 
 def calculate_opinion_hotness(relevancy, contribution, controversy):
     """Calculate opinion hotness as a weighted sum of scores."""
-    return 0.4 * relevancy + 0.3 * contribution + 0.3 * controversy
+    return 0.25*relevancy + 0.35*contribution + 0.4*controversy
 
 def calculate_event_hotness(relevance, influence, novelty):
     """Calculate event hotness as a weighted sum of scores."""
-    return 0.15 * relevance + 0.5 * influence + 0.35 * novelty
+    return 0.15*relevance + 0.5*influence + 0.35*novelty

@@ -22,7 +22,8 @@ if __name__ == "__main__":
     
     logger.info("Starting LangGraph with parallel processing")
 
-    unprocessed_chunks_df = t_get_unprocessed_chunks_input(first_run=True).head(10) # Obviously temporary
+    unprocessed_chunks_df = t_get_unprocessed_chunks_input(first_run=True)
+    # .head(10) # Obviously temporary
     
     # Convert DataFrame to list of rows for parallel processing
     chunk_rows = [row for _, row in unprocessed_chunks_df.iterrows()]
