@@ -1,4 +1,4 @@
-from config import FIELD_LENGTH_POLICY, MAX_RETRIES
+from config import FIELD_LENGTH_POLICY, MAX_RETRIES, calculate_event_hotness
 import time
 import utils.logger as log
 
@@ -125,11 +125,6 @@ def get_event_scores(
     logger.error(f"Skipping event scoring after {max_retries} retries.",
                 extra={"execution_time": log.timeUsed(start_time, end_time)})
     return None
-
-
-def calculate_event_hotness(relevance, influence, novelty):
-    """Calculate event hotness as a weighted sum of scores."""
-    return 0.35 * relevance + 0.4 * influence + 0.25 * novelty
 
 
 def main(state):

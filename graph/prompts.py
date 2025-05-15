@@ -98,7 +98,11 @@ Make 3 scores:
 1. Relevancy: 0-1 floating-point number (how relevant the opinion is to the topic)
 2. Contribution: 0-1 floating-point number (how much the opinion contributes to the topic)
 3. Controversy: 0-1 floating-point number (how controversial the opinion is)
-Use 0 if score in close to useless, 1 if score is absolutely useful. Be as precise as possible.
+Use the following scale, be as precise as possible:
+- 0.0 = completely irrelevant / no contribution / not controversial at all  
+- 0.5 = moderately relevant / contributes somewhat / somewhat controversial  
+- 1.0 = absolutely relevant / major contribution / extremely controversial
+Be conservative in assigning high values; only use scores ≥ 0.7 when you are highly confident. If in doubt, err on the side of a lower score.
 
 Provide **only** the scores in the following format:
 {{
@@ -125,7 +129,11 @@ Make 3 scores:
 1. Relevance: 0-1 floating-point number (how relevant the event is to the topic)
 2. Influence: 0-1 floating-point number (how much the event influences the topic)
 3. Novelty: 0-1 floating-point number (how novel the event is)
-Use 0 if score in close to useless, 1 if score is absolutely useful. Be as precise as possible.
+Use the following scale for each score, be as precise as possible:
+- 0.0 = completely irrelevant / no influence / not novel at all  
+- 0.5 = moderately relevant / has some influence / somewhat novel  
+- 1.0 = absolutely relevant / major influence / highly novel
+Be conservative when assigning high values; only use scores ≥ 0.7 when you are highly confident. If in doubt, default to a lower score.
 
 Provide **only** the scores in the following format:
 {{

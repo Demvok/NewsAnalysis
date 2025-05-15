@@ -1,4 +1,5 @@
 from config import FIELD_LENGTH_POLICY, MAX_RETRIES, MIXED_INTERVAL
+from config import get_weighted_sentiment, get_stance, get_deviation_score
 import time
 import utils.logger as log
 import pandas as pd
@@ -182,58 +183,6 @@ def add_row_and_sort(df, new_row):
     df = df.sort_values(by='article_date', ascending=False).reset_index(drop=True)
     return df
 
-def get_weighted_sentiment(df):
-    df['index'] = df.index
-
-    def calculate_valuability(index, size, method=1, minimal_value=0.2, slope=0.66):
-        """
-        Calculate the valuability of a chunk based on its index in the list of chunks.
-        :param index: The index of the chunk in the list.
-        :param size: The total number of chunks.
-        :param method: The method to use for calculating valuability (1-linear, 2-exponential, or 3-degrading constant).
-        :param minimal_value: The minimum valuability value.
-        :param slope: The slope for the exponential method.
-        :return: The valuability of the chunk.
-        """
-        if method == 1: # Linear case
-            return 1 - (index - 1) * (1-minimal_value)/(size - 1)
-        elif method == 2: # Exponential case
-            return minimal_value + (1-minimal_value) * (2.71828182846)**(-slope * (index - 1))
-        elif method == 3: # Degrading linear case
-            return 1 - slope ** (size - index) + minimal_value
-    
-    df['valuability'] = df['index'].apply(lambda x: calculate_valuability(x, df.shape[0], method=3))
-    df['weighted_sentiment'] = df['valuability'] * df['sentiment_score']
-    
-    return df.drop(['index', 'valuability'], axis=1)
-
-def get_stance(stance_int: int):
-    """
-    Get the stance based on the stance intensity.
-    :param stance_int: The stance intensity.
-    :return: The stance.
-    """
-    if stance_int > MIXED_INTERVAL:
-        return 'pro'
-    elif stance_int < -MIXED_INTERVAL:
-        return 'against'
-    else:
-        return 'mixed'
-
-def get_deviation_score(deviation: float):
-    """
-    Get the deviation score based on the deviation value.
-    :param deviation: The deviation value.
-    :return: The deviation score.
-    """
-    if deviation < 0.1:
-        return 'low'
-    elif 0.1 <= deviation < 0.3:
-        return 'medium'
-    else:
-        return 'high'
-
-
 
 def main(state):
     try:
@@ -276,8 +225,6 @@ def main(state):
                 raise ValueError(f"Missing sentiment score for person_event {idx + 1} in chunk {chunk_id}.")
             if person_id is None:
                 logger.info(f"Missing person ID for person_event {idx + 1} in chunk {chunk_id}.")
-                # updated_person_events.append(person_event_data)
-                # raise ValueError(f"Missing person ID for person_event {idx + 1} in chunk {chunk_id}.")
             if person_name is None and person_id:
                 logger.warning(f"Missing person name and ID for person_event {idx + 1} in chunk {chunk_id}.")
                 person_name = get_person(person_id=person_id)['person_name']
@@ -335,8 +282,7 @@ def main(state):
             
         except Exception as e:
             logger.error(f"Error processing person_event {idx + 1} for chunk {chunk_id}: {e}")
-            # updated_person_events.append(person_event_data)  # Add the original data to avoid data loss
-            updated_person_events = state.person_event
+            updated_person_events.append(person_event_data)  # Add the original data to avoid data loss
 
     
     state.person_event = updated_person_events
