@@ -5,9 +5,35 @@ from database.DBConnector import (
 from utils.logger import setup_logger
 from config import EVENTS_HOTNESS_THRESHOLD, OPINION_HOTNESS_THRESHOLD, MARK_PROCESSED, WRITE_TO_DB
 import time
+import re
 
 # Initialize logger
 logger = setup_logger(name="write_node", log_file="graph.log")
+
+def smart_strip(text):
+    """
+    Removes unnecessary quotes, slashes, and whitespace from text fields.
+    
+    Args:
+        text: The text to clean
+        
+    Returns:
+        Cleaned text string or None if input was None
+    """
+    if text is None:
+        return None
+    
+    # Convert to string if not already
+    text = str(text)
+    
+    # Remove leading/trailing quotes, slashes and whitespace
+    text = text.strip()
+    text = re.sub(r'^[\'"\\|/\s]+|[\'"\\|/\s]+$', '', text)
+    
+    # Normalize multiple spaces
+    text = re.sub(r'\s+', ' ', text)
+    
+    return text
 
 def main(state):
     logger.debug('Write events node reached')
@@ -23,8 +49,8 @@ def main(state):
     # Process general events
     if state.general_event is not None:
         for event in state.general_event:
-            title = event.get('title')
-            description = event.get('description')
+            title = smart_strip(event.get('title'))
+            description = smart_strip(event.get('description'))
 
             # Skip if required fields are missing
             if description is None:
@@ -94,8 +120,8 @@ def main(state):
     # Process person events
     if state.person_event is not None:
         for event in state.person_event:
-            person_name = event.get('person_name')
-            citation = event.get('citation')
+            person_name = smart_strip(event.get('person_name'))
+            citation = smart_strip(event.get('citation'))
             
             # Skip if required fields are missing
             if person_name is None or citation is None:
@@ -205,7 +231,7 @@ def main(state):
                     sentiment = float(event.get('sentiment')) if event.get('sentiment') is not None else None
                     inconsistency_flag = bool(event.get('inconsistency_flag')) if event.get('inconsistency_flag') is not None else False
                     inconsistency_with_id = event.get('inconsistency_with_id')
-                    inconsistency_comment = event.get('inconsistency_comment')
+                    inconsistency_comment = smart_strip(event.get('inconsistency_comment'))
 
                     opinion_id = add_opinion_full(
                         fk_origin_article_id=origin_article_id,
@@ -235,7 +261,7 @@ def main(state):
                     sentiment = float(event.get('sentiment')) if event.get('sentiment') is not None else None
                     inconsistency_flag = bool(event.get('inconsistency_flag')) if event.get('inconsistency_flag') is not None else False
                     inconsistency_with_id = event.get('inconsistency_with_id')
-                    inconsistency_comment = event.get('inconsistency_comment')
+                    inconsistency_comment = smart_strip(event.get('inconsistency_comment'))
                     
                     # Score conversions with explicit logging
                     controversy_score = float(event.get('controversy_score')) if event.get('controversy_score') is not None else None
@@ -300,7 +326,7 @@ def main(state):
                     stance = str(event.get('stance')) if event.get('stance') is not None else None
                     sentiment_deviation = float(event.get('sentiment_deviation')) if event.get('sentiment_deviation') is not None else None
                     is_expert_flag = bool(event.get('is_expert_flag')) if event.get('is_expert_flag') is not None else False
-                    person_summary = event.get('person_summary')
+                    person_summary = smart_strip(event.get('person_summary'))
                     
                     attitude_id = add_attitude_full(
                         fk_person_id=fk_person_id,

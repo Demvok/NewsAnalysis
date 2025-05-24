@@ -138,18 +138,18 @@ def _get_summary_from_llm(prompt, max_retries=MAX_RETRIES):
 def get_person_summary(
     person_name: str,
     topic: str,
+    content: str,
     citation: str,
     stance: str,
     sentiment_deviation: str,
-    is_expert_flag: bool = False,
     inconsistency_comment: str = None,
     prev_person_summary: str = None 
 ):
 
     prompt = PromptTemplate.from_template(PERSON_SUMMARY_PROMPT).format(
         person=person_name,        
-        is_expert=is_expert_flag,
         topic=topic,
+        content=content,
         citation=citation,
         stance=stance,
         sentiment_deviation=sentiment_deviation,
@@ -269,10 +269,10 @@ def main(state):
             person_summary = get_person_summary(
                 person_name=person_name,
                 topic=topic,
+                content=content,
                 citation=citation,
                 stance=stance,
                 sentiment_deviation=get_deviation_score(sentiment_deviation),
-                is_expert_flag=False,
                 inconsistency_comment=inconsistency_comment,
                 prev_person_summary=previous_summary
             )

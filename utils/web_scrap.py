@@ -19,6 +19,9 @@ import pandas as pd
 
 logger = setup_logger('scrap', "scrap_articles.log")
 
+N_SEARCH_PAGES_TO_SCRAPE = 3
+
+
 
 def init_browser():
     """
@@ -35,31 +38,64 @@ def init_browser():
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
     return driver
 
-def scrape_articles(url):
-    # Initialize the browser
-    driver = init_browser()
-
-    try:
-        driver.get(url)
-        time.sleep(20)  # Wait for the page to load
-
-        # author = driver.find_element(By.CLASS_NAME, 'byline__name').text
-
-        content_div = driver.find_element(By.CLASS_NAME, 'article__content')
-
-        paragraphs = content_div.find_elements(By.TAG_NAME, 'p')
-        content_text = ''
-
-        for elem in paragraphs:
-            content_text += elem.text
-        
-
-    except Exception as e:
-        print(f"Error occurred for link {url}: {e}")
+def scrape_articles(url, max_retries=3):
+    """
+    Function to scrape article content with retry logic and improved stability
     
-    driver.close()
-
-    return content_text
+    Args:
+        url: URL of the article to scrape
+        max_retries: Maximum number of retry attempts
+    
+    Returns:
+        str: Scraped article content
+    """
+    content_text = ''
+    retries = 0
+    
+    while retries < max_retries:
+        driver = init_browser()
+        try:
+            logger.debug(f"Fetching article: {url} (Attempt {retries + 1}/{max_retries})")
+            driver.get(url)
+            
+            # Use WebDriverWait instead of fixed sleep
+            from selenium.webdriver.support.ui import WebDriverWait
+            from selenium.webdriver.support import expected_conditions as EC
+            
+            # Wait for article content to be available
+            wait = WebDriverWait(driver, 30)
+            content_div = wait.until(EC.presence_of_element_located((By.CLASS_NAME, 'article__content')))
+            
+            paragraphs = content_div.find_elements(By.TAG_NAME, 'p')
+            content_text = ''
+            
+            for elem in paragraphs:
+                content_text += elem.text + " "
+            
+            # If we got here, scraping was successful
+            break
+            
+        except Exception as e:
+            retries += 1
+            logger.error(f"Error occurred for link {url} (Attempt {retries}/{max_retries}): {e}")
+            if "tab crashed" in str(e).lower():
+                logger.warning(f"Tab crash detected, retrying with different options")
+                # Consider reducing load on browser in next attempt
+            
+            if retries >= max_retries:
+                logger.error(f"Failed to scrape {url} after {max_retries} attempts")
+            else:
+                logger.info(f"Retrying in 5 seconds...")
+                time.sleep(5)  # Wait before retry
+                
+        finally:
+            # Always close the browser
+            try:
+                driver.quit()  # Using quit() instead of close() for more thorough cleanup
+            except Exception:
+                pass
+    
+    return content_text.strip()
 
 
 def scrape_article_content(driver, url, topic_id):
@@ -132,9 +168,9 @@ def main():
     topics = get_topic_df(find_topic_by_conditions())
 
     for _, topic in topics.iterrows():
-        for page in range(1, 6):
+        for page in range(1, N_SEARCH_PAGES_TO_SCRAPE + 1):  # Scrape first n pages for each topic
             logger.info(f"Scrapping topic: {topic.topic_name} (Page {page})")
-            link = f'https://edition.cnn.com/search?q={"+".join(topic.query.split(" "))}&from={(page-1)*30}&size=30&page={page}&sort=newest&types=all&section='
+            link = f'https://edition.cnn.com/search?q={"+".join(topic.query.split(" "))}&from={(page-1)*30}&size=30&page={page}&sort=newest&types=article&section='
             should_break = scrape_article_content(init_browser(), link, topic.topic_id)
             if should_break:
                 logger.info(f"No more articles for topic {topic.topic_name}. Moving to next topic.")

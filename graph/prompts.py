@@ -10,6 +10,8 @@ Ensure the following constraints:
 - The "title" of the general event must not exceed 50 characters.
 - The "description" of the general event must not exceed 200 characters.
 - The "person_name" must not exceed 150 characters.
+- The "person_name" should be the name of single person, if more present select most relevant one.
+- If  "person_name" is unknown, use "Unspecified".
 - The "citation" must not exceed 300 characters.
 
 Without superfluous information, just the most important details. Provide only the answear, do not include any additional text or explanations.
@@ -29,15 +31,12 @@ Return a JSON object in the following format:
     "citation": "..."
 }}
 }}
-
-If no event is found, use `null`.
-
 Article:
 {chunk}
 """
 
 SENTIMENT_ANALYSIS_PROMPT = """
-You are a debate and sentiment analysis expert.  
+You are a debate and sentiment analysis expert. Analyse positive or negative commitment to the topic "{topic}" in the following text.
 Given the following topic and text, return **only** a single floating-point number between -1.0 and +1.0, where:
 - -1.0 indicates strongly negative sentiment  
 -  0.0 indicates neutral sentiment  
@@ -60,7 +59,7 @@ New citation:
 - Text: {new_citation}  
 - Date: {new_date}  
 - Score: {new_score}  
-Previous citations (up to 15):  
+Previous citations:  
 {previous_formatted}
 
 Write **only one paragraph**, max **200 characters**, pointing out the sentiment inconsistency. Do not include quotes or metadata—just the concise comment.
@@ -69,8 +68,8 @@ Write **only one paragraph**, max **200 characters**, pointing out the sentiment
 PERSON_SUMMARY_PROMPT = """
 You are an expert journalist proficient in analyzing political stances. Given the following inputs, produce **only** the final person_summary text (max 300 characters) that:
 
-1. Summarizes the person’s current position on the topic.
-2. Notes their expert status and openness to change.
+1. Summarizes the person's current position on the topic.
+2. Notes their expert status and openness to change. If this is unknown, do not mention it.
 3. Highlights any recent contradiction, if present.
 4. Integrates key details from the new citation and, if available, the previous summary.
 
@@ -79,7 +78,6 @@ Respond with no bullet points, no options, no additional commentary—just the *
 
 Inputs:
 Person: {person}  
-Is expert on given topic: {is_expert}  
 Topic: {topic}  
 Citation: {citation}  
 Stance: {stance}  
@@ -90,6 +88,8 @@ Previous summary: {previous_summary}
 {{#if inconsistency}}
 Recently found inconsistency: {inconsistency}  
 {{/if}}
+Context:
+{content}
 """
 
 OPINION_SCORING_PROMPT = """

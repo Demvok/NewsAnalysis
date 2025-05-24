@@ -1,15 +1,6 @@
 import logging, os, sys
-# from langchain_huggingface import HuggingFaceEndpoint
 from langchain_openai.chat_models import ChatOpenAI
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-# # Setup Hugging Face model
-# llm = HuggingFaceEndpoint(
-#     repo_id='tiiuae/falcon-7b-instruct',
-#     huggingfacehub_api_token=os.getenv('HUGGINGFACE_API_KEY'),
-#     task='text-generation'
-# )
-
 
 llm = ChatOpenAI(openai_api_base="http://127.0.0.1:1234/v1",
                  model='gemma-3-4b-it-qat',
@@ -19,7 +10,7 @@ llm = ChatOpenAI(openai_api_base="http://127.0.0.1:1234/v1",
 # Configure logging
 log_dir = "./logs"
 os.makedirs(log_dir, exist_ok=True)  # Ensure the logs directory exists
-log_file = os.path.join(log_dir, "model_usage.log")
+log_file = os.path.join(log_dir, "model_usage_gemma_qat.log")
 
 logging.basicConfig(
     filename=log_file,
