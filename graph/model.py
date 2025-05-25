@@ -3,14 +3,14 @@ from langchain_openai.chat_models import ChatOpenAI
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 llm = ChatOpenAI(openai_api_base="http://127.0.0.1:1234/v1",
-                 model='gemma-3-4b-it-qat',
+                 model='gemma-3-4b-it',
                  temperature=0.1)
 
 
 # Configure logging
 log_dir = "./logs"
 os.makedirs(log_dir, exist_ok=True)  # Ensure the logs directory exists
-log_file = os.path.join(log_dir, "model_usage_gemma_qat.log")
+log_file = os.path.join(log_dir, "model_usage.log")
 
 logging.basicConfig(
     filename=log_file,

@@ -21,7 +21,7 @@ MIXED_INTERVAL = 0.3 # Interval (+- from 0) for telling if opinion is mixed
 def get_weighted_sentiment(df):  # For inconsistency analysis
     df['index'] = df.index
 
-    def calculate_valuability(index, size, method=3, minimal_value=0.2, slope=0.66):
+    def calculate_valuability(index, size, method=1, minimal_value=0.2, slope=0.66):
         """
         Calculate the valuability of a chunk based on its index in the list of chunks.
         :param index: The index of the chunk in the list.

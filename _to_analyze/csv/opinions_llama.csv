@@ -1,0 +1,139 @@
+opinion_id,fk_origin_article_id,citation,sentiment_score,inconsistency_flag,inconsistency_with_id,inconsistency_comment,controversy_score,relevancy_score,contribution_score,opinion_hotness,is_selected,person_name
+1,50,Says Nant de Drance can go from storing energy to providing electricity with the flick of a switch.,0.5,False,[],,0.0,1.0,1.0,0.6,True,Robert Gleitz
+2,50,Professor of engineering at the Australian National University,0.63,False,[],,0.0,1.0,1.0,0.6,True,Andrew Blakers
+3,50,"“The era of dam building is nearly over,”",0.5,False,[],,0.5,1.0,1.0,0.8,True,Blakers
+4,49,null,,False,[],,,,,,False,Unspecified
+5,49,"“There are people who are really on the front lines of the inflation crisis and how expensive fossil fuels are because of Putin’s invasion of Ukraine, and this bill will be delivering big energy savings for those people,”",0.25,False,[],,0.2,0.9,0.8,0.585,False,Leah Stokes
+6,49,Unspecified,,False,[],,,,,,False,Debbie Stabenow
+7,48,"University of Lincoln, associate professor of food insights and sustainability",0.56,False,[],,0.0,1.0,1.0,0.6,True,Dr. Wayne Martindale
+8,48,Developed as part of her Material Futures master’s degree at Central Saint Martins art school.,0.0,False,[],,0.2,0.9,0.8,0.585,False,Arina Shokouhi
+9,47,"UC Davis report, 2012",0.56,False,[],,0.3,1.0,0.8,0.65,True,Dr. Loren R. Oki
+10,47,null,,False,[],,,,,,False,Unspecified
+11,47,Pollyn shop aims to popularize biodegradable pots,0.0,False,[],,0.2,0.8,0.7,0.525,False,Andreas Szankay
+12,47,According to Bidwell...,0.5,False,[],,0.0,1.0,1.0,0.6,True,Bidwell
+13,47,"“Being a good steward of your plants is really important,” Bidwell said.",0.0,False,[],,0.2,0.3,0.1,0.19,False,Bidwell
+14,46,null,,False,[],,,,,,False,Unspecified
+15,46,No specific citation found,0.55,False,[],,0.2,1.0,0.5,0.505,False,Geingos
+16,46,CNN’s Melissa Mahtani spoke with Geingos at Goals House during the UN General Assembly in New York last week,0.25,False,[],,0.2,0.8,0.7,0.525,False,Monica Geingos
+17,45,null,,False,[],,,,,,False,Unspecified
+18,45,"Wind and solar are already helping European citizens, but the future potential is even greater.",0.8,False,[],,0.2,1.0,0.8,0.61,True,Chris Rosslowe
+19,44,IEA Executive Director,0.56,False,[],,0.0,1.0,1.0,0.6,True,Fatih Birol
+20,44,null,,False,[],,,,,,False,Unspecified
+21,44,International Energy Agency,0.83,False,[],,0.2,0.9,1.0,0.655,True,Unspecified
+22,43,"Senior Vice President, African Energy Chamber",0.56,False,[],,0.0,1.0,1.0,0.6,True,Verner Ayukegba
+23,43,UN climate report,0.85,False,[],,0.2,1.0,0.8,0.61,True,Ayukegba
+24,43,We are going to be there to support a transition towards renewables and towards a world that goes closer to net zero.,0.8,False,[],,0.2,1.0,0.8,0.61,True,Ayukegba
+25,42,"CEO BlocPower, CNN",0.56,False,[],,0.0,1.0,1.0,0.6,True,Donnel Baird
+26,42,CNN Business,0.56,False,[],,0.2,1.0,0.8,0.61,True,Baird
+27,41,IEA executive director,0.56,False,[],,0.0,1.0,1.0,0.6,True,Fatih Birol
+28,41,— Julia Horowitz contributed reporting.,0.5,False,[],,0.0,1.0,1.0,0.6,True,Julia Horowitz
+29,40,The price of SAF is four to five times that of conventional jet fuel and it’s limited in supply.,-0.5,False,[],,0.5,0.8,0.7,0.645,True,AlQubaisi
+30,40,"“The warming you’re avoiding by simply adding a little more time to the journey is up to 60%, if not more,” says AlQubaisi.",0.5,False,[],,0.2,0.9,0.8,0.585,False,AlQubaisi
+31,40,Says Etihad is 'essentially a call to action' to decarbonize industry,0.8,False,[],,0.5,1.0,1.0,0.8,True,Mariam AlQubaisi
+32,39,Contributed to this report.,0.5,False,[],,0.0,1.0,1.0,0.6,True,Julia Horowitz
+33,39,European Commission President said the package will ensure a 'level playing field' globally.,0.5,False,[],,0.5,1.0,1.0,0.8,True,Ursula von der Leyen
+34,38,"“I think a lot about the printing press… We suddenly had the ability for people who disagreed with … the Catholic Church to take it on and say,…",,False,[],,,,,,False,Hank Green
+35,38,null,,False,[],,,,,,False,Unspecified
+36,37,null,,False,[],,,,,,False,Unspecified
+37,36,Climate Power executive director,0.5,False,[],,0.0,1.0,1.0,0.6,True,Lori Lodes
+38,36,"stunningly, for nearly four-fifths of the total clean energy investments that have been announced.",0.5,False,[],,0.0,1.0,1.0,0.6,True,Brandon Williams
+39,36,Director of the Program on Climate Change Communication at Yale University,0.63,False,[],,0.0,1.0,1.0,0.6,True,Anthony Leiserowitz
+40,36,derides as “woke capitalism”,0.5,False,[],,0.9,0.8,0.7,0.805,True,Ron DeSantis
+41,36,He voted to repeal IRA's incentives for electric vehicle production and consumption,0.5,False,[],,0.7,0.8,1.0,0.83,True,"Amodei, Shelley"
+42,36,Yale’s polling shows small percentage of Republicans cite climate as an important issue for government to address.,0.25,False,[],,0.4,0.8,0.7,0.605,True,Leiserowitz
+43,36,Republicans and conservative activists frame defense of fossil fuels as culture war,0.25,True,[21],"New citation cites partisan groups instead of neutral source, contradicting previous citation.",0.5,0.8,0.7,0.645,True,Unspecified
+44,36,null,,False,[],,,,,,False,Unspecified
+45,35,Precedence Research report,0.62,False,[],,0.2,1.0,0.8,0.61,True,Unspecified
+46,35,Managing director of Hive Energy Africa,0.56,False,[],,0.0,1.0,1.0,0.6,True,Colin Loubser
+47,34,Social media post,,False,[],,,,,,False,Billie Joe Armstrong
+48,33,"“With this system we create biodiversity, which means better soil, healthier crops and a bigger yield.”",0.8,False,[],,0.2,0.9,0.8,0.585,False,Ben Moussa
+49,33,Desertification is the future of a lot of countries today. Our solution is using agroforestry...,0.0,False,[],,0.3,0.2,0.1,0.205,False,Wissal Ben Moussa
+50,32,Exciting technologies are great if you're a venture capitalist and death if you're a banker.,0.5,False,[],,0.8,0.9,1.0,0.895,True,O'Donnell
+51,32,Invested $80 million in seed money,0.5,False,[],,0.0,1.0,1.0,0.6,True,Bill Gates
+52,32,Antora Energy's clean energy passions began when he was a curious public-school kid tinkering with photovoltaics in his parent’s garage.,0.8,False,[],,0.2,0.9,1.0,0.655,True,Andrew Ponec
+53,31,Texas Tech University and chief scientist at The Nature Conservancy,0.83,False,[],,0.5,1.0,1.0,0.8,True,Katharine Hayhoe
+54,31,null,,False,[],,,,,,False,Unspecified
+55,30,Our early investment in wind has helped keep electricity rates lower compared to the rest of the country.,0.8,False,[],,0.0,1.0,1.0,0.6,True,Johannsen
+56,30,CNN,0.56,False,[],,0.0,1.0,1.0,0.6,True,Kerri Johannsen
+57,30,"CNN, University of Iowa professor of environmental health",0.63,False,[],,0.0,1.0,1.0,0.6,True,Peter Thorne
+58,29,Drax Group CEO,0.56,False,[],,0.2,1.0,1.0,0.68,True,Will Gardiner
+59,29,“BECCS is an unproven and highly controversial technology that would come at significant financial cost to the UK public.”,-0.8,False,[],,1.0,1.0,1.0,1.0,True,Tomos Harrison
+60,28,USA Basketball executive director,0.5,False,[],,0.2,1.0,0.8,0.61,True,Grant Hill
+61,26,"He announced he would not seek reelection for his congressional seat, citing accomplishments and a desire to continue serving the country in a new capacity.",,False,[],,,,,,False,Mark Green
+62,25,Trump: 'I have my Complete and Total Endorsement!,0.0,False,[],,0.2,0.8,0.7,0.525,False,Mark Green
+63,24,None mentioned,0.0,True,[45],"New citation lacks detail, raising doubts about its reliability.",0.2,0.8,0.4,0.42,False,Unspecified
+64,24,Added nanogenerator modules to power electronics in ambient conditions,0.25,False,[],,0.2,0.8,0.7,0.525,False,Wu
+65,24,"Lead author of the study, South China University of Technology professor.",0.5,False,[],,0.0,1.0,1.0,0.6,True,Hao Wu
+66,23,null,,False,[],,,,,,False,Unspecified
+67,20,UCLA’s Sant emphasizes the need for climate action with uncertainty,0.25,False,[],,0.3,0.8,0.7,0.565,False,Sant
+68,20,Center for International Environmental Law,0.63,False,[],,0.9,0.8,1.0,0.91,True,Lili Fuhr
+69,20,said CNN,0.5,False,[],,0.0,1.0,1.0,0.6,True,Gaurav Sant
+70,20,"Sorbonne University in France, CNN",0.63,False,[],,0.2,0.8,0.4,0.42,False,Jean-Pierre Gatusso
+71,19,"“If you imagine 800 GW of coal-fired thermal capacity being added … this by itself will kill all other sustainable energy initiatives happening all across the world, in terms of carbon emissions,”",0.5,False,[],,0.8,0.9,1.0,0.895,True,Gautam Adani
+72,19,Respect the fact that every country has its own right to make sure that the people of their own country are well-served from an energy perspective.,0.0,False,[],,0.2,0.8,0.4,0.42,False,Adani
+73,19,"“There is no choice for India but to start doing things at a previously unimagined size and scale,”",0.5,False,[],,0.5,1.0,1.0,0.8,True,Gautam Adani
+74,18,CNN,0.34,False,[],,0.0,1.0,1.0,0.6,True,Unspecified
+75,18,climate scientist at the NewClimate Institute,0.83,False,[],,0.0,1.0,1.0,0.6,True,Niklas Höhne
+76,19,CNN interview,0.63,False,[],,0.5,1.0,1.0,0.8,True,Sagar Adani
+77,18,CNN,0.56,False,[],,0.2,1.0,0.9,0.645,True,Dave Jones
+78,17,IEA's executive director,0.56,False,[],,0.2,0.8,0.7,0.525,False,Fatih Birol
+79,16,"said he thinks if Republicans take control in 2025, they’d pursue more limited rollbacks to the law, rather than full-scale repeal.",0.25,False,[],,0.3,0.8,0.7,0.565,False,Curtis
+80,16,"Complained about the bill being a boondoggle, but his district has benefited from it",0.5,False,[],,0.7,1.0,0.5,0.705,True,Richard Hudson
+81,17,IEA,0.56,True,[63],"Commenter notes inconsistency between new and old citation scores, suggesting a sudden change in opinion or credibility assessment.",0.8,0.9,1.0,0.895,True,Unspecified
+82,16,"“It’s an unbelievable advancement, the new battery plant is just unbelievably large,” said Loudermilk.",0.5,False,[],,0.2,1.0,0.8,0.61,True,Barry Loudermilk
+83,16,Louisiana is benefiting greatly from private and public investment in the law.,0.5,False,[],,0.2,1.0,0.8,0.61,True,Carter
+84,16,QCells North America,0.85,False,[],,0.0,1.0,1.0,0.6,True,Scott Moskowitz
+85,16,Unspecified,,False,[],,,,,,False,Quillian
+86,15,Democratic Sen. Tom Carper said in a statement.,0.5,False,[],,0.0,1.0,1.0,0.6,True,Tom Carper
+87,15,backed TerraPower project,0.5,False,[],,0.5,1.0,1.0,0.8,True,Bill Gates
+88,15,Republican Sen. Shelley Moore Capito of West Virginia,0.25,False,[],,0.2,0.8,0.4,0.42,False,Shelley Moore Capito
+89,14,“A subsea cable could be exploited by a transactional presidency…” Rizzi said.,0.0,False,[],,0.5,0.8,0.7,0.645,True,Rizzi
+90,14,European Council on Foreign Relations,0.56,False,[],,0.3,0.8,0.7,0.565,False,Alberto Rizzi
+91,14,has the Biden administration’s backing,0.5,False,[],,0.2,0.8,1.0,0.63,True,Biden
+92,14,Etchea Energy founder and CEO,0.5,False,[],,0.0,1.0,1.0,0.6,True,Simon Ludlam
+93,13,RMI’s Gamage,0.5,False,[],,0.0,1.0,1.0,0.6,True,Gamage
+94,13,CNN,0.53,False,[],,0.0,1.0,1.0,0.6,True,Atouife
+95,13,CNN,0.56,False,[],,0.0,1.0,1.0,0.6,True,Martin Pei
+96,13,According to a study commissioned by a steel industry group,0.25,False,[],,0.5,0.8,0.7,0.645,True,Atouife
+97,13,Princeton University researcher specializing in green hydrogen in heavy industry,0.8,False,[],,0.2,1.0,0.8,0.61,True,Mohamed Atouife
+98,14,Founder of Megawatt-X renewable energy firm,0.8,False,[],,0.0,1.0,1.0,0.6,True,Laurent Segalen
+99,14,Control Risks consulting firm,0.34,False,[],,0.2,0.8,0.7,0.525,False,George Dyson
+100,12,Pressman: 'Some of these very young artists who are really looking to express themselves and are turning to color as one more way to get their message out...,,False,[],,,,,,False,Unspecified
+101,12,"said she knew exactly what she wanted from the color, and spent months discussing it with the design studio",,False,[],,,,,,False,Charli XCX
+102,12,"Color is a language, we gravitate towards color outside of our consciousness.",0.0,False,[],,0.2,1.0,0.8,0.61,True,Laurie Pressman
+103,12,"Official X account, @charlixcx",0.56,False,[],,0.2,0.8,0.4,0.42,False,Charli XCX
+104,11,Consulted for information on blanching process,0.0,False,[],,0.0,0.0,0.0,0.0,False,Khailing Neoh
+105,8,"According to Haustein, who works on attribution studies to determine the extent of climate change's influence on weather events.",0.5,False,[],,0.5,1.0,1.0,0.8,True,Haustein
+106,11,Unspecified,,False,[],,,,,,False,Neoh
+107,8,"Leipzig University, Germany",0.56,False,[],,0.2,1.0,0.8,0.61,True,Karsten Haustein
+108,7,"said one of the authors, a senior lecturer in remote sensing and geography at the University of Hertfordshire",0.25,False,[],,0.5,0.8,0.7,0.645,True,Olly Bartlett
+109,7,"CNN, 'Our findings confirm that the influence of anthropogenic climate change has no limit in its reach",0.5,False,[],,0.8,1.0,0.5,0.745,True,Thomas Roland
+110,6,"If the world adopts EVs in 2060 rather than 2020, it makes a giant difference for the planet...",0.8,False,[],,0.5,1.0,1.0,0.8,True,Shapiro
+111,6,Associate Director of Rhodium’s climate and energy practice,0.56,False,[],,0.0,1.0,1.0,0.6,True,Ben King
+112,6,BlueGreen Alliance,0.5,False,[],,0.0,1.0,1.0,0.6,True,Jason Walsh
+113,6,Has said his priority for “Day 1 and the first 100 days” will be “to roll back regulations.”,0.5,False,[],,0.9,0.8,0.7,0.805,True,Lee Zeldin
+114,6,"“There is no ‘climate crisis,’ and… climate change policies are regressive.” - Chris Wright, Trump’s nominee for energy secretary",0.5,False,[],,1.0,0.8,1.0,0.95,True,Chris Wright
+115,6,"won 18 of the 23 on the bottom of the list, including all 11 states with the absolute lowest level of emissions",0.8,False,[],,0.0,1.0,1.0,0.6,True,Kamala Harris
+116,6,Climate Power executive director,0.85,False,[],,0.0,1.0,1.0,0.6,True,Lori Lodes
+117,6,Won 26 of 27 states most reliant on fossil fuels,0.93,False,[],,0.5,1.0,0.8,0.73,True,Donald Trump
+118,6,University of California at Berkeley economist,0.83,False,[],,0.2,0.8,0.7,0.525,False,Joseph Shapiro
+119,5,"Agritech and sustainable agricultural practices can play a crucial role in mitigating or reversing desertification,",0.5,False,[],,0.0,1.0,1.0,0.6,True,Martin
+120,5,Enabling sustainable agriculture and delivering drop-in solutions,0.5,False,[],,0.0,1.0,1.0,0.6,True,Keppler
+121,5,Associate professor in material science and engineering at KAUST,0.56,False,[],,0.0,1.0,1.0,0.6,True,Derya Baran
+122,4,"CNN, Third Way’s climate and energy program",0.63,False,[],,0.2,0.8,0.9,0.595,False,Alan Ahn
+123,4,"North Dakota Gov. Doug Burgum, Trump’s new energy czar and pick for Interior Secretary...",0.5,False,[],,0.2,0.8,0.7,0.525,False,Doug Burgum
+124,4,Under the first Trump administration.,0.0,False,[],,0.2,0.8,0.4,0.42,False,Neil Chatterjee
+125,4,Transition spokesperson,0.6,False,[],,0.0,1.0,0.5,0.425,False,Karoline Leavitt
+126,4,North Dakota Petroleum Council,0.25,False,[],,0.5,0.8,1.0,0.75,True,Ron Ness
+127,3,"“We are overheating everything around us… It’s definitely scalable, but it would take more work and more cooperation,”",0.25,False,[],,0.2,0.9,0.8,0.585,False,Zeyneb Magavi
+128,3,"expects the geothermal system to reduce costs, 'Cost is a huge driver",0.5,False,[],,0.0,1.0,1.0,0.6,True,Nikki Bruno
+129,3,"“I am a stickler about the temperature, because I don’t want to pay the money to heat the house,” she told CNN.",0.0,False,[],,0.4,0.8,0.7,0.605,True,Jennifer Mauchan
+130,9,CNN,0.56,False,[],,0.0,1.0,1.0,0.6,True,"Victor, Professor of Innovation and Public Policy at University of California San Diego"
+131,9,Brookings paper,,False,[],,,,,,False,David G. Victor and Michael R. Davidson
+132,9,"“We saw the playbook for how China came to dominate the solar panel industry… granting massive subsidies for domestic suppliers, while… closing the domestic market to foreign businesses,”",0.25,False,[],,0.7,0.8,1.0,0.83,True,Margrethe Vestager
+133,9,"We need to radically reduce the onshoring (and friendshoring) requirements for critical minerals… We should do what we do in all commodity markets, which is have diversity (of supply),",0.0,False,[],,0.2,0.9,0.8,0.585,False,Victor
+134,2,"CNN, email",0.62,False,[],,0.2,1.0,0.8,0.61,True,Dr. Marcella Fernandes de Souza
+135,2,Accelerating soil creation from five years down to a month,0.0,False,[],,0.2,0.8,0.7,0.525,False,Redha
+136,2,"Our model can solve multiple problems at the same time, killing two birds with one stone.",0.0,False,[],,0.5,1.0,1.0,0.8,True,Dr. Samsurin Welch
+137,1,said she was 'baffled' by the decision to cut the program.,0.5,False,[],,0.4,0.9,0.8,0.665,True,Susan Collins
+138,1,"‘Eliminating the Energy Star program would directly contradict this administration’s promise to reduce household energy costs.’ - Paula Glover, president of Alliance to Save Energy",0.5,False,[],,0.8,0.9,1.0,0.895,True,Paula Glover

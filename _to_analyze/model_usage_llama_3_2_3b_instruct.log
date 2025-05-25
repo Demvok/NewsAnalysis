@@ -1,0 +1,1482 @@
+2025-05-25 01:06:15 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:06:15 - event_extraction - total_tokens: 888, prompt_tokens: 804, completion_tokens: 84
+2025-05-25 01:06:22 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:06:22 - event_extraction - total_tokens: 440, prompt_tokens: 368, completion_tokens: 72
+2025-05-25 01:06:30 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:06:30 - event_extraction - total_tokens: 817, prompt_tokens: 751, completion_tokens: 66
+2025-05-25 01:06:39 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:06:39 - event_extraction - total_tokens: 876, prompt_tokens: 801, completion_tokens: 75
+2025-05-25 01:06:45 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:06:45 - event_scoring - total_tokens: 825, prompt_tokens: 792, completion_tokens: 33
+2025-05-25 01:06:46 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:06:46 - sentiment_analysis - total_tokens: 144, prompt_tokens: 141, completion_tokens: 3
+2025-05-25 01:06:51 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:06:51 - event_scoring - total_tokens: 391, prompt_tokens: 358, completion_tokens: 33
+2025-05-25 01:06:52 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:06:52 - sentiment_analysis - total_tokens: 131, prompt_tokens: 128, completion_tokens: 3
+2025-05-25 01:06:58 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:06:58 - event_scoring - total_tokens: 777, prompt_tokens: 744, completion_tokens: 33
+2025-05-25 01:07:02 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:07:02 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:07:09 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:07:09 - event_scoring - total_tokens: 827, prompt_tokens: 794, completion_tokens: 33
+2025-05-25 01:07:10 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:07:10 - sentiment_analysis - total_tokens: 132, prompt_tokens: 129, completion_tokens: 3
+2025-05-25 01:07:18 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:07:18 - person_summary - total_tokens: 837, prompt_tokens: 783, completion_tokens: 54
+2025-05-25 01:07:22 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:07:22 - person_summary - total_tokens: 376, prompt_tokens: 334, completion_tokens: 42
+2025-05-25 01:07:27 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:07:27 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:07:34 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:07:34 - person_summary - total_tokens: 819, prompt_tokens: 768, completion_tokens: 51
+2025-05-25 01:07:39 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:07:39 - opinion_scoring - total_tokens: 401, prompt_tokens: 367, completion_tokens: 34
+2025-05-25 01:07:42 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:07:42 - opinion_scoring - total_tokens: 377, prompt_tokens: 343, completion_tokens: 34
+2025-05-25 01:07:47 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:07:47 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:07:51 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:07:51 - opinion_scoring - total_tokens: 388, prompt_tokens: 353, completion_tokens: 35
+2025-05-25 01:07:58 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:07:58 - event_extraction - total_tokens: 491, prompt_tokens: 433, completion_tokens: 58
+2025-05-25 01:08:11 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:08:11 - event_extraction - total_tokens: 892, prompt_tokens: 767, completion_tokens: 125
+2025-05-25 01:08:15 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:08:15 - opinion_scoring - total_tokens: 331, prompt_tokens: 297, completion_tokens: 34
+2025-05-25 01:08:22 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:08:22 - event_extraction - total_tokens: 475, prompt_tokens: 416, completion_tokens: 59
+2025-05-25 01:08:27 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:08:27 - event_scoring - total_tokens: 451, prompt_tokens: 418, completion_tokens: 33
+2025-05-25 01:08:31 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:08:31 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:08:37 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:08:37 - event_scoring - total_tokens: 810, prompt_tokens: 777, completion_tokens: 33
+2025-05-25 01:08:39 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:08:39 - sentiment_analysis - total_tokens: 164, prompt_tokens: 161, completion_tokens: 3
+2025-05-25 01:08:47 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:08:47 - event_extraction - total_tokens: 703, prompt_tokens: 640, completion_tokens: 63
+2025-05-25 01:08:52 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:08:52 - event_scoring - total_tokens: 435, prompt_tokens: 402, completion_tokens: 33
+2025-05-25 01:08:56 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:08:56 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:09:00 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:09:00 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:09:07 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:09:07 - person_summary - total_tokens: 819, prompt_tokens: 766, completion_tokens: 53
+2025-05-25 01:09:13 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:09:13 - event_scoring - total_tokens: 659, prompt_tokens: 626, completion_tokens: 33
+2025-05-25 01:09:17 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:09:17 - sentiment_analysis - total_tokens: 166, prompt_tokens: 122, completion_tokens: 44
+2025-05-25 01:09:21 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:09:21 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:09:25 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:09:25 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:09:29 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:09:29 - opinion_scoring - total_tokens: 420, prompt_tokens: 386, completion_tokens: 34
+2025-05-25 01:09:35 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:09:35 - sentiment_analysis - total_tokens: 182, prompt_tokens: 122, completion_tokens: 60
+2025-05-25 01:09:39 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:09:39 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:09:43 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:09:43 - opinion_scoring - total_tokens: 331, prompt_tokens: 297, completion_tokens: 34
+2025-05-25 01:09:53 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:09:53 - event_extraction - total_tokens: 810, prompt_tokens: 738, completion_tokens: 72
+2025-05-25 01:09:57 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:09:57 - sentiment_analysis - total_tokens: 169, prompt_tokens: 122, completion_tokens: 47
+2025-05-25 01:10:01 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:10:01 - opinion_scoring - total_tokens: 331, prompt_tokens: 297, completion_tokens: 34
+2025-05-25 01:10:12 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:10:12 - event_extraction - total_tokens: 898, prompt_tokens: 819, completion_tokens: 79
+2025-05-25 01:10:18 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:10:18 - event_scoring - total_tokens: 755, prompt_tokens: 722, completion_tokens: 33
+2025-05-25 01:10:19 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:10:19 - sentiment_analysis - total_tokens: 134, prompt_tokens: 131, completion_tokens: 3
+2025-05-25 01:10:23 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:10:23 - opinion_scoring - total_tokens: 334, prompt_tokens: 300, completion_tokens: 34
+2025-05-25 01:10:31 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:10:31 - event_extraction - total_tokens: 721, prompt_tokens: 664, completion_tokens: 57
+2025-05-25 01:10:38 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:10:38 - event_scoring - total_tokens: 841, prompt_tokens: 808, completion_tokens: 33
+2025-05-25 01:10:39 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:10:39 - sentiment_analysis - total_tokens: 140, prompt_tokens: 137, completion_tokens: 3
+2025-05-25 01:10:47 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:10:47 - person_summary - total_tokens: 760, prompt_tokens: 710, completion_tokens: 50
+2025-05-25 01:10:56 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:10:56 - event_extraction - total_tokens: 791, prompt_tokens: 723, completion_tokens: 68
+2025-05-25 01:11:02 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:11:02 - event_scoring - total_tokens: 681, prompt_tokens: 648, completion_tokens: 33
+2025-05-25 01:11:06 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:11:06 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:11:13 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:11:13 - person_summary - total_tokens: 835, prompt_tokens: 797, completion_tokens: 38
+2025-05-25 01:11:18 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:11:18 - opinion_scoring - total_tokens: 391, prompt_tokens: 357, completion_tokens: 34
+2025-05-25 01:11:24 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:11:24 - event_scoring - total_tokens: 740, prompt_tokens: 707, completion_tokens: 33
+2025-05-25 01:11:25 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:11:25 - sentiment_analysis - total_tokens: 130, prompt_tokens: 127, completion_tokens: 3
+2025-05-25 01:11:29 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:11:29 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:11:33 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:11:33 - opinion_scoring - total_tokens: 384, prompt_tokens: 350, completion_tokens: 34
+2025-05-25 01:11:43 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:11:43 - event_extraction - total_tokens: 870, prompt_tokens: 792, completion_tokens: 78
+2025-05-25 01:11:51 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:11:51 - person_summary - total_tokens: 744, prompt_tokens: 692, completion_tokens: 52
+2025-05-25 01:11:55 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:11:55 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:12:02 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:12:02 - event_extraction - total_tokens: 474, prompt_tokens: 415, completion_tokens: 59
+2025-05-25 01:12:09 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:12:09 - event_scoring - total_tokens: 817, prompt_tokens: 784, completion_tokens: 33
+2025-05-25 01:12:10 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:12:10 - sentiment_analysis - total_tokens: 135, prompt_tokens: 132, completion_tokens: 3
+2025-05-25 01:12:14 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:12:14 - opinion_scoring - total_tokens: 390, prompt_tokens: 356, completion_tokens: 34
+2025-05-25 01:12:17 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:12:17 - opinion_scoring - total_tokens: 331, prompt_tokens: 297, completion_tokens: 34
+2025-05-25 01:12:22 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:12:22 - event_scoring - total_tokens: 430, prompt_tokens: 397, completion_tokens: 33
+2025-05-25 01:12:23 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:12:23 - sentiment_analysis - total_tokens: 127, prompt_tokens: 124, completion_tokens: 3
+2025-05-25 01:12:31 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:12:31 - person_summary - total_tokens: 820, prompt_tokens: 762, completion_tokens: 58
+2025-05-25 01:12:40 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:12:40 - event_extraction - total_tokens: 808, prompt_tokens: 743, completion_tokens: 65
+2025-05-25 01:12:45 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:12:45 - event_extraction - total_tokens: 451, prompt_tokens: 400, completion_tokens: 51
+2025-05-25 01:12:51 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:12:51 - person_summary - total_tokens: 421, prompt_tokens: 377, completion_tokens: 44
+2025-05-25 01:12:55 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:12:55 - opinion_scoring - total_tokens: 394, prompt_tokens: 360, completion_tokens: 34
+2025-05-25 01:13:01 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:13:01 - event_scoring - total_tokens: 753, prompt_tokens: 720, completion_tokens: 33
+2025-05-25 01:13:02 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:13:02 - sentiment_analysis - total_tokens: 138, prompt_tokens: 135, completion_tokens: 3
+2025-05-25 01:13:07 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:13:07 - event_scoring - total_tokens: 411, prompt_tokens: 378, completion_tokens: 33
+2025-05-25 01:13:11 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:13:11 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:13:16 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:13:16 - opinion_scoring - total_tokens: 374, prompt_tokens: 340, completion_tokens: 34
+2025-05-25 01:13:25 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:13:25 - event_extraction - total_tokens: 786, prompt_tokens: 720, completion_tokens: 66
+2025-05-25 01:13:32 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:13:32 - person_summary - total_tokens: 758, prompt_tokens: 716, completion_tokens: 42
+2025-05-25 01:13:36 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:13:36 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:13:47 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:13:47 - event_extraction - total_tokens: 718, prompt_tokens: 623, completion_tokens: 95
+2025-05-25 01:13:53 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:13:53 - event_scoring - total_tokens: 742, prompt_tokens: 709, completion_tokens: 33
+2025-05-25 01:13:54 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:13:54 - sentiment_analysis - total_tokens: 127, prompt_tokens: 124, completion_tokens: 3
+2025-05-25 01:13:59 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:13:59 - opinion_scoring - total_tokens: 383, prompt_tokens: 349, completion_tokens: 34
+2025-05-25 01:14:03 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:14:03 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:14:09 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:14:09 - event_scoring - total_tokens: 652, prompt_tokens: 619, completion_tokens: 33
+2025-05-25 01:14:10 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:14:10 - sentiment_analysis - total_tokens: 147, prompt_tokens: 144, completion_tokens: 3
+2025-05-25 01:14:18 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:14:18 - person_summary - total_tokens: 740, prompt_tokens: 682, completion_tokens: 58
+2025-05-25 01:14:26 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:14:26 - event_extraction - total_tokens: 574, prompt_tokens: 502, completion_tokens: 72
+2025-05-25 01:14:31 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:14:31 - opinion_scoring - total_tokens: 331, prompt_tokens: 297, completion_tokens: 34
+2025-05-25 01:14:37 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:14:37 - person_summary - total_tokens: 651, prompt_tokens: 606, completion_tokens: 45
+2025-05-25 01:14:42 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:14:42 - opinion_scoring - total_tokens: 384, prompt_tokens: 350, completion_tokens: 34
+2025-05-25 01:14:47 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:14:47 - event_scoring - total_tokens: 534, prompt_tokens: 501, completion_tokens: 33
+2025-05-25 01:14:51 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:14:51 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:15:02 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:15:02 - event_extraction - total_tokens: 891, prompt_tokens: 809, completion_tokens: 82
+2025-05-25 01:15:07 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:15:07 - opinion_scoring - total_tokens: 396, prompt_tokens: 362, completion_tokens: 34
+2025-05-25 01:15:14 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:15:14 - event_extraction - total_tokens: 545, prompt_tokens: 488, completion_tokens: 57
+2025-05-25 01:15:18 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:15:18 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:15:24 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:15:24 - event_scoring - total_tokens: 832, prompt_tokens: 799, completion_tokens: 33
+2025-05-25 01:15:26 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:15:26 - sentiment_analysis - total_tokens: 139, prompt_tokens: 136, completion_tokens: 3
+2025-05-25 01:15:35 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:15:35 - event_extraction - total_tokens: 722, prompt_tokens: 648, completion_tokens: 74
+2025-05-25 01:15:40 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:15:40 - event_scoring - total_tokens: 505, prompt_tokens: 472, completion_tokens: 33
+2025-05-25 01:15:44 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:15:44 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:15:48 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:15:48 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:15:57 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:15:57 - person_summary - total_tokens: 844, prompt_tokens: 785, completion_tokens: 59
+2025-05-25 01:16:03 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:16:03 - event_scoring - total_tokens: 674, prompt_tokens: 641, completion_tokens: 33
+2025-05-25 01:16:04 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:16:04 - sentiment_analysis - total_tokens: 127, prompt_tokens: 124, completion_tokens: 3
+2025-05-25 01:16:08 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:16:08 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:16:12 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:16:12 - opinion_scoring - total_tokens: 331, prompt_tokens: 297, completion_tokens: 34
+2025-05-25 01:16:16 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:16:16 - opinion_scoring - total_tokens: 403, prompt_tokens: 369, completion_tokens: 34
+2025-05-25 01:16:23 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:16:23 - person_summary - total_tokens: 662, prompt_tokens: 611, completion_tokens: 51
+2025-05-25 01:16:29 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:16:29 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:16:37 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:16:37 - event_extraction - total_tokens: 526, prompt_tokens: 462, completion_tokens: 64
+2025-05-25 01:16:44 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:16:44 - event_extraction - total_tokens: 646, prompt_tokens: 579, completion_tokens: 67
+2025-05-25 01:16:49 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:16:49 - opinion_scoring - total_tokens: 383, prompt_tokens: 349, completion_tokens: 34
+2025-05-25 01:16:52 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:16:52 - opinion_scoring - total_tokens: 331, prompt_tokens: 297, completion_tokens: 34
+2025-05-25 01:16:58 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:16:58 - event_scoring - total_tokens: 489, prompt_tokens: 456, completion_tokens: 33
+2025-05-25 01:17:00 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:17:00 - sentiment_analysis - total_tokens: 126, prompt_tokens: 123, completion_tokens: 3
+2025-05-25 01:17:06 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:17:06 - event_scoring - total_tokens: 596, prompt_tokens: 563, completion_tokens: 33
+2025-05-25 01:17:07 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:17:07 - sentiment_analysis - total_tokens: 130, prompt_tokens: 127, completion_tokens: 3
+2025-05-25 01:17:16 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:17:16 - event_extraction - total_tokens: 778, prompt_tokens: 704, completion_tokens: 74
+2025-05-25 01:17:24 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:17:24 - event_extraction - total_tokens: 612, prompt_tokens: 531, completion_tokens: 81
+2025-05-25 01:17:32 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:17:32 - person_summary - total_tokens: 484, prompt_tokens: 422, completion_tokens: 62
+2025-05-25 01:17:37 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:17:37 - person_summary - total_tokens: 587, prompt_tokens: 546, completion_tokens: 41
+2025-05-25 01:17:43 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:17:43 - event_scoring - total_tokens: 735, prompt_tokens: 702, completion_tokens: 33
+2025-05-25 01:17:44 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:17:44 - sentiment_analysis - total_tokens: 126, prompt_tokens: 123, completion_tokens: 3
+2025-05-25 01:17:50 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:17:50 - event_scoring - total_tokens: 550, prompt_tokens: 517, completion_tokens: 33
+2025-05-25 01:17:51 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:17:51 - sentiment_analysis - total_tokens: 145, prompt_tokens: 142, completion_tokens: 3
+2025-05-25 01:17:56 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:17:56 - opinion_scoring - total_tokens: 388, prompt_tokens: 354, completion_tokens: 34
+2025-05-25 01:17:59 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:17:59 - opinion_scoring - total_tokens: 377, prompt_tokens: 343, completion_tokens: 34
+2025-05-25 01:18:08 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:18:08 - person_summary - total_tokens: 731, prompt_tokens: 665, completion_tokens: 66
+2025-05-25 01:18:12 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:18:12 - person_summary - total_tokens: 547, prompt_tokens: 512, completion_tokens: 35
+2025-05-25 01:18:22 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:18:22 - event_extraction - total_tokens: 841, prompt_tokens: 766, completion_tokens: 75
+2025-05-25 01:18:29 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:18:29 - event_extraction - total_tokens: 772, prompt_tokens: 714, completion_tokens: 58
+2025-05-25 01:18:34 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:18:34 - opinion_scoring - total_tokens: 382, prompt_tokens: 348, completion_tokens: 34
+2025-05-25 01:18:37 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:18:37 - opinion_scoring - total_tokens: 384, prompt_tokens: 350, completion_tokens: 34
+2025-05-25 01:18:44 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:18:44 - event_scoring - total_tokens: 795, prompt_tokens: 762, completion_tokens: 33
+2025-05-25 01:18:45 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:18:45 - sentiment_analysis - total_tokens: 128, prompt_tokens: 125, completion_tokens: 3
+2025-05-25 01:18:51 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:18:51 - event_scoring - total_tokens: 730, prompt_tokens: 697, completion_tokens: 33
+2025-05-25 01:18:52 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:18:52 - sentiment_analysis - total_tokens: 125, prompt_tokens: 122, completion_tokens: 3
+2025-05-25 01:19:01 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:19:01 - event_extraction - total_tokens: 620, prompt_tokens: 542, completion_tokens: 78
+2025-05-25 01:19:09 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:19:09 - event_extraction - total_tokens: 719, prompt_tokens: 645, completion_tokens: 74
+2025-05-25 01:19:16 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:19:16 - person_summary - total_tokens: 777, prompt_tokens: 730, completion_tokens: 47
+2025-05-25 01:19:24 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:19:24 - person_summary - total_tokens: 727, prompt_tokens: 673, completion_tokens: 54
+2025-05-25 01:19:29 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:19:29 - event_scoring - total_tokens: 573, prompt_tokens: 540, completion_tokens: 33
+2025-05-25 01:19:30 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:19:30 - sentiment_analysis - total_tokens: 127, prompt_tokens: 124, completion_tokens: 3
+2025-05-25 01:19:36 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:19:36 - event_scoring - total_tokens: 670, prompt_tokens: 637, completion_tokens: 33
+2025-05-25 01:19:37 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:19:37 - sentiment_analysis - total_tokens: 129, prompt_tokens: 126, completion_tokens: 3
+2025-05-25 01:19:41 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:19:41 - opinion_scoring - total_tokens: 380, prompt_tokens: 346, completion_tokens: 34
+2025-05-25 01:19:45 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:19:45 - opinion_scoring - total_tokens: 381, prompt_tokens: 347, completion_tokens: 34
+2025-05-25 01:19:51 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:19:51 - person_summary - total_tokens: 554, prompt_tokens: 505, completion_tokens: 49
+2025-05-25 01:19:58 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:19:58 - person_summary - total_tokens: 669, prompt_tokens: 610, completion_tokens: 59
+2025-05-25 01:20:10 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:20:10 - event_extraction - total_tokens: 859, prompt_tokens: 772, completion_tokens: 87
+2025-05-25 01:20:21 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:20:21 - event_extraction - total_tokens: 789, prompt_tokens: 681, completion_tokens: 108
+2025-05-25 01:20:25 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:20:25 - opinion_scoring - total_tokens: 388, prompt_tokens: 354, completion_tokens: 34
+2025-05-25 01:20:29 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:20:29 - opinion_scoring - total_tokens: 391, prompt_tokens: 357, completion_tokens: 34
+2025-05-25 01:20:37 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:20:37 - event_scoring - total_tokens: 797, prompt_tokens: 764, completion_tokens: 33
+2025-05-25 01:20:41 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:20:41 - sentiment_analysis - total_tokens: 144, prompt_tokens: 140, completion_tokens: 4
+2025-05-25 01:20:48 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:20:48 - event_scoring - total_tokens: 715, prompt_tokens: 682, completion_tokens: 33
+2025-05-25 01:20:51 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:20:51 - sentiment_analysis - total_tokens: 154, prompt_tokens: 151, completion_tokens: 3
+2025-05-25 01:21:02 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:21:02 - event_extraction - total_tokens: 888, prompt_tokens: 803, completion_tokens: 85
+2025-05-25 01:21:09 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:21:09 - event_extraction - total_tokens: 572, prompt_tokens: 500, completion_tokens: 72
+2025-05-25 01:21:18 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:21:18 - person_summary - total_tokens: 810, prompt_tokens: 753, completion_tokens: 57
+2025-05-25 01:21:26 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:21:26 - person_summary - total_tokens: 743, prompt_tokens: 674, completion_tokens: 69
+2025-05-25 01:21:32 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:21:32 - event_scoring - total_tokens: 826, prompt_tokens: 793, completion_tokens: 33
+2025-05-25 01:21:33 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:21:33 - sentiment_analysis - total_tokens: 141, prompt_tokens: 138, completion_tokens: 3
+2025-05-25 01:21:39 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:21:39 - event_scoring - total_tokens: 526, prompt_tokens: 493, completion_tokens: 33
+2025-05-25 01:21:39 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:21:39 - sentiment_analysis - total_tokens: 128, prompt_tokens: 125, completion_tokens: 3
+2025-05-25 01:21:44 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:21:44 - opinion_scoring - total_tokens: 406, prompt_tokens: 372, completion_tokens: 34
+2025-05-25 01:21:48 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:21:48 - opinion_scoring - total_tokens: 421, prompt_tokens: 387, completion_tokens: 34
+2025-05-25 01:21:56 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:21:56 - person_summary - total_tokens: 827, prompt_tokens: 782, completion_tokens: 45
+2025-05-25 01:22:05 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:22:05 - person_summary - total_tokens: 561, prompt_tokens: 464, completion_tokens: 97
+2025-05-25 01:22:16 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:22:16 - event_extraction - total_tokens: 764, prompt_tokens: 675, completion_tokens: 89
+2025-05-25 01:22:26 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:22:26 - event_extraction - total_tokens: 772, prompt_tokens: 677, completion_tokens: 95
+2025-05-25 01:22:31 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:22:31 - opinion_scoring - total_tokens: 393, prompt_tokens: 359, completion_tokens: 34
+2025-05-25 01:22:34 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:22:34 - opinion_scoring - total_tokens: 395, prompt_tokens: 361, completion_tokens: 34
+2025-05-25 01:22:40 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:22:40 - event_scoring - total_tokens: 705, prompt_tokens: 672, completion_tokens: 33
+2025-05-25 01:22:41 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:22:41 - sentiment_analysis - total_tokens: 138, prompt_tokens: 135, completion_tokens: 3
+2025-05-25 01:22:47 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:22:47 - event_scoring - total_tokens: 701, prompt_tokens: 668, completion_tokens: 33
+2025-05-25 01:22:57 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:22:57 - sentiment_analysis - total_tokens: 252, prompt_tokens: 149, completion_tokens: 103
+2025-05-25 01:23:04 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:23:04 - event_extraction - total_tokens: 665, prompt_tokens: 609, completion_tokens: 56
+2025-05-25 01:23:10 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:23:10 - event_extraction - total_tokens: 487, prompt_tokens: 427, completion_tokens: 60
+2025-05-25 01:23:19 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:23:19 - person_summary - total_tokens: 714, prompt_tokens: 652, completion_tokens: 62
+2025-05-25 01:23:25 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:23:25 - sentiment_analysis - total_tokens: 215, prompt_tokens: 149, completion_tokens: 66
+2025-05-25 01:23:31 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:23:31 - event_scoring - total_tokens: 625, prompt_tokens: 592, completion_tokens: 33
+2025-05-25 01:23:35 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:23:35 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:23:40 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:23:40 - event_scoring - total_tokens: 447, prompt_tokens: 414, completion_tokens: 33
+2025-05-25 01:23:44 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:23:44 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:23:49 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:23:49 - opinion_scoring - total_tokens: 405, prompt_tokens: 371, completion_tokens: 34
+2025-05-25 01:23:55 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:23:55 - sentiment_analysis - total_tokens: 215, prompt_tokens: 149, completion_tokens: 66
+2025-05-25 01:23:59 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:23:59 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:24:03 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:24:03 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:24:12 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:24:12 - event_extraction - total_tokens: 859, prompt_tokens: 796, completion_tokens: 63
+2025-05-25 01:24:16 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:24:16 - opinion_scoring - total_tokens: 361, prompt_tokens: 327, completion_tokens: 34
+2025-05-25 01:24:20 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:24:20 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:24:24 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:24:24 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:24:30 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:24:30 - event_scoring - total_tokens: 819, prompt_tokens: 786, completion_tokens: 33
+2025-05-25 01:24:35 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:24:35 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:24:43 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:24:43 - event_extraction - total_tokens: 743, prompt_tokens: 679, completion_tokens: 64
+2025-05-25 01:24:47 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:24:47 - opinion_scoring - total_tokens: 331, prompt_tokens: 297, completion_tokens: 34
+2025-05-25 01:24:51 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:24:51 - opinion_scoring - total_tokens: 331, prompt_tokens: 297, completion_tokens: 34
+2025-05-25 01:24:55 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:24:55 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:25:03 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:25:03 - event_scoring - total_tokens: 697, prompt_tokens: 664, completion_tokens: 33
+2025-05-25 01:25:07 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:25:07 - sentiment_analysis - total_tokens: 127, prompt_tokens: 124, completion_tokens: 3
+2025-05-25 01:25:17 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:25:17 - event_extraction - total_tokens: 832, prompt_tokens: 747, completion_tokens: 85
+2025-05-25 01:25:26 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:25:26 - event_extraction - total_tokens: 836, prompt_tokens: 759, completion_tokens: 77
+2025-05-25 01:25:30 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:25:30 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:25:37 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:25:37 - person_summary - total_tokens: 683, prompt_tokens: 641, completion_tokens: 42
+2025-05-25 01:25:43 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:25:43 - event_scoring - total_tokens: 773, prompt_tokens: 740, completion_tokens: 33
+2025-05-25 01:25:44 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:25:44 - sentiment_analysis - total_tokens: 143, prompt_tokens: 140, completion_tokens: 3
+2025-05-25 01:25:51 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:25:51 - event_scoring - total_tokens: 784, prompt_tokens: 751, completion_tokens: 33
+2025-05-25 01:25:52 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:25:52 - sentiment_analysis - total_tokens: 134, prompt_tokens: 131, completion_tokens: 3
+2025-05-25 01:25:56 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:25:56 - opinion_scoring - total_tokens: 331, prompt_tokens: 297, completion_tokens: 34
+2025-05-25 01:25:59 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:25:59 - opinion_scoring - total_tokens: 372, prompt_tokens: 338, completion_tokens: 34
+2025-05-25 01:26:06 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:26:06 - person_summary - total_tokens: 764, prompt_tokens: 724, completion_tokens: 40
+2025-05-25 01:26:13 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:26:13 - person_summary - total_tokens: 775, prompt_tokens: 729, completion_tokens: 46
+2025-05-25 01:26:23 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:26:23 - event_extraction - total_tokens: 732, prompt_tokens: 657, completion_tokens: 75
+2025-05-25 01:26:32 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:26:32 - event_extraction - total_tokens: 826, prompt_tokens: 748, completion_tokens: 78
+2025-05-25 01:26:36 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:26:36 - opinion_scoring - total_tokens: 385, prompt_tokens: 351, completion_tokens: 34
+2025-05-25 01:26:40 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:26:40 - opinion_scoring - total_tokens: 385, prompt_tokens: 351, completion_tokens: 34
+2025-05-25 01:26:46 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:26:46 - event_scoring - total_tokens: 681, prompt_tokens: 648, completion_tokens: 33
+2025-05-25 01:26:47 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:26:47 - sentiment_analysis - total_tokens: 135, prompt_tokens: 132, completion_tokens: 3
+2025-05-25 01:26:53 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:26:53 - event_scoring - total_tokens: 778, prompt_tokens: 745, completion_tokens: 33
+2025-05-25 01:26:54 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:26:54 - sentiment_analysis - total_tokens: 129, prompt_tokens: 126, completion_tokens: 3
+2025-05-25 01:27:04 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:27:04 - event_extraction - total_tokens: 842, prompt_tokens: 758, completion_tokens: 84
+2025-05-25 01:27:14 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:27:14 - event_extraction - total_tokens: 780, prompt_tokens: 692, completion_tokens: 88
+2025-05-25 01:27:19 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:27:19 - inconsistency_comment - total_tokens: 205, prompt_tokens: 160, completion_tokens: 45
+2025-05-25 01:27:26 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:27:26 - person_summary - total_tokens: 758, prompt_tokens: 714, completion_tokens: 44
+2025-05-25 01:27:32 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:27:32 - event_scoring - total_tokens: 787, prompt_tokens: 754, completion_tokens: 33
+2025-05-25 01:27:33 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:27:33 - sentiment_analysis - total_tokens: 136, prompt_tokens: 133, completion_tokens: 3
+2025-05-25 01:27:39 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:27:39 - event_scoring - total_tokens: 721, prompt_tokens: 688, completion_tokens: 33
+2025-05-25 01:27:40 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:27:40 - sentiment_analysis - total_tokens: 142, prompt_tokens: 139, completion_tokens: 3
+2025-05-25 01:27:42 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:27:42 - refine - total_tokens: 82, prompt_tokens: 67, completion_tokens: 15
+2025-05-25 01:27:47 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:27:47 - opinion_scoring - total_tokens: 378, prompt_tokens: 344, completion_tokens: 34
+2025-05-25 01:27:54 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:27:54 - person_summary - total_tokens: 778, prompt_tokens: 731, completion_tokens: 47
+2025-05-25 01:28:04 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:28:04 - person_summary - total_tokens: 756, prompt_tokens: 669, completion_tokens: 87
+2025-05-25 01:28:10 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:28:10 - person_summary - total_tokens: 681, prompt_tokens: 640, completion_tokens: 41
+2025-05-25 01:28:16 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:28:16 - event_extraction - total_tokens: 441, prompt_tokens: 385, completion_tokens: 56
+2025-05-25 01:28:21 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:28:21 - opinion_scoring - total_tokens: 387, prompt_tokens: 353, completion_tokens: 34
+2025-05-25 01:28:24 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:28:24 - opinion_scoring - total_tokens: 399, prompt_tokens: 365, completion_tokens: 34
+2025-05-25 01:28:28 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:28:28 - opinion_scoring - total_tokens: 401, prompt_tokens: 367, completion_tokens: 34
+2025-05-25 01:28:33 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:28:33 - event_scoring - total_tokens: 401, prompt_tokens: 368, completion_tokens: 33
+2025-05-25 01:28:39 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:28:39 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:28:48 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:28:48 - event_extraction - total_tokens: 724, prompt_tokens: 654, completion_tokens: 70
+2025-05-25 01:28:57 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:28:57 - event_extraction - total_tokens: 845, prompt_tokens: 774, completion_tokens: 71
+2025-05-25 01:29:06 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:29:06 - event_extraction - total_tokens: 662, prompt_tokens: 577, completion_tokens: 85
+2025-05-25 01:29:10 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:29:10 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:29:16 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:29:16 - event_scoring - total_tokens: 680, prompt_tokens: 647, completion_tokens: 33
+2025-05-25 01:29:19 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:29:19 - sentiment_analysis - total_tokens: 128, prompt_tokens: 125, completion_tokens: 3
+2025-05-25 01:29:26 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:29:26 - event_scoring - total_tokens: 796, prompt_tokens: 763, completion_tokens: 33
+2025-05-25 01:29:30 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:29:30 - sentiment_analysis - total_tokens: 129, prompt_tokens: 126, completion_tokens: 3
+2025-05-25 01:29:37 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:29:37 - event_scoring - total_tokens: 618, prompt_tokens: 585, completion_tokens: 33
+2025-05-25 01:29:41 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:29:41 - sentiment_analysis - total_tokens: 158, prompt_tokens: 123, completion_tokens: 35
+2025-05-25 01:29:45 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:29:45 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:29:53 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:29:53 - person_summary - total_tokens: 674, prompt_tokens: 616, completion_tokens: 58
+2025-05-25 01:30:01 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:30:01 - person_summary - total_tokens: 802, prompt_tokens: 739, completion_tokens: 63
+2025-05-25 01:30:04 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:30:04 - sentiment_analysis - total_tokens: 158, prompt_tokens: 123, completion_tokens: 35
+2025-05-25 01:30:09 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:30:09 - opinion_scoring - total_tokens: 331, prompt_tokens: 297, completion_tokens: 34
+2025-05-25 01:30:12 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:30:12 - opinion_scoring - total_tokens: 396, prompt_tokens: 362, completion_tokens: 34
+2025-05-25 01:30:16 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:30:16 - opinion_scoring - total_tokens: 394, prompt_tokens: 360, completion_tokens: 34
+2025-05-25 01:30:21 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:30:21 - sentiment_analysis - total_tokens: 158, prompt_tokens: 123, completion_tokens: 35
+2025-05-25 01:30:31 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:30:31 - event_extraction - total_tokens: 739, prompt_tokens: 657, completion_tokens: 82
+2025-05-25 01:30:41 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:30:41 - event_extraction - total_tokens: 902, prompt_tokens: 807, completion_tokens: 95
+2025-05-25 01:30:52 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:30:52 - event_extraction - total_tokens: 874, prompt_tokens: 786, completion_tokens: 88
+2025-05-25 01:30:56 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:30:56 - opinion_scoring - total_tokens: 335, prompt_tokens: 301, completion_tokens: 34
+2025-05-25 01:31:02 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:31:02 - event_scoring - total_tokens: 679, prompt_tokens: 646, completion_tokens: 33
+2025-05-25 01:31:03 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:31:03 - sentiment_analysis - total_tokens: 142, prompt_tokens: 139, completion_tokens: 3
+2025-05-25 01:31:10 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:31:10 - event_scoring - total_tokens: 839, prompt_tokens: 806, completion_tokens: 33
+2025-05-25 01:31:11 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:31:11 - sentiment_analysis - total_tokens: 144, prompt_tokens: 141, completion_tokens: 3
+2025-05-25 01:31:17 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:31:17 - event_scoring - total_tokens: 816, prompt_tokens: 783, completion_tokens: 33
+2025-05-25 01:31:19 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:31:19 - sentiment_analysis - total_tokens: 141, prompt_tokens: 138, completion_tokens: 3
+2025-05-25 01:31:28 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:31:28 - event_extraction - total_tokens: 858, prompt_tokens: 793, completion_tokens: 65
+2025-05-25 01:31:35 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:31:35 - person_summary - total_tokens: 684, prompt_tokens: 635, completion_tokens: 49
+2025-05-25 01:31:42 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:31:42 - person_summary - total_tokens: 838, prompt_tokens: 789, completion_tokens: 49
+2025-05-25 01:31:52 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:31:52 - person_summary - total_tokens: 847, prompt_tokens: 764, completion_tokens: 83
+2025-05-25 01:31:59 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:31:59 - event_scoring - total_tokens: 811, prompt_tokens: 778, completion_tokens: 33
+2025-05-25 01:32:00 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:32:00 - sentiment_analysis - total_tokens: 131, prompt_tokens: 128, completion_tokens: 3
+2025-05-25 01:32:04 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:32:04 - opinion_scoring - total_tokens: 395, prompt_tokens: 361, completion_tokens: 34
+2025-05-25 01:32:08 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:32:08 - opinion_scoring - total_tokens: 399, prompt_tokens: 365, completion_tokens: 34
+2025-05-25 01:32:13 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:32:13 - opinion_scoring - total_tokens: 402, prompt_tokens: 368, completion_tokens: 34
+2025-05-25 01:32:22 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:32:22 - person_summary - total_tokens: 796, prompt_tokens: 758, completion_tokens: 38
+2025-05-25 01:32:33 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:32:33 - event_extraction - total_tokens: 866, prompt_tokens: 777, completion_tokens: 89
+2025-05-25 01:32:42 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:32:42 - event_extraction - total_tokens: 733, prompt_tokens: 659, completion_tokens: 74
+2025-05-25 01:32:50 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:32:50 - event_extraction - total_tokens: 882, prompt_tokens: 817, completion_tokens: 65
+2025-05-25 01:32:54 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:32:54 - opinion_scoring - total_tokens: 372, prompt_tokens: 338, completion_tokens: 34
+2025-05-25 01:33:01 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:33:01 - event_scoring - total_tokens: 796, prompt_tokens: 763, completion_tokens: 33
+2025-05-25 01:33:02 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:33:02 - sentiment_analysis - total_tokens: 150, prompt_tokens: 147, completion_tokens: 3
+2025-05-25 01:33:08 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:33:08 - event_scoring - total_tokens: 680, prompt_tokens: 647, completion_tokens: 33
+2025-05-25 01:33:09 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:33:09 - sentiment_analysis - total_tokens: 134, prompt_tokens: 131, completion_tokens: 3
+2025-05-25 01:33:15 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:33:15 - event_scoring - total_tokens: 842, prompt_tokens: 809, completion_tokens: 33
+2025-05-25 01:33:20 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:33:20 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:33:29 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:33:29 - event_extraction - total_tokens: 559, prompt_tokens: 478, completion_tokens: 81
+2025-05-25 01:33:38 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:33:38 - person_summary - total_tokens: 836, prompt_tokens: 763, completion_tokens: 73
+2025-05-25 01:33:45 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:33:45 - person_summary - total_tokens: 681, prompt_tokens: 629, completion_tokens: 52
+2025-05-25 01:33:49 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:33:49 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:33:54 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:33:54 - event_scoring - total_tokens: 498, prompt_tokens: 465, completion_tokens: 33
+2025-05-25 01:33:56 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:33:56 - sentiment_analysis - total_tokens: 141, prompt_tokens: 138, completion_tokens: 3
+2025-05-25 01:34:00 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:34:00 - opinion_scoring - total_tokens: 414, prompt_tokens: 380, completion_tokens: 34
+2025-05-25 01:34:04 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:34:04 - opinion_scoring - total_tokens: 389, prompt_tokens: 355, completion_tokens: 34
+2025-05-25 01:34:08 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:34:08 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:34:15 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:34:15 - person_summary - total_tokens: 519, prompt_tokens: 454, completion_tokens: 65
+2025-05-25 01:34:24 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:34:24 - event_extraction - total_tokens: 810, prompt_tokens: 745, completion_tokens: 65
+2025-05-25 01:34:33 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:34:33 - event_extraction - total_tokens: 849, prompt_tokens: 779, completion_tokens: 70
+2025-05-25 01:34:37 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:34:37 - opinion_scoring - total_tokens: 331, prompt_tokens: 297, completion_tokens: 34
+2025-05-25 01:34:41 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:34:41 - opinion_scoring - total_tokens: 402, prompt_tokens: 368, completion_tokens: 34
+2025-05-25 01:34:48 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:34:48 - event_scoring - total_tokens: 766, prompt_tokens: 733, completion_tokens: 33
+2025-05-25 01:34:52 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:34:52 - sentiment_analysis - total_tokens: 124, prompt_tokens: 121, completion_tokens: 3
+2025-05-25 01:35:01 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:35:01 - event_scoring - total_tokens: 799, prompt_tokens: 766, completion_tokens: 33
+2025-05-25 01:35:05 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:35:05 - sentiment_analysis - total_tokens: 132, prompt_tokens: 129, completion_tokens: 3
+2025-05-25 01:35:15 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:35:15 - event_extraction - total_tokens: 855, prompt_tokens: 768, completion_tokens: 87
+2025-05-25 01:35:25 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:35:25 - event_extraction - total_tokens: 841, prompt_tokens: 748, completion_tokens: 93
+2025-05-25 01:35:35 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:35:35 - person_summary - total_tokens: 775, prompt_tokens: 705, completion_tokens: 70
+2025-05-25 01:35:41 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:35:41 - person_summary - total_tokens: 790, prompt_tokens: 746, completion_tokens: 44
+2025-05-25 01:35:48 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:35:48 - event_scoring - total_tokens: 811, prompt_tokens: 778, completion_tokens: 33
+2025-05-25 01:35:49 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:35:49 - sentiment_analysis - total_tokens: 127, prompt_tokens: 124, completion_tokens: 3
+2025-05-25 01:35:55 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:35:55 - event_scoring - total_tokens: 776, prompt_tokens: 743, completion_tokens: 33
+2025-05-25 01:35:57 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:35:57 - sentiment_analysis - total_tokens: 148, prompt_tokens: 144, completion_tokens: 4
+2025-05-25 01:36:01 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:36:01 - opinion_scoring - total_tokens: 398, prompt_tokens: 364, completion_tokens: 34
+2025-05-25 01:36:05 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:36:05 - opinion_scoring - total_tokens: 380, prompt_tokens: 346, completion_tokens: 34
+2025-05-25 01:36:15 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:36:15 - person_summary - total_tokens: 812, prompt_tokens: 730, completion_tokens: 82
+2025-05-25 01:36:21 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:36:21 - person_summary - total_tokens: 771, prompt_tokens: 731, completion_tokens: 40
+2025-05-25 01:36:31 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:36:31 - event_extraction - total_tokens: 755, prompt_tokens: 678, completion_tokens: 77
+2025-05-25 01:36:40 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:36:40 - event_extraction - total_tokens: 849, prompt_tokens: 772, completion_tokens: 77
+2025-05-25 01:36:45 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:36:45 - opinion_scoring - total_tokens: 395, prompt_tokens: 361, completion_tokens: 34
+2025-05-25 01:36:49 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:36:49 - opinion_scoring - total_tokens: 391, prompt_tokens: 357, completion_tokens: 34
+2025-05-25 01:36:51 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:36:51 - refine - total_tokens: 40, prompt_tokens: 31, completion_tokens: 9
+2025-05-25 01:37:00 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:37:00 - event_scoring - total_tokens: 785, prompt_tokens: 751, completion_tokens: 34
+2025-05-25 01:37:06 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:37:06 - sentiment_analysis - total_tokens: 209, prompt_tokens: 146, completion_tokens: 63
+2025-05-25 01:37:16 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:37:16 - event_extraction - total_tokens: 744, prompt_tokens: 670, completion_tokens: 74
+2025-05-25 01:37:23 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:37:23 - event_extraction - total_tokens: 643, prompt_tokens: 581, completion_tokens: 62
+2025-05-25 01:37:31 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:37:31 - event_scoring - total_tokens: 711, prompt_tokens: 678, completion_tokens: 33
+2025-05-25 01:37:35 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:37:35 - sentiment_analysis - total_tokens: 127, prompt_tokens: 124, completion_tokens: 3
+2025-05-25 01:37:42 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:37:42 - sentiment_analysis - total_tokens: 230, prompt_tokens: 146, completion_tokens: 84
+2025-05-25 01:37:48 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:37:48 - event_scoring - total_tokens: 692, prompt_tokens: 659, completion_tokens: 33
+2025-05-25 01:37:49 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:37:49 - sentiment_analysis - total_tokens: 136, prompt_tokens: 133, completion_tokens: 3
+2025-05-25 01:37:55 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:37:55 - event_scoring - total_tokens: 602, prompt_tokens: 569, completion_tokens: 33
+2025-05-25 01:37:56 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:37:56 - sentiment_analysis - total_tokens: 125, prompt_tokens: 122, completion_tokens: 3
+2025-05-25 01:38:02 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:38:02 - person_summary - total_tokens: 681, prompt_tokens: 639, completion_tokens: 42
+2025-05-25 01:38:08 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:38:08 - sentiment_analysis - total_tokens: 209, prompt_tokens: 146, completion_tokens: 63
+2025-05-25 01:38:16 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:38:16 - person_summary - total_tokens: 702, prompt_tokens: 640, completion_tokens: 62
+2025-05-25 01:38:21 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:38:21 - inconsistency_comment - total_tokens: 196, prompt_tokens: 152, completion_tokens: 44
+2025-05-25 01:38:26 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:38:26 - opinion_scoring - total_tokens: 372, prompt_tokens: 338, completion_tokens: 34
+2025-05-25 01:38:29 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:38:29 - opinion_scoring - total_tokens: 356, prompt_tokens: 322, completion_tokens: 34
+2025-05-25 01:38:35 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:38:35 - opinion_scoring - total_tokens: 391, prompt_tokens: 357, completion_tokens: 34
+2025-05-25 01:38:38 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:38:38 - refine - total_tokens: 77, prompt_tokens: 66, completion_tokens: 11
+2025-05-25 01:38:46 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:38:46 - event_extraction - total_tokens: 571, prompt_tokens: 499, completion_tokens: 72
+2025-05-25 01:38:55 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:38:55 - event_extraction - total_tokens: 635, prompt_tokens: 557, completion_tokens: 78
+2025-05-25 01:39:01 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:39:01 - event_extraction - total_tokens: 475, prompt_tokens: 415, completion_tokens: 60
+2025-05-25 01:39:08 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:39:08 - person_summary - total_tokens: 602, prompt_tokens: 550, completion_tokens: 52
+2025-05-25 01:39:13 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:39:13 - event_scoring - total_tokens: 521, prompt_tokens: 488, completion_tokens: 33
+2025-05-25 01:39:14 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:39:14 - sentiment_analysis - total_tokens: 134, prompt_tokens: 131, completion_tokens: 3
+2025-05-25 01:39:19 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:39:19 - event_scoring - total_tokens: 583, prompt_tokens: 550, completion_tokens: 33
+2025-05-25 01:39:20 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:39:20 - sentiment_analysis - total_tokens: 135, prompt_tokens: 132, completion_tokens: 3
+2025-05-25 01:39:25 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:39:25 - event_scoring - total_tokens: 434, prompt_tokens: 401, completion_tokens: 33
+2025-05-25 01:39:29 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:39:29 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:39:34 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:39:34 - opinion_scoring - total_tokens: 398, prompt_tokens: 364, completion_tokens: 34
+2025-05-25 01:39:42 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:39:42 - person_summary - total_tokens: 508, prompt_tokens: 466, completion_tokens: 42
+2025-05-25 01:39:51 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:39:51 - person_summary - total_tokens: 581, prompt_tokens: 527, completion_tokens: 54
+2025-05-25 01:40:00 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:40:00 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:40:10 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:40:10 - event_extraction - total_tokens: 803, prompt_tokens: 743, completion_tokens: 60
+2025-05-25 01:40:18 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:40:18 - opinion_scoring - total_tokens: 377, prompt_tokens: 343, completion_tokens: 34
+2025-05-25 01:40:23 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:40:23 - opinion_scoring - total_tokens: 392, prompt_tokens: 358, completion_tokens: 34
+2025-05-25 01:40:28 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:40:28 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:40:38 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:40:38 - event_scoring - total_tokens: 761, prompt_tokens: 728, completion_tokens: 33
+2025-05-25 01:40:48 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:40:48 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:40:58 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:40:58 - event_extraction - total_tokens: 500, prompt_tokens: 430, completion_tokens: 70
+2025-05-25 01:41:09 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:41:09 - event_extraction - total_tokens: 843, prompt_tokens: 770, completion_tokens: 73
+2025-05-25 01:41:19 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:41:19 - opinion_scoring - total_tokens: 331, prompt_tokens: 297, completion_tokens: 34
+2025-05-25 01:41:24 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:41:24 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:41:35 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:41:35 - event_scoring - total_tokens: 449, prompt_tokens: 416, completion_tokens: 33
+2025-05-25 01:41:40 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:41:40 - sentiment_analysis - total_tokens: 135, prompt_tokens: 132, completion_tokens: 3
+2025-05-25 01:41:49 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:41:49 - event_scoring - total_tokens: 797, prompt_tokens: 764, completion_tokens: 33
+2025-05-25 01:41:54 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:41:54 - sentiment_analysis - total_tokens: 128, prompt_tokens: 125, completion_tokens: 3
+2025-05-25 01:42:05 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:42:05 - event_extraction - total_tokens: 879, prompt_tokens: 810, completion_tokens: 69
+2025-05-25 01:42:11 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:42:11 - sentiment_analysis - total_tokens: 165, prompt_tokens: 121, completion_tokens: 44
+2025-05-25 01:42:20 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:42:20 - person_summary - total_tokens: 432, prompt_tokens: 397, completion_tokens: 35
+2025-05-25 01:42:30 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:42:30 - person_summary - total_tokens: 778, prompt_tokens: 734, completion_tokens: 44
+2025-05-25 01:42:40 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:42:40 - event_scoring - total_tokens: 835, prompt_tokens: 802, completion_tokens: 33
+2025-05-25 01:42:45 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:42:45 - sentiment_analysis - total_tokens: 125, prompt_tokens: 122, completion_tokens: 3
+2025-05-25 01:42:50 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:42:50 - opinion_scoring - total_tokens: 331, prompt_tokens: 297, completion_tokens: 34
+2025-05-25 01:42:55 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:42:55 - opinion_scoring - total_tokens: 370, prompt_tokens: 336, completion_tokens: 34
+2025-05-25 01:43:00 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:43:00 - opinion_scoring - total_tokens: 377, prompt_tokens: 343, completion_tokens: 34
+2025-05-25 01:43:12 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:43:12 - person_summary - total_tokens: 841, prompt_tokens: 771, completion_tokens: 70
+2025-05-25 01:43:24 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:43:24 - event_extraction - total_tokens: 856, prompt_tokens: 780, completion_tokens: 76
+2025-05-25 01:43:37 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:43:37 - event_extraction - total_tokens: 852, prompt_tokens: 744, completion_tokens: 108
+2025-05-25 01:43:49 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:43:49 - event_extraction - total_tokens: 537, prompt_tokens: 448, completion_tokens: 89
+2025-05-25 01:43:56 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:43:56 - opinion_scoring - total_tokens: 397, prompt_tokens: 363, completion_tokens: 34
+2025-05-25 01:44:09 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:44:09 - event_scoring - total_tokens: 804, prompt_tokens: 771, completion_tokens: 33
+2025-05-25 01:44:17 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:44:17 - sentiment_analysis - total_tokens: 132, prompt_tokens: 129, completion_tokens: 3
+2025-05-25 01:44:32 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:44:32 - event_scoring - total_tokens: 772, prompt_tokens: 739, completion_tokens: 33
+2025-05-25 01:44:38 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:44:38 - sentiment_analysis - total_tokens: 159, prompt_tokens: 156, completion_tokens: 3
+2025-05-25 01:44:44 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:44:44 - event_scoring - total_tokens: 469, prompt_tokens: 436, completion_tokens: 33
+2025-05-25 01:44:51 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:44:52 - sentiment_analysis - total_tokens: 152, prompt_tokens: 149, completion_tokens: 3
+2025-05-25 01:45:05 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:45:05 - event_extraction - total_tokens: 905, prompt_tokens: 814, completion_tokens: 91
+2025-05-25 01:45:17 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:45:17 - person_summary - total_tokens: 790, prompt_tokens: 749, completion_tokens: 41
+2025-05-25 01:45:29 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:45:29 - person_summary - total_tokens: 793, prompt_tokens: 740, completion_tokens: 53
+2025-05-25 01:45:40 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:45:40 - person_summary - total_tokens: 500, prompt_tokens: 434, completion_tokens: 66
+2025-05-25 01:45:51 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:45:51 - event_scoring - total_tokens: 841, prompt_tokens: 808, completion_tokens: 33
+2025-05-25 01:45:57 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:45:57 - sentiment_analysis - total_tokens: 144, prompt_tokens: 141, completion_tokens: 3
+2025-05-25 01:46:04 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:46:04 - opinion_scoring - total_tokens: 379, prompt_tokens: 345, completion_tokens: 34
+2025-05-25 01:46:11 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:46:11 - opinion_scoring - total_tokens: 417, prompt_tokens: 383, completion_tokens: 34
+2025-05-25 01:46:17 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:46:17 - opinion_scoring - total_tokens: 406, prompt_tokens: 372, completion_tokens: 34
+2025-05-25 01:46:31 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:46:31 - person_summary - total_tokens: 860, prompt_tokens: 795, completion_tokens: 65
+2025-05-25 01:46:45 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:46:45 - event_extraction - total_tokens: 859, prompt_tokens: 796, completion_tokens: 63
+2025-05-25 01:46:57 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:46:57 - event_extraction - total_tokens: 391, prompt_tokens: 331, completion_tokens: 60
+2025-05-25 01:47:10 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:47:10 - event_extraction - total_tokens: 847, prompt_tokens: 778, completion_tokens: 69
+2025-05-25 01:47:17 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:47:17 - opinion_scoring - total_tokens: 411, prompt_tokens: 377, completion_tokens: 34
+2025-05-25 01:47:31 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:47:31 - event_scoring - total_tokens: 816, prompt_tokens: 783, completion_tokens: 33
+2025-05-25 01:47:37 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:47:37 - sentiment_analysis - total_tokens: 170, prompt_tokens: 122, completion_tokens: 48
+2025-05-25 01:47:44 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:47:44 - event_scoring - total_tokens: 348, prompt_tokens: 315, completion_tokens: 33
+2025-05-25 01:47:51 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:47:51 - sentiment_analysis - total_tokens: 124, prompt_tokens: 121, completion_tokens: 3
+2025-05-25 01:48:03 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:48:03 - event_scoring - total_tokens: 797, prompt_tokens: 764, completion_tokens: 33
+2025-05-25 01:48:10 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:48:10 - sentiment_analysis - total_tokens: 130, prompt_tokens: 127, completion_tokens: 3
+2025-05-25 01:48:23 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:48:23 - event_extraction - total_tokens: 869, prompt_tokens: 808, completion_tokens: 61
+2025-05-25 01:48:30 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:48:30 - sentiment_analysis - total_tokens: 125, prompt_tokens: 122, completion_tokens: 3
+2025-05-25 01:48:36 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:48:36 - person_summary - total_tokens: 325, prompt_tokens: 289, completion_tokens: 36
+2025-05-25 01:48:48 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:48:48 - person_summary - total_tokens: 803, prompt_tokens: 745, completion_tokens: 58
+2025-05-25 01:49:00 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:49:00 - event_scoring - total_tokens: 830, prompt_tokens: 797, completion_tokens: 33
+2025-05-25 01:49:06 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:49:06 - sentiment_analysis - total_tokens: 124, prompt_tokens: 121, completion_tokens: 3
+2025-05-25 01:49:18 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:49:18 - person_summary - total_tokens: 838, prompt_tokens: 757, completion_tokens: 81
+2025-05-25 01:49:24 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:49:24 - opinion_scoring - total_tokens: 370, prompt_tokens: 336, completion_tokens: 34
+2025-05-25 01:49:30 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:49:30 - opinion_scoring - total_tokens: 393, prompt_tokens: 359, completion_tokens: 34
+2025-05-25 01:49:41 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:49:41 - person_summary - total_tokens: 829, prompt_tokens: 766, completion_tokens: 63
+2025-05-25 01:49:47 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:49:47 - opinion_scoring - total_tokens: 398, prompt_tokens: 364, completion_tokens: 34
+2025-05-25 01:49:59 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:49:59 - event_extraction - total_tokens: 593, prompt_tokens: 528, completion_tokens: 65
+2025-05-25 01:50:10 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:50:10 - event_extraction - total_tokens: 743, prompt_tokens: 677, completion_tokens: 66
+2025-05-25 01:50:16 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:50:16 - opinion_scoring - total_tokens: 386, prompt_tokens: 352, completion_tokens: 34
+2025-05-25 01:50:29 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:50:29 - event_extraction - total_tokens: 635, prompt_tokens: 548, completion_tokens: 87
+2025-05-25 01:50:41 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:50:41 - event_scoring - total_tokens: 547, prompt_tokens: 514, completion_tokens: 33
+2025-05-25 01:50:46 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:50:46 - sentiment_analysis - total_tokens: 128, prompt_tokens: 125, completion_tokens: 3
+2025-05-25 01:50:59 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:50:59 - event_scoring - total_tokens: 702, prompt_tokens: 669, completion_tokens: 33
+2025-05-25 01:51:06 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:51:06 - sentiment_analysis - total_tokens: 125, prompt_tokens: 122, completion_tokens: 3
+2025-05-25 01:51:19 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:51:19 - event_extraction - total_tokens: 830, prompt_tokens: 753, completion_tokens: 77
+2025-05-25 01:51:31 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:51:31 - event_scoring - total_tokens: 566, prompt_tokens: 533, completion_tokens: 33
+2025-05-25 01:51:38 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:51:38 - sentiment_analysis - total_tokens: 151, prompt_tokens: 148, completion_tokens: 3
+2025-05-25 01:51:52 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:51:52 - person_summary - total_tokens: 551, prompt_tokens: 492, completion_tokens: 59
+2025-05-25 01:51:59 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:51:59 - inconsistency_comment - total_tokens: 206, prompt_tokens: 149, completion_tokens: 57
+2025-05-25 01:52:11 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:52:11 - event_scoring - total_tokens: 771, prompt_tokens: 738, completion_tokens: 33
+2025-05-25 01:52:17 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:52:17 - sentiment_analysis - total_tokens: 142, prompt_tokens: 139, completion_tokens: 3
+2025-05-25 01:52:29 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:52:29 - person_summary - total_tokens: 593, prompt_tokens: 533, completion_tokens: 60
+2025-05-25 01:52:34 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:52:34 - opinion_scoring - total_tokens: 399, prompt_tokens: 365, completion_tokens: 34
+2025-05-25 01:52:41 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:52:41 - refine - total_tokens: 100, prompt_tokens: 79, completion_tokens: 21
+2025-05-25 01:52:53 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:52:53 - person_summary - total_tokens: 782, prompt_tokens: 729, completion_tokens: 53
+2025-05-25 01:52:59 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:52:59 - opinion_scoring - total_tokens: 411, prompt_tokens: 377, completion_tokens: 34
+2025-05-25 01:53:12 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:53:12 - event_extraction - total_tokens: 611, prompt_tokens: 528, completion_tokens: 83
+2025-05-25 01:53:24 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:53:24 - person_summary - total_tokens: 703, prompt_tokens: 656, completion_tokens: 47
+2025-05-25 01:53:30 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:53:30 - opinion_scoring - total_tokens: 398, prompt_tokens: 364, completion_tokens: 34
+2025-05-25 01:53:44 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:53:44 - event_extraction - total_tokens: 816, prompt_tokens: 745, completion_tokens: 71
+2025-05-25 01:53:57 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:53:57 - event_scoring - total_tokens: 546, prompt_tokens: 513, completion_tokens: 33
+2025-05-25 01:54:03 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:54:03 - sentiment_analysis - total_tokens: 144, prompt_tokens: 141, completion_tokens: 3
+2025-05-25 01:54:10 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:54:10 - opinion_scoring - total_tokens: 403, prompt_tokens: 369, completion_tokens: 34
+2025-05-25 01:54:24 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:54:24 - event_extraction - total_tokens: 430, prompt_tokens: 361, completion_tokens: 69
+2025-05-25 01:54:36 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:54:36 - event_scoring - total_tokens: 764, prompt_tokens: 731, completion_tokens: 33
+2025-05-25 01:54:43 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:54:43 - sentiment_analysis - total_tokens: 136, prompt_tokens: 133, completion_tokens: 3
+2025-05-25 01:54:55 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:54:55 - person_summary - total_tokens: 577, prompt_tokens: 511, completion_tokens: 66
+2025-05-25 01:55:06 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:55:06 - event_extraction - total_tokens: 814, prompt_tokens: 752, completion_tokens: 62
+2025-05-25 01:55:15 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:55:15 - sentiment_analysis - total_tokens: 166, prompt_tokens: 122, completion_tokens: 44
+2025-05-25 01:55:24 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:55:24 - event_scoring - total_tokens: 389, prompt_tokens: 356, completion_tokens: 33
+2025-05-25 01:55:34 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:55:34 - person_summary - total_tokens: 747, prompt_tokens: 714, completion_tokens: 33
+2025-05-25 01:55:40 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:55:40 - opinion_scoring - total_tokens: 417, prompt_tokens: 383, completion_tokens: 34
+2025-05-25 01:55:50 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:55:50 - event_scoring - total_tokens: 768, prompt_tokens: 735, completion_tokens: 33
+2025-05-25 01:55:55 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:55:55 - sentiment_analysis - total_tokens: 127, prompt_tokens: 124, completion_tokens: 3
+2025-05-25 01:56:05 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:56:05 - sentiment_analysis - total_tokens: 182, prompt_tokens: 122, completion_tokens: 60
+2025-05-25 01:56:15 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:56:15 - opinion_scoring - total_tokens: 369, prompt_tokens: 335, completion_tokens: 34
+2025-05-25 01:56:29 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:56:29 - event_extraction - total_tokens: 627, prompt_tokens: 546, completion_tokens: 81
+2025-05-25 01:56:41 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:56:41 - person_summary - total_tokens: 793, prompt_tokens: 715, completion_tokens: 78
+2025-05-25 01:56:46 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:56:46 - sentiment_analysis - total_tokens: 166, prompt_tokens: 122, completion_tokens: 44
+2025-05-25 01:56:56 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:56:56 - event_extraction - total_tokens: 632, prompt_tokens: 569, completion_tokens: 63
+2025-05-25 01:57:02 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:57:02 - event_scoring - total_tokens: 577, prompt_tokens: 544, completion_tokens: 33
+2025-05-25 01:57:04 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:57:04 - sentiment_analysis - total_tokens: 133, prompt_tokens: 130, completion_tokens: 3
+2025-05-25 01:57:09 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:57:09 - opinion_scoring - total_tokens: 391, prompt_tokens: 357, completion_tokens: 34
+2025-05-25 01:57:13 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:57:13 - opinion_scoring - total_tokens: 332, prompt_tokens: 298, completion_tokens: 34
+2025-05-25 01:57:20 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:57:20 - event_scoring - total_tokens: 588, prompt_tokens: 555, completion_tokens: 33
+2025-05-25 01:57:21 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:57:21 - sentiment_analysis - total_tokens: 128, prompt_tokens: 125, completion_tokens: 3
+2025-05-25 01:57:30 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:57:30 - person_summary - total_tokens: 579, prompt_tokens: 515, completion_tokens: 64
+2025-05-25 01:57:41 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:57:41 - event_extraction - total_tokens: 576, prompt_tokens: 497, completion_tokens: 79
+2025-05-25 01:57:50 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:57:50 - event_extraction - total_tokens: 489, prompt_tokens: 406, completion_tokens: 83
+2025-05-25 01:57:56 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:57:56 - person_summary - total_tokens: 560, prompt_tokens: 530, completion_tokens: 30
+2025-05-25 01:58:02 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:58:02 - opinion_scoring - total_tokens: 393, prompt_tokens: 359, completion_tokens: 34
+2025-05-25 01:58:08 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:58:08 - event_scoring - total_tokens: 523, prompt_tokens: 490, completion_tokens: 33
+2025-05-25 01:58:09 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:58:09 - sentiment_analysis - total_tokens: 133, prompt_tokens: 130, completion_tokens: 3
+2025-05-25 01:58:15 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:58:15 - event_scoring - total_tokens: 430, prompt_tokens: 397, completion_tokens: 33
+2025-05-25 01:58:17 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:58:17 - sentiment_analysis - total_tokens: 140, prompt_tokens: 137, completion_tokens: 3
+2025-05-25 01:58:22 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:58:22 - opinion_scoring - total_tokens: 367, prompt_tokens: 333, completion_tokens: 34
+2025-05-25 01:58:34 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:58:34 - event_extraction - total_tokens: 857, prompt_tokens: 793, completion_tokens: 64
+2025-05-25 01:58:41 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:58:41 - person_summary - total_tokens: 510, prompt_tokens: 466, completion_tokens: 44
+2025-05-25 01:58:49 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:58:49 - person_summary - total_tokens: 450, prompt_tokens: 383, completion_tokens: 67
+2025-05-25 01:59:02 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:59:02 - event_extraction - total_tokens: 814, prompt_tokens: 739, completion_tokens: 75
+2025-05-25 01:59:10 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:59:10 - event_scoring - total_tokens: 809, prompt_tokens: 776, completion_tokens: 33
+2025-05-25 01:59:11 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:59:11 - sentiment_analysis - total_tokens: 128, prompt_tokens: 125, completion_tokens: 3
+2025-05-25 01:59:17 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:59:17 - opinion_scoring - total_tokens: 382, prompt_tokens: 348, completion_tokens: 34
+2025-05-25 01:59:21 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:59:21 - opinion_scoring - total_tokens: 401, prompt_tokens: 367, completion_tokens: 34
+2025-05-25 01:59:28 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:59:28 - event_scoring - total_tokens: 769, prompt_tokens: 736, completion_tokens: 33
+2025-05-25 01:59:30 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:59:30 - sentiment_analysis - total_tokens: 129, prompt_tokens: 126, completion_tokens: 3
+2025-05-25 01:59:39 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:59:39 - person_summary - total_tokens: 803, prompt_tokens: 757, completion_tokens: 46
+2025-05-25 01:59:50 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:59:50 - event_extraction - total_tokens: 732, prompt_tokens: 658, completion_tokens: 74
+2025-05-25 01:59:58 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 01:59:58 - event_extraction - total_tokens: 431, prompt_tokens: 365, completion_tokens: 66
+2025-05-25 02:00:07 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:00:07 - person_summary - total_tokens: 753, prompt_tokens: 701, completion_tokens: 52
+2025-05-25 02:00:13 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:00:13 - opinion_scoring - total_tokens: 378, prompt_tokens: 344, completion_tokens: 34
+2025-05-25 02:00:20 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:00:20 - event_scoring - total_tokens: 685, prompt_tokens: 652, completion_tokens: 33
+2025-05-25 02:00:21 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:00:21 - sentiment_analysis - total_tokens: 130, prompt_tokens: 127, completion_tokens: 3
+2025-05-25 02:00:27 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:00:27 - event_scoring - total_tokens: 386, prompt_tokens: 353, completion_tokens: 33
+2025-05-25 02:00:28 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:00:28 - sentiment_analysis - total_tokens: 128, prompt_tokens: 125, completion_tokens: 3
+2025-05-25 02:00:33 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:00:33 - opinion_scoring - total_tokens: 382, prompt_tokens: 348, completion_tokens: 34
+2025-05-25 02:00:45 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:00:45 - event_extraction - total_tokens: 858, prompt_tokens: 794, completion_tokens: 64
+2025-05-25 02:00:53 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:00:53 - person_summary - total_tokens: 672, prompt_tokens: 623, completion_tokens: 49
+2025-05-25 02:00:58 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:00:58 - person_summary - total_tokens: 363, prompt_tokens: 327, completion_tokens: 36
+2025-05-25 02:01:09 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:01:09 - event_extraction - total_tokens: 858, prompt_tokens: 796, completion_tokens: 62
+2025-05-25 02:01:17 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:01:17 - event_scoring - total_tokens: 817, prompt_tokens: 784, completion_tokens: 33
+2025-05-25 02:01:18 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:01:18 - sentiment_analysis - total_tokens: 124, prompt_tokens: 121, completion_tokens: 3
+2025-05-25 02:01:24 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:01:24 - opinion_scoring - total_tokens: 383, prompt_tokens: 349, completion_tokens: 34
+2025-05-25 02:01:28 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:01:28 - opinion_scoring - total_tokens: 367, prompt_tokens: 333, completion_tokens: 34
+2025-05-25 02:01:36 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:01:36 - event_scoring - total_tokens: 817, prompt_tokens: 784, completion_tokens: 33
+2025-05-25 02:01:37 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:01:37 - sentiment_analysis - total_tokens: 124, prompt_tokens: 121, completion_tokens: 3
+2025-05-25 02:01:48 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:01:48 - person_summary - total_tokens: 820, prompt_tokens: 753, completion_tokens: 67
+2025-05-25 02:02:01 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:02:02 - event_extraction - total_tokens: 873, prompt_tokens: 785, completion_tokens: 88
+2025-05-25 02:02:13 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:02:13 - event_extraction - total_tokens: 853, prompt_tokens: 772, completion_tokens: 81
+2025-05-25 02:02:24 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:02:24 - person_summary - total_tokens: 812, prompt_tokens: 755, completion_tokens: 57
+2025-05-25 02:02:29 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:02:29 - opinion_scoring - total_tokens: 388, prompt_tokens: 353, completion_tokens: 35
+2025-05-25 02:02:37 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:02:37 - event_scoring - total_tokens: 823, prompt_tokens: 790, completion_tokens: 33
+2025-05-25 02:02:38 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:02:38 - sentiment_analysis - total_tokens: 133, prompt_tokens: 130, completion_tokens: 3
+2025-05-25 02:02:46 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:02:46 - event_scoring - total_tokens: 800, prompt_tokens: 767, completion_tokens: 33
+2025-05-25 02:02:47 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:02:47 - sentiment_analysis - total_tokens: 134, prompt_tokens: 131, completion_tokens: 3
+2025-05-25 02:02:53 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:02:53 - opinion_scoring - total_tokens: 386, prompt_tokens: 351, completion_tokens: 35
+2025-05-25 02:03:03 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:03:03 - event_extraction - total_tokens: 622, prompt_tokens: 553, completion_tokens: 69
+2025-05-25 02:03:14 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:03:14 - person_summary - total_tokens: 816, prompt_tokens: 753, completion_tokens: 63
+2025-05-25 02:03:25 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:03:25 - person_summary - total_tokens: 805, prompt_tokens: 741, completion_tokens: 64
+2025-05-25 02:03:36 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:03:36 - event_extraction - total_tokens: 837, prompt_tokens: 772, completion_tokens: 65
+2025-05-25 02:03:42 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:03:42 - event_scoring - total_tokens: 571, prompt_tokens: 538, completion_tokens: 33
+2025-05-25 02:03:44 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:03:44 - sentiment_analysis - total_tokens: 132, prompt_tokens: 129, completion_tokens: 3
+2025-05-25 02:03:49 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:03:49 - opinion_scoring - total_tokens: 402, prompt_tokens: 368, completion_tokens: 34
+2025-05-25 02:03:54 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:03:54 - opinion_scoring - total_tokens: 401, prompt_tokens: 367, completion_tokens: 34
+2025-05-25 02:04:02 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:04:02 - event_scoring - total_tokens: 792, prompt_tokens: 759, completion_tokens: 33
+2025-05-25 02:04:06 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:04:06 - sentiment_analysis - total_tokens: 128, prompt_tokens: 125, completion_tokens: 3
+2025-05-25 02:04:16 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:04:16 - person_summary - total_tokens: 581, prompt_tokens: 520, completion_tokens: 61
+2025-05-25 02:04:28 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:04:28 - event_extraction - total_tokens: 709, prompt_tokens: 622, completion_tokens: 87
+2025-05-25 02:04:42 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:04:42 - event_extraction - total_tokens: 950, prompt_tokens: 860, completion_tokens: 90
+2025-05-25 02:04:52 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:04:52 - person_summary - total_tokens: 790, prompt_tokens: 735, completion_tokens: 55
+2025-05-25 02:04:57 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:04:57 - opinion_scoring - total_tokens: 396, prompt_tokens: 362, completion_tokens: 34
+2025-05-25 02:05:05 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:05:05 - event_scoring - total_tokens: 638, prompt_tokens: 605, completion_tokens: 33
+2025-05-25 02:05:10 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:05:10 - sentiment_analysis - total_tokens: 189, prompt_tokens: 152, completion_tokens: 37
+2025-05-25 02:05:19 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:05:19 - event_scoring - total_tokens: 889, prompt_tokens: 856, completion_tokens: 33
+2025-05-25 02:05:22 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:05:22 - sentiment_analysis - total_tokens: 165, prompt_tokens: 140, completion_tokens: 25
+2025-05-25 02:05:28 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:05:28 - opinion_scoring - total_tokens: 383, prompt_tokens: 349, completion_tokens: 34
+2025-05-25 02:05:40 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:05:40 - event_extraction - total_tokens: 767, prompt_tokens: 693, completion_tokens: 74
+2025-05-25 02:05:45 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:05:45 - sentiment_analysis - total_tokens: 198, prompt_tokens: 152, completion_tokens: 46
+2025-05-25 02:05:48 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:05:48 - sentiment_analysis - total_tokens: 165, prompt_tokens: 140, completion_tokens: 25
+2025-05-25 02:06:01 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:06:01 - event_extraction - total_tokens: 922, prompt_tokens: 847, completion_tokens: 75
+2025-05-25 02:06:08 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:06:08 - event_scoring - total_tokens: 710, prompt_tokens: 677, completion_tokens: 33
+2025-05-25 02:06:10 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:06:10 - sentiment_analysis - total_tokens: 137, prompt_tokens: 134, completion_tokens: 3
+2025-05-25 02:06:14 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:06:14 - sentiment_analysis - total_tokens: 189, prompt_tokens: 152, completion_tokens: 37
+2025-05-25 02:06:17 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:06:17 - sentiment_analysis - total_tokens: 165, prompt_tokens: 140, completion_tokens: 25
+2025-05-25 02:06:25 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:06:25 - event_scoring - total_tokens: 871, prompt_tokens: 838, completion_tokens: 33
+2025-05-25 02:06:27 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:06:27 - sentiment_analysis - total_tokens: 132, prompt_tokens: 129, completion_tokens: 3
+2025-05-25 02:06:37 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:06:37 - person_summary - total_tokens: 727, prompt_tokens: 666, completion_tokens: 61
+2025-05-25 02:06:42 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:06:42 - opinion_scoring - total_tokens: 361, prompt_tokens: 327, completion_tokens: 34
+2025-05-25 02:06:46 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:06:46 - opinion_scoring - total_tokens: 352, prompt_tokens: 318, completion_tokens: 34
+2025-05-25 02:06:53 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:06:53 - person_summary - total_tokens: 842, prompt_tokens: 815, completion_tokens: 27
+2025-05-25 02:06:59 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:06:59 - opinion_scoring - total_tokens: 399, prompt_tokens: 365, completion_tokens: 34
+2025-05-25 02:07:09 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:07:09 - event_extraction - total_tokens: 720, prompt_tokens: 665, completion_tokens: 55
+2025-05-25 02:07:20 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:07:20 - event_extraction - total_tokens: 942, prompt_tokens: 866, completion_tokens: 76
+2025-05-25 02:07:26 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:07:26 - opinion_scoring - total_tokens: 364, prompt_tokens: 330, completion_tokens: 34
+2025-05-25 02:07:40 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:07:40 - event_extraction - total_tokens: 832, prompt_tokens: 740, completion_tokens: 92
+2025-05-25 02:07:48 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:07:48 - event_scoring - total_tokens: 679, prompt_tokens: 646, completion_tokens: 33
+2025-05-25 02:07:55 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:07:55 - sentiment_analysis - total_tokens: 182, prompt_tokens: 122, completion_tokens: 60
+2025-05-25 02:08:04 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:08:04 - event_scoring - total_tokens: 891, prompt_tokens: 858, completion_tokens: 33
+2025-05-25 02:08:06 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:08:06 - sentiment_analysis - total_tokens: 132, prompt_tokens: 129, completion_tokens: 3
+2025-05-25 02:08:17 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:08:17 - event_extraction - total_tokens: 846, prompt_tokens: 776, completion_tokens: 70
+2025-05-25 02:08:25 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:08:25 - event_scoring - total_tokens: 769, prompt_tokens: 736, completion_tokens: 33
+2025-05-25 02:08:27 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:08:27 - sentiment_analysis - total_tokens: 146, prompt_tokens: 143, completion_tokens: 3
+2025-05-25 02:08:31 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:08:31 - sentiment_analysis - total_tokens: 166, prompt_tokens: 122, completion_tokens: 44
+2025-05-25 02:08:43 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:08:43 - person_summary - total_tokens: 897, prompt_tokens: 834, completion_tokens: 63
+2025-05-25 02:08:50 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:08:50 - event_scoring - total_tokens: 799, prompt_tokens: 766, completion_tokens: 33
+2025-05-25 02:08:52 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:08:52 - sentiment_analysis - total_tokens: 128, prompt_tokens: 125, completion_tokens: 3
+2025-05-25 02:09:02 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:09:02 - person_summary - total_tokens: 788, prompt_tokens: 722, completion_tokens: 66
+2025-05-25 02:09:08 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:09:08 - sentiment_analysis - total_tokens: 166, prompt_tokens: 122, completion_tokens: 44
+2025-05-25 02:09:14 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:09:14 - opinion_scoring - total_tokens: 401, prompt_tokens: 366, completion_tokens: 35
+2025-05-25 02:09:26 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:09:26 - person_summary - total_tokens: 815, prompt_tokens: 740, completion_tokens: 75
+2025-05-25 02:09:31 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:09:31 - opinion_scoring - total_tokens: 409, prompt_tokens: 375, completion_tokens: 34
+2025-05-25 02:09:35 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:09:35 - opinion_scoring - total_tokens: 332, prompt_tokens: 298, completion_tokens: 34
+2025-05-25 02:09:49 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:09:49 - event_extraction - total_tokens: 741, prompt_tokens: 650, completion_tokens: 91
+2025-05-25 02:09:54 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:09:54 - opinion_scoring - total_tokens: 392, prompt_tokens: 358, completion_tokens: 34
+2025-05-25 02:10:07 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:10:07 - event_extraction - total_tokens: 830, prompt_tokens: 748, completion_tokens: 82
+2025-05-25 02:10:17 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:10:17 - event_extraction - total_tokens: 515, prompt_tokens: 430, completion_tokens: 85
+2025-05-25 02:10:24 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:10:24 - event_scoring - total_tokens: 676, prompt_tokens: 643, completion_tokens: 33
+2025-05-25 02:10:25 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:10:25 - sentiment_analysis - total_tokens: 145, prompt_tokens: 142, completion_tokens: 3
+2025-05-25 02:10:36 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:10:36 - event_extraction - total_tokens: 823, prompt_tokens: 757, completion_tokens: 66
+2025-05-25 02:10:44 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:10:44 - event_scoring - total_tokens: 769, prompt_tokens: 736, completion_tokens: 33
+2025-05-25 02:10:46 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:10:46 - sentiment_analysis - total_tokens: 143, prompt_tokens: 140, completion_tokens: 3
+2025-05-25 02:10:51 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:10:51 - event_scoring - total_tokens: 452, prompt_tokens: 419, completion_tokens: 33
+2025-05-25 02:10:53 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:10:53 - sentiment_analysis - total_tokens: 147, prompt_tokens: 144, completion_tokens: 3
+2025-05-25 02:11:03 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:11:03 - person_summary - total_tokens: 697, prompt_tokens: 631, completion_tokens: 66
+2025-05-25 02:11:11 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:11:11 - event_scoring - total_tokens: 774, prompt_tokens: 741, completion_tokens: 33
+2025-05-25 02:11:12 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:11:12 - sentiment_analysis - total_tokens: 133, prompt_tokens: 130, completion_tokens: 3
+2025-05-25 02:11:21 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:11:21 - person_summary - total_tokens: 776, prompt_tokens: 726, completion_tokens: 50
+2025-05-25 02:11:27 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:11:27 - person_summary - total_tokens: 458, prompt_tokens: 411, completion_tokens: 47
+2025-05-25 02:11:33 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:11:33 - opinion_scoring - total_tokens: 404, prompt_tokens: 370, completion_tokens: 34
+2025-05-25 02:11:44 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:11:44 - person_summary - total_tokens: 794, prompt_tokens: 724, completion_tokens: 70
+2025-05-25 02:11:50 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:11:50 - opinion_scoring - total_tokens: 396, prompt_tokens: 362, completion_tokens: 34
+2025-05-25 02:11:54 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:11:54 - opinion_scoring - total_tokens: 395, prompt_tokens: 361, completion_tokens: 34
+2025-05-25 02:12:05 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:12:05 - event_extraction - total_tokens: 830, prompt_tokens: 771, completion_tokens: 59
+2025-05-25 02:12:11 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:12:11 - opinion_scoring - total_tokens: 391, prompt_tokens: 357, completion_tokens: 34
+2025-05-25 02:12:25 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:12:25 - event_extraction - total_tokens: 821, prompt_tokens: 722, completion_tokens: 99
+2025-05-25 02:12:37 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:12:37 - event_extraction - total_tokens: 843, prompt_tokens: 753, completion_tokens: 90
+2025-05-25 02:12:45 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:12:45 - event_scoring - total_tokens: 788, prompt_tokens: 755, completion_tokens: 33
+2025-05-25 02:12:46 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:12:46 - sentiment_analysis - total_tokens: 126, prompt_tokens: 123, completion_tokens: 3
+2025-05-25 02:13:01 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:13:01 - event_extraction - total_tokens: 885, prompt_tokens: 794, completion_tokens: 91
+2025-05-25 02:13:08 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:13:08 - event_scoring - total_tokens: 757, prompt_tokens: 724, completion_tokens: 33
+2025-05-25 02:13:10 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:13:10 - sentiment_analysis - total_tokens: 146, prompt_tokens: 143, completion_tokens: 3
+2025-05-25 02:13:17 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:13:17 - event_scoring - total_tokens: 777, prompt_tokens: 744, completion_tokens: 33
+2025-05-25 02:13:19 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:13:19 - sentiment_analysis - total_tokens: 149, prompt_tokens: 146, completion_tokens: 3
+2025-05-25 02:13:26 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:13:26 - person_summary - total_tokens: 761, prompt_tokens: 731, completion_tokens: 30
+2025-05-25 02:13:35 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:13:35 - event_scoring - total_tokens: 822, prompt_tokens: 789, completion_tokens: 33
+2025-05-25 02:13:36 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:13:36 - sentiment_analysis - total_tokens: 149, prompt_tokens: 146, completion_tokens: 3
+2025-05-25 02:13:46 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:13:46 - person_summary - total_tokens: 765, prompt_tokens: 705, completion_tokens: 60
+2025-05-25 02:13:55 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:13:55 - person_summary - total_tokens: 785, prompt_tokens: 737, completion_tokens: 48
+2025-05-25 02:14:00 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:14:00 - opinion_scoring - total_tokens: 359, prompt_tokens: 325, completion_tokens: 34
+2025-05-25 02:14:09 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:14:09 - person_summary - total_tokens: 823, prompt_tokens: 778, completion_tokens: 45
+2025-05-25 02:14:15 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:14:15 - opinion_scoring - total_tokens: 409, prompt_tokens: 375, completion_tokens: 34
+2025-05-25 02:14:19 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:14:19 - opinion_scoring - total_tokens: 401, prompt_tokens: 367, completion_tokens: 34
+2025-05-25 02:14:31 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:14:31 - event_extraction - total_tokens: 824, prompt_tokens: 747, completion_tokens: 77
+2025-05-25 02:14:37 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:14:37 - opinion_scoring - total_tokens: 397, prompt_tokens: 363, completion_tokens: 34
+2025-05-25 02:14:47 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:14:47 - event_extraction - total_tokens: 577, prompt_tokens: 507, completion_tokens: 70
+2025-05-25 02:14:58 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:14:58 - event_extraction - total_tokens: 748, prompt_tokens: 677, completion_tokens: 71
+2025-05-25 02:15:05 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:15:05 - event_scoring - total_tokens: 778, prompt_tokens: 745, completion_tokens: 33
+2025-05-25 02:15:07 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:15:07 - sentiment_analysis - total_tokens: 127, prompt_tokens: 124, completion_tokens: 3
+2025-05-25 02:15:20 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:15:20 - event_extraction - total_tokens: 831, prompt_tokens: 742, completion_tokens: 89
+2025-05-25 02:15:27 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:15:27 - event_scoring - total_tokens: 526, prompt_tokens: 493, completion_tokens: 33
+2025-05-25 02:15:28 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:15:28 - sentiment_analysis - total_tokens: 135, prompt_tokens: 132, completion_tokens: 3
+2025-05-25 02:15:36 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:15:36 - event_scoring - total_tokens: 704, prompt_tokens: 671, completion_tokens: 33
+2025-05-25 02:15:37 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:15:37 - sentiment_analysis - total_tokens: 129, prompt_tokens: 126, completion_tokens: 3
+2025-05-25 02:15:49 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:15:49 - person_summary - total_tokens: 781, prompt_tokens: 709, completion_tokens: 72
+2025-05-25 02:15:57 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:15:57 - event_scoring - total_tokens: 773, prompt_tokens: 740, completion_tokens: 33
+2025-05-25 02:15:59 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:15:59 - sentiment_analysis - total_tokens: 142, prompt_tokens: 139, completion_tokens: 3
+2025-05-25 02:16:08 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:16:08 - person_summary - total_tokens: 543, prompt_tokens: 476, completion_tokens: 67
+2025-05-25 02:16:16 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:16:16 - person_summary - total_tokens: 688, prompt_tokens: 640, completion_tokens: 48
+2025-05-25 02:16:22 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:16:22 - opinion_scoring - total_tokens: 397, prompt_tokens: 363, completion_tokens: 34
+2025-05-25 02:16:31 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:16:31 - person_summary - total_tokens: 764, prompt_tokens: 717, completion_tokens: 47
+2025-05-25 02:16:37 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:16:37 - opinion_scoring - total_tokens: 399, prompt_tokens: 365, completion_tokens: 34
+2025-05-25 02:16:41 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:16:41 - opinion_scoring - total_tokens: 380, prompt_tokens: 346, completion_tokens: 34
+2025-05-25 02:16:52 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:16:52 - event_extraction - total_tokens: 822, prompt_tokens: 759, completion_tokens: 63
+2025-05-25 02:16:58 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:16:58 - opinion_scoring - total_tokens: 390, prompt_tokens: 356, completion_tokens: 34
+2025-05-25 02:17:10 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:17:10 - event_extraction - total_tokens: 830, prompt_tokens: 754, completion_tokens: 76
+2025-05-25 02:17:20 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:17:20 - event_extraction - total_tokens: 656, prompt_tokens: 585, completion_tokens: 71
+2025-05-25 02:17:28 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:17:28 - event_scoring - total_tokens: 773, prompt_tokens: 740, completion_tokens: 33
+2025-05-25 02:17:29 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:17:29 - sentiment_analysis - total_tokens: 132, prompt_tokens: 129, completion_tokens: 3
+2025-05-25 02:17:41 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:17:41 - event_extraction - total_tokens: 667, prompt_tokens: 587, completion_tokens: 80
+2025-05-25 02:17:49 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:17:49 - event_scoring - total_tokens: 778, prompt_tokens: 745, completion_tokens: 33
+2025-05-25 02:17:50 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:17:50 - sentiment_analysis - total_tokens: 133, prompt_tokens: 130, completion_tokens: 3
+2025-05-25 02:17:57 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:17:57 - event_scoring - total_tokens: 607, prompt_tokens: 574, completion_tokens: 33
+2025-05-25 02:17:58 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:17:58 - sentiment_analysis - total_tokens: 132, prompt_tokens: 129, completion_tokens: 3
+2025-05-25 02:18:08 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:18:08 - person_summary - total_tokens: 773, prompt_tokens: 726, completion_tokens: 47
+2025-05-25 02:18:14 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:18:14 - event_scoring - total_tokens: 608, prompt_tokens: 575, completion_tokens: 33
+2025-05-25 02:18:16 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:18:16 - sentiment_analysis - total_tokens: 142, prompt_tokens: 139, completion_tokens: 3
+2025-05-25 02:18:27 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:18:27 - person_summary - total_tokens: 792, prompt_tokens: 724, completion_tokens: 68
+2025-05-25 02:18:34 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:18:34 - person_summary - total_tokens: 598, prompt_tokens: 552, completion_tokens: 46
+2025-05-25 02:18:40 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:18:40 - opinion_scoring - total_tokens: 383, prompt_tokens: 349, completion_tokens: 34
+2025-05-25 02:18:49 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:18:49 - person_summary - total_tokens: 629, prompt_tokens: 565, completion_tokens: 64
+2025-05-25 02:18:55 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:18:55 - opinion_scoring - total_tokens: 398, prompt_tokens: 364, completion_tokens: 34
+2025-05-25 02:18:59 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:18:59 - opinion_scoring - total_tokens: 382, prompt_tokens: 348, completion_tokens: 34
+2025-05-25 02:19:11 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:19:11 - event_extraction - total_tokens: 813, prompt_tokens: 747, completion_tokens: 66
+2025-05-25 02:19:16 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:19:16 - opinion_scoring - total_tokens: 408, prompt_tokens: 374, completion_tokens: 34
+2025-05-25 02:19:24 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:19:24 - event_extraction - total_tokens: 411, prompt_tokens: 349, completion_tokens: 62
+2025-05-25 02:19:35 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:19:35 - event_extraction - total_tokens: 806, prompt_tokens: 740, completion_tokens: 66
+2025-05-25 02:19:42 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:19:42 - event_scoring - total_tokens: 765, prompt_tokens: 732, completion_tokens: 33
+2025-05-25 02:19:44 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:19:44 - sentiment_analysis - total_tokens: 128, prompt_tokens: 125, completion_tokens: 3
+2025-05-25 02:19:58 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:19:58 - event_extraction - total_tokens: 783, prompt_tokens: 690, completion_tokens: 93
+2025-05-25 02:20:04 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:20:04 - event_scoring - total_tokens: 367, prompt_tokens: 334, completion_tokens: 33
+2025-05-25 02:20:05 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:20:05 - sentiment_analysis - total_tokens: 125, prompt_tokens: 122, completion_tokens: 3
+2025-05-25 02:20:13 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:20:13 - event_scoring - total_tokens: 763, prompt_tokens: 730, completion_tokens: 33
+2025-05-25 02:20:14 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:20:14 - sentiment_analysis - total_tokens: 127, prompt_tokens: 124, completion_tokens: 3
+2025-05-25 02:20:26 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:20:26 - person_summary - total_tokens: 788, prompt_tokens: 712, completion_tokens: 76
+2025-05-25 02:20:34 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:20:34 - event_scoring - total_tokens: 716, prompt_tokens: 683, completion_tokens: 33
+2025-05-25 02:20:35 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:20:35 - sentiment_analysis - total_tokens: 146, prompt_tokens: 143, completion_tokens: 3
+2025-05-25 02:20:42 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:20:42 - person_summary - total_tokens: 359, prompt_tokens: 311, completion_tokens: 48
+2025-05-25 02:20:51 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:20:51 - person_summary - total_tokens: 761, prompt_tokens: 701, completion_tokens: 60
+2025-05-25 02:20:57 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:20:57 - opinion_scoring - total_tokens: 389, prompt_tokens: 355, completion_tokens: 34
+2025-05-25 02:21:05 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:21:05 - person_summary - total_tokens: 717, prompt_tokens: 675, completion_tokens: 42
+2025-05-25 02:21:11 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:21:11 - opinion_scoring - total_tokens: 379, prompt_tokens: 345, completion_tokens: 34
+2025-05-25 02:21:15 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:21:15 - opinion_scoring - total_tokens: 384, prompt_tokens: 350, completion_tokens: 34
+2025-05-25 02:21:28 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:21:28 - event_extraction - total_tokens: 839, prompt_tokens: 758, completion_tokens: 81
+2025-05-25 02:21:33 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:21:33 - opinion_scoring - total_tokens: 396, prompt_tokens: 362, completion_tokens: 34
+2025-05-25 02:21:48 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:21:48 - event_extraction - total_tokens: 896, prompt_tokens: 802, completion_tokens: 94
+2025-05-25 02:21:57 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:21:57 - event_extraction - total_tokens: 628, prompt_tokens: 552, completion_tokens: 76
+2025-05-25 02:22:05 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:22:05 - event_scoring - total_tokens: 785, prompt_tokens: 752, completion_tokens: 33
+2025-05-25 02:22:06 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:22:06 - sentiment_analysis - total_tokens: 138, prompt_tokens: 135, completion_tokens: 3
+2025-05-25 02:22:18 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:22:18 - event_extraction - total_tokens: 853, prompt_tokens: 778, completion_tokens: 75
+2025-05-25 02:22:27 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:22:27 - event_scoring - total_tokens: 827, prompt_tokens: 794, completion_tokens: 33
+2025-05-25 02:22:28 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:22:28 - sentiment_analysis - total_tokens: 149, prompt_tokens: 146, completion_tokens: 3
+2025-05-25 02:22:35 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:22:35 - event_scoring - total_tokens: 576, prompt_tokens: 543, completion_tokens: 33
+2025-05-25 02:22:36 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:22:36 - sentiment_analysis - total_tokens: 124, prompt_tokens: 121, completion_tokens: 3
+2025-05-25 02:22:46 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:22:46 - person_summary - total_tokens: 788, prompt_tokens: 731, completion_tokens: 57
+2025-05-25 02:22:54 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:22:54 - event_scoring - total_tokens: 802, prompt_tokens: 769, completion_tokens: 33
+2025-05-25 02:23:02 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:23:02 - sentiment_analysis - total_tokens: 193, prompt_tokens: 124, completion_tokens: 69
+2025-05-25 02:23:13 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:23:13 - person_summary - total_tokens: 856, prompt_tokens: 789, completion_tokens: 67
+2025-05-25 02:23:23 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:23:23 - person_summary - total_tokens: 593, prompt_tokens: 522, completion_tokens: 71
+2025-05-25 02:23:29 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:23:29 - opinion_scoring - total_tokens: 397, prompt_tokens: 363, completion_tokens: 34
+2025-05-25 02:23:37 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:23:37 - sentiment_analysis - total_tokens: 193, prompt_tokens: 124, completion_tokens: 69
+2025-05-25 02:23:42 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:23:42 - opinion_scoring - total_tokens: 410, prompt_tokens: 376, completion_tokens: 34
+2025-05-25 02:23:47 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:23:47 - opinion_scoring - total_tokens: 390, prompt_tokens: 356, completion_tokens: 34
+2025-05-25 02:24:03 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:24:03 - event_extraction - total_tokens: 870, prompt_tokens: 757, completion_tokens: 113
+2025-05-25 02:24:09 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:24:09 - sentiment_analysis - total_tokens: 174, prompt_tokens: 124, completion_tokens: 50
+2025-05-25 02:24:24 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:24:24 - event_extraction - total_tokens: 686, prompt_tokens: 585, completion_tokens: 101
+2025-05-25 02:24:35 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:24:35 - event_extraction - total_tokens: 822, prompt_tokens: 744, completion_tokens: 78
+2025-05-25 02:24:43 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:24:43 - event_scoring - total_tokens: 795, prompt_tokens: 762, completion_tokens: 33
+2025-05-25 02:24:45 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:24:45 - sentiment_analysis - total_tokens: 155, prompt_tokens: 152, completion_tokens: 3
+2025-05-25 02:24:50 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:24:50 - opinion_scoring - total_tokens: 340, prompt_tokens: 306, completion_tokens: 34
+2025-05-25 02:24:57 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:24:57 - event_scoring - total_tokens: 608, prompt_tokens: 575, completion_tokens: 33
+2025-05-25 02:24:58 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:24:58 - sentiment_analysis - total_tokens: 161, prompt_tokens: 158, completion_tokens: 3
+2025-05-25 02:25:06 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:25:06 - event_scoring - total_tokens: 771, prompt_tokens: 738, completion_tokens: 33
+2025-05-25 02:25:07 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:25:07 - sentiment_analysis - total_tokens: 126, prompt_tokens: 123, completion_tokens: 3
+2025-05-25 02:25:18 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:25:18 - person_summary - total_tokens: 812, prompt_tokens: 750, completion_tokens: 62
+2025-05-25 02:25:30 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:25:30 - event_extraction - total_tokens: 798, prompt_tokens: 725, completion_tokens: 73
+2025-05-25 02:25:39 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:25:39 - person_summary - total_tokens: 639, prompt_tokens: 580, completion_tokens: 59
+2025-05-25 02:25:50 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:25:50 - person_summary - total_tokens: 776, prompt_tokens: 712, completion_tokens: 64
+2025-05-25 02:25:55 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:25:55 - opinion_scoring - total_tokens: 417, prompt_tokens: 383, completion_tokens: 34
+2025-05-25 02:26:03 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:26:03 - event_scoring - total_tokens: 748, prompt_tokens: 715, completion_tokens: 33
+2025-05-25 02:26:04 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:26:04 - sentiment_analysis - total_tokens: 134, prompt_tokens: 131, completion_tokens: 3
+2025-05-25 02:26:10 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:26:10 - opinion_scoring - total_tokens: 415, prompt_tokens: 381, completion_tokens: 34
+2025-05-25 02:26:14 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:26:14 - opinion_scoring - total_tokens: 399, prompt_tokens: 365, completion_tokens: 34
+2025-05-25 02:26:28 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:26:28 - event_extraction - total_tokens: 904, prompt_tokens: 813, completion_tokens: 91
+2025-05-25 02:26:41 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:26:41 - person_summary - total_tokens: 771, prompt_tokens: 693, completion_tokens: 78
+2025-05-25 02:26:52 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:26:52 - event_extraction - total_tokens: 777, prompt_tokens: 701, completion_tokens: 76
+2025-05-25 02:27:06 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:27:06 - event_extraction - total_tokens: 821, prompt_tokens: 724, completion_tokens: 97
+2025-05-25 02:27:14 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:27:14 - event_scoring - total_tokens: 842, prompt_tokens: 809, completion_tokens: 33
+2025-05-25 02:27:16 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:27:16 - sentiment_analysis - total_tokens: 140, prompt_tokens: 137, completion_tokens: 3
+2025-05-25 02:27:21 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:27:21 - opinion_scoring - total_tokens: 397, prompt_tokens: 363, completion_tokens: 34
+2025-05-25 02:27:28 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:27:28 - event_scoring - total_tokens: 724, prompt_tokens: 691, completion_tokens: 33
+2025-05-25 02:27:30 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:27:30 - sentiment_analysis - total_tokens: 138, prompt_tokens: 135, completion_tokens: 3
+2025-05-25 02:27:37 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:27:37 - event_scoring - total_tokens: 750, prompt_tokens: 717, completion_tokens: 33
+2025-05-25 02:27:39 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:27:39 - sentiment_analysis - total_tokens: 153, prompt_tokens: 150, completion_tokens: 3
+2025-05-25 02:27:50 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:27:50 - person_summary - total_tokens: 860, prompt_tokens: 793, completion_tokens: 67
+2025-05-25 02:28:00 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:28:00 - person_summary - total_tokens: 735, prompt_tokens: 674, completion_tokens: 61
+2025-05-25 02:28:08 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:28:08 - person_summary - total_tokens: 752, prompt_tokens: 711, completion_tokens: 41
+2025-05-25 02:28:13 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:28:13 - opinion_scoring - total_tokens: 410, prompt_tokens: 376, completion_tokens: 34
+2025-05-25 02:28:18 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:28:18 - opinion_scoring - total_tokens: 392, prompt_tokens: 358, completion_tokens: 34
+2025-05-25 02:28:22 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2025-05-25 02:28:22 - opinion_scoring - total_tokens: 396, prompt_tokens: 362, completion_tokens: 34
