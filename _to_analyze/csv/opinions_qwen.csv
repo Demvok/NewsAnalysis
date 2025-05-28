@@ -1,0 +1,138 @@
+opinion_id,fk_origin_article_id,citation,sentiment_score,inconsistency_flag,inconsistency_with_id,inconsistency_comment,controversy_score,relevancy_score,contribution_score,opinion_hotness,is_selected,person_name
+1,50,"Andrew Blakers, a professor of engineering at the Australian National University, says modern projects favor closed-loop systems like Nant de Drance, which don’t impact river systems.",,False,[],,,,,,False,Andrew Blakers
+2,49,"The bill includes provisions for rebates, tax credits, and grants to promote green energy initiatives.",,False,[],,,,,,False,Unspecified
+3,50,"Ellis says Nant de Drance has increased Switzerland’s installed energy capacity by 33%, showing the leadership of Switzerland in the transition to renewables.",,False,[],,,,,,False,Rebecca Ellis
+4,49,"Mark Wolfe, executive director of the National Energy Assistance Directors Association, said these measures would be more comprehensive than existing weatherization programs.",,False,[],,,,,,False,Mark Wolfe
+5,49,The article does not specify a particular person's statement or action regarding green energy.,,False,[],,,,,,False,Unspecified
+6,49,"Debbie Stabenow of Michigan said. The tax credit is also limited to trucks, vans and SUVs under $80,000, and other vehicles under $55,000, and has an income threshold for consumers.",,False,[],,,,,,False,Debbie Stabenow
+7,48,Martindale highlights the importance of sustainable food production and responsible sourcing in reducing carbon emissions.,,False,[],,,,,,False,Dr. Wayne Martindale
+8,48,"Shokouhi says, \""It can be actually a positive solution and we should just embrace it because we know that we can’t carry on living like this.",,False,[],,,,,,False,Arina Shokouhi
+9,47,The article discusses the environmental impact of indoor plants but does not attribute specific statements or actions to a particular person regarding green energy.,,False,[],,,,,,False,Unspecified
+10,47,"Dr. Loren R. Oki, a specialist in environmental horticulture at the University of California, Davis, highlighted the resource-intensive nature of indoor gardening.",,False,[],,,,,,False,Dr. Loren R. Oki
+11,47,"Szankay said, 'It doesn’t really have to be that way.",,False,[],,,,,,False,Andreas Szankay
+12,47,Bidwell suggested buying locally to reduce fuel emissions and using clippings for propagation.,,False,[],,,,,,False,Bidwell
+13,47,"Being a good steward of your plants is really important,\"" Bidwell said.",,False,[],,,,,,False,Bidwell
+14,46,Kenyan minister states that excluding women from decision-making is unwise and highlights opportunities for women entrepreneurs in expanded markets.,,False,[],,,,,,False,Kenyan minister
+15,46,"Geingos emphasized the importance of women taking leadership roles in decision-making processes, stating that diverse thinking is crucial for societal progress.",,False,[],,,,,,False,Geingos
+16,46,"Namibia’s first lady, Monica Geingos, said the country's green hydrogen plans extend beyond domestic energy self-sufficiency and include intra-African trade.",,False,[],,,,,,False,Monica Geingos
+17,45,The report warns that governments will be unable to sustain such costly programs 'to compensate for high fossil energy prices over a long period of time.,,False,[],,,,,,False,Unspecified
+18,45,"Chris Rosslowe, senior analyst at Ember, said: 'Wind and solar are already helping European citizens.",,False,[],,,,,,False,Chris Rosslowe
+19,44,"The IEA forecasts EU emissions to decrease this year, even though the bloc’s coal use is up.",,False,[],,,,,,False,Unspecified
+20,44,IEA Executive Director Fatih Birol stated that global clean energy policies are driving structural changes in the energy economy.,,False,[],,,,,,False,Fatih Birol
+21,44,The International Energy Agency published its forecast showing CO2 emissions are on track for an increase of 300 million metric tons in 2022.,,False,[],,,,,,False,International Energy Agency
+22,43,Ayukegba stated that Africa needs to focus on investing significantly into generating power for all of those people and champion making energy poverty history by 2030.,,False,[],,,,,,False,Verner Ayukegba
+23,43,"Ayukegba emphasized the need to balance climate change and power issues, advocating for gas-to-power solutions to ensure energy access while considering social aspects of transition.",,False,[],,,,,,False,Ayukegba
+24,43,Ayukegba emphasized the importance of realistic transitions and African voices in climate discussions at COP27.,,False,[],,,,,,False,Ayukegba
+25,42,"CEO Donnel Baird said, \""We turn buildings into Teslas.",,False,[],,,,,,False,Donnel Baird
+26,42,Eccles told CNN Business that tenants thanked him for the system and noted real savings in electricity use.,,False,[],,,,,,False,Lincoln Eccles
+27,41,"IEA executive director Fatih Birol stated that the energy crisis has accelerated renewables' growth, crucial for limiting global warming to 1.5 °C.",,False,[],,,,,,False,Fatih Birol
+28,41,The IEA report said: 'The amount of renewable power capacity added in Europe in the 2022-27 period is forecast to be twice as high as in the previous five-year period.,,False,[],,,,,,False,Unspecified
+29,40,"AlQubaisi calls it a \""quick fix\"" until regulations change, but for SAF to become more widespread, more progress is required.",,False,[],,,,,,False,AlQubaisi
+30,40,"AlQubaisi says, \""It’s essentially a call to action. The idea came about in late 2019 to launch a message to the industry: let’s try everything possible to decarbonize.",,False,[],,,,,,False,Mariam AlQubaisi
+31,40,AlQubaisi stated that avoiding contrails through route adjustments can reduce warming effects by up to 60% using specific algorithms.,,False,[],,,,,,False,AlQubaisi
+32,39,The European Commission stated that China provides green subsidies at twice the level of those in the EU relative to GDP.,,False,[],,,,,,False,Unspecified
+33,39,European Commission President Ursula von der Leyen said the package of measures will ensure a 'level playing field' globally.,,False,[],,,,,,False,Ursula von der Leyen
+34,38,"Green compared the internet to a hammer or printing press, stating its value depends on how it is used.",,False,[],,,,,,False,Hank Green
+35,38,Green said many social media companies have been thinking of the societal implications of what they do.,,False,[],,,,,,False,Unspecified
+36,36,"Lori Lodes, executive director of Climate Power, says the model of spreading clean energy investment across all districts is critical to sustaining federal efforts.",,False,[],,,,,,False,Lori Lodes
+37,36,New York Republican Rep. Brandon Williams holds the district with the most clean energy investment.,,False,[],,,,,,False,Brandon Williams
+38,36,"Leiserowitz said Republicans prioritize culture war over clean energy discussions, noting the next election will test this strategy.",,False,[],,,,,,False,Anthony Leiserowitz
+39,36,Republicans voted to repeal clean energy incentives in the Inflation Reduction Act.,,False,[],,,,,,False,Unspecified
+40,36,"Florida Gov. Ron DeSantis organized a coalition of 19 Republican governors to fight ESG measures, calling them 'woke capitalism.",,False,[],,,,,,False,Ron DeSantis
+41,36,Amodei said the pace of Biden's plan to shift to EVs was unrealistic and that Nevada companies are excluded from jobs created by clean energy investments.,,False,[],,,,,,False,Troy Amodei
+42,36,"Leiserowitz says that in Yale’s polling, only a very small percentage of even moderate Republicans cite climate as an important issue for government to address.",,False,[],,,,,,False,Leiserowitz
+43,35,"Asanda Xawuka of the Coega Development Corporation said, \""We were hit very hard by Covid.",,False,[],,,,,,False,Asanda Xawuka
+44,35,"Colin Loubser, managing director of Hive Energy Africa, says the plant will replace heavy fuel oils on ships and diesel with green ammonia as a future maritime fuel.",,False,[],,,,,,False,Colin Loubser
+45,34,The band wrote on social media Thursday about the tour announcement.,,False,[],,,,,,False,Unspecified
+46,33,"Ben Moussa says, 'With this system we create biodiversity, which means better soil, healthier crops and a bigger yield.",,False,[],,,,,,False,Ben Moussa
+47,33,"Ben Moussa says, 'Desertification is the future of a lot of countries today.",,False,[],,,,,,False,Wissal Ben Moussa
+48,32,"Jenkins said the hot rocks model has a distinct advantage over chemical batteries that can store power, but not heat.",,False,[],,,,,,False,Jesse Jenkins
+49,32,"Ponec said, 'We’ve added some cavities, some gaps in the carbon that allow light from deep within the system to shine out and some insulated doors that can open and close that allow that light to shine out when you want it.",,False,[],,,,,,False,Ponec
+50,32,"Ponec explained that the thermal battery uses sunlight to heat rocks, which can then provide energy for factories.",,False,[],,,,,,False,Andrew Ponec
+51,31,"We need companies to change, as well as cities and churches, schools and universities, businesses and organizations,",,False,[],,,,,,False,Katharine Hayhoe
+52,31,The article does not mention any specific person's statement or action regarding green energy.,,False,[],,,,,,False,Unspecified
+53,30,"Johannsen said, 'Our early investment in wind has helped keep electricity rates lower compared to the rest of the country.",,False,[],,,,,,False,Johannsen
+54,30,"Johannsen, energy program director for the Iowa Environmental Council, said wind turbines are a commodity in Iowa's agricultural landscape.",,False,[],,,,,,False,Kerri Johannsen
+55,30,"Thorne, a University of Iowa professor, said wind energy is viewed positively by Iowans and is tied to climate change concerns.",,False,[],,,,,,False,Peter Thorne
+56,29,"Laith Whitwham, senior policy advisor at E3G, said the renewable status of burning wood pellets remains \""hotly contested\"" and Drax’s project was a distraction from where investment was most needed.",,False,[],,,,,,False,Laith Whitwham
+57,29,"Tomos Harrison, electricity transition analyst at energy think tank Ember, said BECCS is an unproven and highly controversial technology that would come at significant financial cost to the UK public.",,False,[],,,,,,False,Tomos Harrison
+58,28,USA Basketball executive director Grant Hill said Draymond Green was excluded due to his suspensions this season.,,False,[],,,,,,False,Grant Hill
+59,26,"Green said, 'You go out with a win. I wanted to get a great border security bill done, we did that.",,False,[],,,,,,False,Mark Green
+60,25,"Trump endorsed Green for re-election, stating, 'If he does, he has my Complete and Total Endorsement!",,False,[],,,,,,False,Donald Trump
+61,24,"Scientists in Hong Kong and China have used the famous toy, also known as the 'Dippy Bird,' to develop an engine capable of using the power of water evaporation to generate electricity, according to a study published Thursday in the journal Device.",,False,[],,,,,,False,Unspecified
+62,24,Wu and her colleagues added nanogenerator modules to a drinking bird to power electronics.,,False,[],,,,,,False,Wu
+63,24,"Hao Wu, a professor at South China University of Technology, says the drinking bird method offers a unique way to generate electricity using water.",,False,[],,,,,,False,Hao Wu
+64,23,No specific person's statement or action related to green energy is mentioned in the article.,,False,[],,,,,,False,Unspecified
+65,20,"Inaction is not a climate strategy. If we're serious about mitigating the trajectory of climate change, we need to be willing to move, and move quickly at scale.",,False,[],,,,,,False,Sant
+66,20,"Fuhr criticized Equatic's use of speculative technology, stating that climate change is already harming oceans and that processing vast amounts of seawater could kill marine life.",,False,[],,,,,,False,Lili Fuhr
+67,20,"Sanders told CNN that the $20 million facility will be fully operational by the end of the year and able to remove 3,650 metric tons of carbon dioxide annually.",,False,[],,,,,,False,Edward Sanders
+68,20,"Jean-Pierre Gatusso, an ocean scientist at Sorbonne University, expressed concern that science lags behind the industry in carbon-removal projects involving the oceans.",,False,[],,,,,,False,Jean-Pierre Gatusso
+69,19,"Adani stated that India cannot rely on fossil fuels without disastrous consequences for climate efforts, but also mentioned that providing energy from sustainable sources is not currently an option.",,False,[],,,,,,False,Gautam Adani
+70,19,Adani stated that India is doing a massive amount of renewables despite using coal.,,False,[],,,,,,False,Adani
+71,19,"Adani said, 'There is no choice for India but to start doing things at a previously unimagined size and scale.",,False,[],,,,,,False,Gautam Adani
+72,19,"Sagar Adani told CNN, 'I don’t even do the math any more.",,False,[],,,,,,False,Sagar Adani
+73,18,"She told CNN, 'It shows that we can generate significant amounts of electricity with renewable energy.",,False,[],,,,,,False,Unspecified
+74,18,Höhne stated that the speed of solar and wind expansion shows society can bring about rapid change.,,False,[],,,,,,False,Niklas Höhne
+75,18,"Dave Jones, global insights director at Ember, said, 'The renewables future has arrived.",,False,[],,,,,,False,Dave Jones
+76,17,"IEA’s executive director said the world’s appetite for solar panels, electric cars and batteries is growing fast but we cannot satisfy it without reliable and expanding supplies of critical minerals.",,False,[],,,,,,False,Fatih Birol
+77,17,The IEA noted that demand for graphite is projected to quadruple by 2040 if the world takes steps to avoid warming above 1.5 degrees.,,False,[],,,,,,False,Unspecified
+78,16,"Keefe said the law is already transformative for state and local economies, stating opportunities would not exist without the IRA.",,False,[],,,,,,False,Bob Keefe
+79,16,Hudson said he wouldn't seek a full repeal of the climate law but would push for targeted changes instead.,,False,[],,,,,,False,Richard Hudson
+80,16,Carter said Louisiana is benefiting greatly from private and public investment in the green energy transition.,,False,[],,,,,,False,Carter
+81,16,Loudermilk praised the new battery plant as an 'unbelievable advancement.,,False,[],,,,,,False,Rep. Barry Loudermilk
+82,16,Quillian said the White House takes the threat of repealing Biden’s climate bill 'very seriously.,,False,[],,,,,,False,Quillian
+83,16,"Moskowitz, head of public affairs at QCells North America, praised Congressman Loudermilk's support for the solar panel manufacturing facility in his district.",,False,[],,,,,,False,Scott Moskowitz
+84,15,Democratic Sen. Tom Carper called the passage of the ADVANCE Act a 'major victory for our climate and American energy security.,,False,[],,,,,,False,Tom Carper
+85,15,"Georgia Power brought two new large reactors online, representing the largest clean energy generator in the nation.",,False,[],,,,,,False,Unspecified
+86,15,Congress worked together to recognize the importance of nuclear energy to America's future and got the job done.,,False,[],,,,,,False,Shelley Moore Capito
+87,14,"Rizzi said, \""A subsea cable could be exploited by a transactional presidency like Trump’s in order to force concessions from Europe in other areas.",,False,[],,,,,,False,Rizzi
+88,14,"Russia has for decades enjoyed an \""oversized\"" role on the world stage because of its abundant coal, oil and gas resources, said Alberto Rizzi, a policy fellow at the European Council on Foreign Relations who researches the geopolitics of energy and infrastructure.",,False,[],,,,,,False,Alberto Rizzi
+89,14,The article discusses global efforts to expand undersea green energy cables but does not specify a particular person's statement or action related to the topic.,,False,[],,,,,,False,Unspecified
+90,14,"Simon Ludlam, founder and CEO of Etchea Energy, said: 'When the sun is at its zenith, we probably have more power in Europe than we can really use.",,False,[],,,,,,False,Simon Ludlam
+91,13,"RMI’s Gamage said, 'The world has the technologies it needs to move the steel industry away from fossil fuels, but the transition is not scaling at the pace we need.",,False,[],,,,,,False,Gamage
+92,13,"Princeton’s Atouife said, 'What China does in the steel sector is going to matter a lot in the long run.",,False,[],,,,,,False,Atouife
+93,13,"Martin Pei, chief technology officer of SSAB, said there was skepticism around the green hydrogen steelmaking process when HYBRIT first launched in 2016.",,False,[],,,,,,False,Martin Pei
+94,13,"Atouife said, 'We have to also use other low carbon pathways, such as clean hydrogen.",,False,[],,,,,,False,Atouife
+95,13,"The sector is not on track,",,False,[],,,,,,False,Mohamed Atouife
+96,14,"Laurent Segalen, founder of Megawatt-X, said the Europe-US cables could send 6 gigawatts of energy in both directions at the speed of light.",,False,[],,,,,,False,Laurent Segalen
+97,14,"Kremlin spokesman Dmitry Peskov dismissed reports of Russian undersea intelligence operations around energy cables, calling them a sign of European countries' tendency to blame Russia.",,False,[],,,,,,False,Dmitry Peskov
+98,12,"Pressman said, 'Some of these very young artists who are really looking to express themselves and are turning to color as one more way to get their message out.",,False,[],,,,,,False,Pressman
+99,12,"Freaney told CNN that Charli XCX knew exactly what she wanted for Brat green, which was created by design studio Special Offer Inc.",,False,[],,,,,,False,Brent David Freaney
+100,12,Pantone's vice president explained that color is a language and influences global trends.,,False,[],,,,,,False,Laurie Pressman
+101,12,"Charli XCX proclaimed: \""kamala IS brat\"" after President Joe Biden endorsed Kamala Harris.",,False,[],,,,,,False,Charli XCX
+102,11,Neoh shares a trick in Chinese cooking to add neutral oil to boiling water before blanching green beans.,,False,[],,,,,,False,Neoh
+103,11,"Neoh says, \""The basics of blanching involve briefly immersing vegetables... to stop them from cooking further.",,False,[],,,,,,False,Khailing Neoh
+104,8,"Haustein explained that as the world warms, it will be able to hold more moisture, leading to wetter monsoons and more devastating flooding.",,False,[],,,,,,False,Haustein
+105,8,"Haustein explained that a warming world is causing the Intertropical Convergence Zone to shift farther north, contributing to the greening of the Sahara.",,False,[],,,,,,False,Karsten Haustein
+106,7,"Bartlett said the study shows a dramatic percentage rise in vegetation, indicating slow but ongoing spread of plant life in Antarctica.",,False,[],,,,,,False,Olly Bartlett
+107,7,"Roland told CNN, 'Our findings confirm that the influence of anthropogenic climate change has no limit in its reach.",,False,[],,,,,,False,Thomas Roland
+108,6,"Shapiro said, \""If the world adopts EVs in 2060 rather than 2020, it makes a giant difference for the planet because there is 40 years of burning gasoline rather than using a cleaner grid.",,False,[],,,,,,False,Shapiro
+109,6,"King said, 'It is a more gradual energy transition than people initially think.",,False,[],,,,,,False,Ben King
+110,6,"Walsh said if the IRA tax credits are repealed, many clean energy manufacturing facilities would close, particularly in Republican districts.",,False,[],,,,,,False,Jason Walsh
+111,6,Trump’s nominee to run the EPA has said his priority for 'Day 1 and the first 100 days' will be 'to roll back regulations.,,False,[],,,,,,False,Lee Zeldin
+112,6,"Chris Wright, Trump’s nominee for energy secretary, declared there is no 'climate crisis' and opposed federal action on carbon emissions.",,False,[],,,,,,False,Chris Wright
+113,6,The article discusses the Republican dominance in high-carbon states but does not attribute specific statements or actions to a particular individual regarding green energy.,,False,[],,,,,,False,Unspecified
+114,6,"Lori Lodes said, 'The beauty of the Inflation Reduction Act is that there is a built-in defense system.",,False,[],,,,,,False,Lori Lodes
+115,6,The article discusses the role of fossil fuel-dependent states in supporting Republican candidates.,,False,[],,,,,,False,Unspecified
+116,6,"Walsh said that in a stand-alone vote on the IRA’s future, enough House Republicans might resist full repeal to protect the law.",,False,[],,,,,,False,Walsh
+117,5,Keppler stated that the farm in Bada has prompted a local cooperative to explore replicating the model.,,False,[],,,,,,False,Keppler
+118,5,"Director of the Office of Innovation at the UN Food and Agriculture Organization stated that agritech start-ups are adapting to extreme heat through innovations in resilient crops, controlled environments, smart irrigation, and renewable energy.",,False,[],,,,,,False,Vincent Martin
+119,5,Keppler said countries are adopting the technology to reduce reliance on imports for fresh produce.,,False,[],,,,,,False,John Keppler
+120,4,"Alan Ahn, deputy director for nuclear at Third Way’s climate and energy program, told CNN that the general expectation is we’re going to see reduced federal spending under Trump.",,False,[],,,,,,False,Alan Ahn
+121,4,"North Dakota Gov. Doug Burgum, Trump’s new energy czar, oversees fossil fuel and clean energy initiatives.",,False,[],,,,,,False,Doug Burgum
+122,4,Chatterjee said: 'Everyone’s been viewing energy policy through the lens of the past couple of decades of: Republicans are (for) fossil fuels; Democrats are for clean energy and climate policy.,,False,[],,,,,,False,Neil Chatterjee
+123,4,"Transition spokesperson Karoline Leavitt stated, 'When he takes office, President Trump will make America energy dominant again, protect our energy jobs, and bring down the cost of living for working families.",,False,[],,,,,,False,Karoline Leavitt
+124,4,"Ron Ness, president of the North Dakota Petroleum Council, said Biden's administration has taken steps beyond previous ones, such as not issuing leases and imposing federal regulations that hinder energy production.",,False,[],,,,,,False,Ron Ness
+125,3,"Magavi told CNN, 'We are overheating everything around us... we have a win-win.",,False,[],,,,,,False,Zeyneb Magavi
+126,3,"Nikki Bruno, vice president of clean technologies at Eversource, said she expects the geothermal system will reduce customers' costs.",,False,[],,,,,,False,Nikki Bruno
+127,3,"She told CNN she is strict about temperature to avoid paying high heating bills, advocating for energy efficiency.",,False,[],,,,,,False,Jennifer Mauchan
+128,9,"Victor, a professor of innovation and public policy at the University of California San Diego, said trying to go green without China will slow down the energy transition.",,False,[],,,,,,False,Victor
+129,9,"The EU’s executive body said: \""The EU’s green transition cannot be based on unfair (subsidized) imports at the expense of EU industry.",,False,[],,,,,,False,Unspecified
+130,9,European Union’s competition chief Margrethe Vestager warned against repeating China’s solar panel dominance by closing domestic markets to foreign businesses.,,False,[],,,,,,False,Margrethe Vestager
+131,9,Birol stated that diversification of supply chains is crucial for the clean energy transition and to avoid over-reliance on single sources.,,False,[],,,,,,False,Fatih Birol
+132,2,"Bin Redha said HyveGeo’s product could be used to grow staple crops in the UAE like cowpea, millet, wheat and rice, as well as leafy greens and fruit and vegetables.",,False,[],,,,,,False,Bin Redha
+133,2,"According to Redha, the company first experimented with turning microalgae into biochar, before realizing it was 'like growing saffron and burning it.",,False,[],,,,,,False,Redha
+134,2,"Dr. Samsurin Welch, HyveGeo chief operations officer, said their model can solve multiple problems at the same time, including carbon and food security issues.",,False,[],,,,,,False,Dr. Samsurin Welch
+135,1,"Senate Appropriations Chair Susan Collins said she was \""baffled\"" by the Trump administration’s decision to cut the Energy Star program.",,False,[],,,,,,False,Susan Collins
+136,1,"Eliminating the Energy Star program would directly contradict this administration’s promise to reduce household energy costs,",,False,[],,,,,,False,Paula Glover
+137,50,"Gleitz stated that the plant can store and provide electricity with a switch, playing a vital role in Europe's transition to renewable energy.",,False,[],,,,,,False,Robert Gleitz

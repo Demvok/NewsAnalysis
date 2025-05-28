@@ -10,7 +10,7 @@ WRITE_TO_DB = True # If True, write the results to the database
 CONSOLE_LOG = True # If True, log to console
 LOGGING_LEVEL = 'INFO' # Logging level for the logger. Options are: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'
 
-EVENTS_HOTNESS_THRESHOLD = 0.6  # Threshold for selecting events based on hotness score
+EVENTS_HOTNESS_THRESHOLD = 0.8  # Threshold for selecting events based on hotness score
 OPINION_HOTNESS_THRESHOLD = 0.6  # Threshold for selecting opinions based on hotness score
 
 INCONSISTENCY_TOLERANCE = 0.4 # Used for filtering off consistent opinions, possibly can be from 0 to 2
@@ -21,7 +21,7 @@ MIXED_INTERVAL = 0.3 # Interval (+- from 0) for telling if opinion is mixed
 def get_weighted_sentiment(df):  # For inconsistency analysis
     df['index'] = df.index
 
-    def calculate_valuability(index, size, method=3, minimal_value=0.2, slope=0.66):
+    def calculate_valuability(index, size, method=1, minimal_value=0.2, slope=0.66):
         """
         Calculate the valuability of a chunk based on its index in the list of chunks.
         :param index: The index of the chunk in the list.

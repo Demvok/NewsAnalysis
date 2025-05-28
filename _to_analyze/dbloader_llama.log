@@ -1,0 +1,1133 @@
+2025-05-25 01:05:02 - DBConnector               - INFO - 0.034s - Found 50 articles
+2025-05-25 01:05:02 - DBConnector               - INFO - 0.042s - Added 2 article chunks
+2025-05-25 01:05:02 - DBConnector               - INFO - 0.024s - Added 3 article chunks
+2025-05-25 01:05:02 - DBConnector               - INFO - 0.025s - Added 3 article chunks
+2025-05-25 01:05:02 - DBConnector               - INFO - 0.034s - Added 5 article chunks
+2025-05-25 01:05:02 - DBConnector               - INFO - 0.025s - Added 3 article chunks
+2025-05-25 01:05:02 - DBConnector               - INFO - 0.056s - Added 9 article chunks
+2025-05-25 01:05:02 - DBConnector               - INFO - 0.023s - Added 2 article chunks
+2025-05-25 01:05:02 - DBConnector               - INFO - 0.020s - Added 2 article chunks
+2025-05-25 01:05:02 - DBConnector               - INFO - 0.033s - Added 4 article chunks
+2025-05-25 01:05:02 - DBConnector               - INFO - 0.004s - Added 0 article chunks
+2025-05-25 01:05:02 - DBConnector               - INFO - 0.018s - Added 2 article chunks
+2025-05-25 01:05:02 - DBConnector               - INFO - 0.028s - Added 4 article chunks
+2025-05-25 01:05:02 - DBConnector               - INFO - 0.032s - Added 5 article chunks
+2025-05-25 01:05:02 - DBConnector               - INFO - 0.038s - Added 6 article chunks
+2025-05-25 01:05:02 - DBConnector               - INFO - 0.026s - Added 3 article chunks
+2025-05-25 01:05:03 - DBConnector               - INFO - 0.049s - Added 6 article chunks
+2025-05-25 01:05:03 - DBConnector               - INFO - 0.020s - Added 2 article chunks
+2025-05-25 01:05:03 - DBConnector               - INFO - 0.026s - Added 3 article chunks
+2025-05-25 01:05:03 - DBConnector               - INFO - 0.028s - Added 4 article chunks
+2025-05-25 01:05:03 - DBConnector               - INFO - 0.028s - Added 4 article chunks
+2025-05-25 01:05:03 - DBConnector               - INFO - 0.004s - Added 0 article chunks
+2025-05-25 01:05:03 - DBConnector               - INFO - 0.004s - Added 0 article chunks
+2025-05-25 01:05:03 - DBConnector               - INFO - 0.019s - Added 2 article chunks
+2025-05-25 01:05:03 - DBConnector               - INFO - 0.023s - Added 3 article chunks
+2025-05-25 01:05:03 - DBConnector               - INFO - 0.014s - Added 1 article chunks
+2025-05-25 01:05:03 - DBConnector               - INFO - 0.015s - Added 1 article chunks
+2025-05-25 01:05:03 - DBConnector               - INFO - 0.004s - Added 0 article chunks
+2025-05-25 01:05:03 - DBConnector               - INFO - 0.014s - Added 1 article chunks
+2025-05-25 01:05:03 - DBConnector               - INFO - 0.019s - Added 2 article chunks
+2025-05-25 01:05:03 - DBConnector               - INFO - 0.026s - Added 3 article chunks
+2025-05-25 01:05:03 - DBConnector               - INFO - 0.020s - Added 2 article chunks
+2025-05-25 01:05:03 - DBConnector               - INFO - 0.027s - Added 3 article chunks
+2025-05-25 01:05:03 - DBConnector               - INFO - 0.022s - Added 2 article chunks
+2025-05-25 01:05:03 - DBConnector               - INFO - 0.014s - Added 1 article chunks
+2025-05-25 01:05:03 - DBConnector               - INFO - 0.021s - Added 2 article chunks
+2025-05-25 01:05:03 - DBConnector               - INFO - 0.052s - Added 8 article chunks
+2025-05-25 01:05:03 - DBConnector               - INFO - 0.019s - Added 2 article chunks
+2025-05-25 01:05:03 - DBConnector               - INFO - 0.020s - Added 2 article chunks
+2025-05-25 01:05:03 - DBConnector               - INFO - 0.020s - Added 2 article chunks
+2025-05-25 01:05:03 - DBConnector               - INFO - 0.025s - Added 3 article chunks
+2025-05-25 01:05:03 - DBConnector               - INFO - 0.028s - Added 2 article chunks
+2025-05-25 01:05:03 - DBConnector               - INFO - 0.020s - Added 2 article chunks
+2025-05-25 01:05:03 - DBConnector               - INFO - 0.025s - Added 3 article chunks
+2025-05-25 01:05:03 - DBConnector               - INFO - 0.026s - Added 3 article chunks
+2025-05-25 01:05:03 - DBConnector               - INFO - 0.020s - Added 2 article chunks
+2025-05-25 01:05:03 - DBConnector               - INFO - 0.028s - Added 3 article chunks
+2025-05-25 01:05:03 - DBConnector               - INFO - 0.032s - Added 5 article chunks
+2025-05-25 01:05:03 - DBConnector               - INFO - 0.005s - Added 2 article chunks
+2025-05-25 01:05:03 - DBConnector               - INFO - 0.036s - Added 5 article chunks
+2025-05-25 01:05:03 - DBConnector               - INFO - 0.028s - Added 3 article chunks
+2025-05-25 01:06:46 - DBConnector               - INFO - 0.006s - Person not found
+2025-05-25 01:06:52 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:07:10 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:07:39 - DBConnector               - INFO - 0.049s - Event added with event_id: 1
+2025-05-25 01:07:39 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:07:39 - DBConnector               - INFO - 0.035s - Person added with person_id: 1
+2025-05-25 01:07:39 - DBConnector               - INFO - 0.007s - Opinion not found
+2025-05-25 01:07:39 - DBConnector               - INFO - 0.034s - Opinion added with opinion_id: 1
+2025-05-25 01:07:39 - DBConnector               - INFO - 0.005s - Opinion found with opinion_id: 1
+2025-05-25 01:07:39 - DBConnector               - INFO - 0.008s - Article chunk with chunk_id=140 updated successfully
+2025-05-25 01:07:42 - DBConnector               - INFO - 0.029s - Event added with event_id: 2
+2025-05-25 01:07:42 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:07:42 - DBConnector               - INFO - 0.025s - Person added with person_id: 2
+2025-05-25 01:07:42 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:07:43 - DBConnector               - INFO - 0.031s - Opinion added with opinion_id: 2
+2025-05-25 01:07:43 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 2
+2025-05-25 01:07:43 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=141 updated successfully
+2025-05-25 01:07:47 - DBConnector               - INFO - 0.005s - Person not found
+2025-05-25 01:07:51 - DBConnector               - INFO - 0.029s - Event added with event_id: 3
+2025-05-25 01:07:51 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 01:07:51 - DBConnector               - INFO - 0.025s - Person added with person_id: 3
+2025-05-25 01:07:51 - DBConnector               - INFO - 0.003s - Opinion not found
+2025-05-25 01:07:51 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 3
+2025-05-25 01:07:51 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 3
+2025-05-25 01:07:51 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=142 updated successfully
+2025-05-25 01:08:15 - DBConnector               - INFO - 0.028s - Event added with event_id: 4
+2025-05-25 01:08:15 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:08:15 - DBConnector               - INFO - 0.033s - Person added with person_id: 4
+2025-05-25 01:08:15 - DBConnector               - INFO - 0.005s - Opinion not found
+2025-05-25 01:08:15 - DBConnector               - INFO - 0.030s - Opinion added with opinion_id: 4
+2025-05-25 01:08:15 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 4
+2025-05-25 01:08:15 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=138 updated successfully
+2025-05-25 01:08:39 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:09:30 - DBConnector               - INFO - 0.037s - Event added with event_id: 5
+2025-05-25 01:09:30 - DBConnector               - INFO - 0.000s - Person not found
+2025-05-25 01:09:30 - DBConnector               - INFO - 0.030s - Person added with person_id: 5
+2025-05-25 01:09:30 - DBConnector               - INFO - 0.000s - Opinion not found
+2025-05-25 01:09:30 - DBConnector               - INFO - 0.032s - Opinion added with opinion_id: 5
+2025-05-25 01:09:30 - DBConnector               - INFO - 0.002s - Opinion found with opinion_id: 5
+2025-05-25 01:09:30 - DBConnector               - INFO - 0.006s - Article chunk with chunk_id=136 updated successfully
+2025-05-25 01:09:43 - DBConnector               - INFO - 0.031s - Event added with event_id: 6
+2025-05-25 01:09:43 - DBConnector               - INFO - 0.008s - 4 updated successfully
+2025-05-25 01:09:43 - DBConnector               - INFO - 0.022s - Opinion updated with opinion_id: 4
+2025-05-25 01:09:43 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 4
+2025-05-25 01:09:43 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=139 updated successfully
+2025-05-25 01:09:57 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:10:01 - DBConnector               - INFO - 0.029s - Event added with event_id: 7
+2025-05-25 01:10:01 - DBConnector               - INFO - 0.007s - 4 updated successfully
+2025-05-25 01:10:01 - DBConnector               - INFO - 0.020s - Opinion updated with opinion_id: 4
+2025-05-25 01:10:01 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 4
+2025-05-25 01:10:01 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=135 updated successfully
+2025-05-25 01:10:19 - DBConnector               - INFO - 0.005s - Person not found
+2025-05-25 01:10:23 - DBConnector               - INFO - 0.030s - Event added with event_id: 8
+2025-05-25 01:10:23 - DBConnector               - INFO - 0.001s - Person not found
+2025-05-25 01:10:23 - DBConnector               - INFO - 0.025s - Person added with person_id: 6
+2025-05-25 01:10:23 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:10:23 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 6
+2025-05-25 01:10:23 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 6
+2025-05-25 01:10:23 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=137 updated successfully
+2025-05-25 01:10:39 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:11:18 - DBConnector               - INFO - 0.029s - Event added with event_id: 9
+2025-05-25 01:11:18 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 01:11:18 - DBConnector               - INFO - 0.023s - Person added with person_id: 7
+2025-05-25 01:11:18 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:11:18 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 7
+2025-05-25 01:11:18 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 7
+2025-05-25 01:11:18 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=134 updated successfully
+2025-05-25 01:11:25 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:11:33 - DBConnector               - INFO - 0.029s - Event added with event_id: 10
+2025-05-25 01:11:33 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:11:33 - DBConnector               - INFO - 0.023s - Person added with person_id: 8
+2025-05-25 01:11:33 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:11:33 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 8
+2025-05-25 01:11:33 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 8
+2025-05-25 01:11:33 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=133 updated successfully
+2025-05-25 01:12:10 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:12:14 - DBConnector               - INFO - 0.029s - Event added with event_id: 11
+2025-05-25 01:12:14 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:12:14 - DBConnector               - INFO - 0.026s - Person added with person_id: 9
+2025-05-25 01:12:14 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:12:14 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 9
+2025-05-25 01:12:14 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 9
+2025-05-25 01:12:14 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=129 updated successfully
+2025-05-25 01:12:18 - DBConnector               - INFO - 0.026s - Event added with event_id: 12
+2025-05-25 01:12:18 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:12:18 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 10
+2025-05-25 01:12:18 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 10
+2025-05-25 01:12:18 - DBConnector               - INFO - 0.004s - Article chunk with chunk_id=128 updated successfully
+2025-05-25 01:12:23 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 01:12:55 - DBConnector               - INFO - 0.033s - Event added with event_id: 13
+2025-05-25 01:12:55 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:12:55 - DBConnector               - INFO - 0.026s - Person added with person_id: 10
+2025-05-25 01:12:55 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:12:55 - DBConnector               - INFO - 0.026s - Opinion added with opinion_id: 11
+2025-05-25 01:12:55 - DBConnector               - INFO - 0.005s - Opinion found with opinion_id: 11
+2025-05-25 01:12:55 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=130 updated successfully
+2025-05-25 01:13:02 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 01:13:16 - DBConnector               - INFO - 0.034s - Event added with event_id: 14
+2025-05-25 01:13:16 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 01:13:16 - DBConnector               - INFO - 0.024s - Person added with person_id: 11
+2025-05-25 01:13:16 - DBConnector               - INFO - 0.006s - Opinion not found
+2025-05-25 01:13:16 - DBConnector               - INFO - 0.034s - Opinion added with opinion_id: 12
+2025-05-25 01:13:16 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 12
+2025-05-25 01:13:16 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=131 updated successfully
+2025-05-25 01:13:54 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 01:13:59 - DBConnector               - INFO - 0.027s - Event added with event_id: 15
+2025-05-25 01:13:59 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:13:59 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 13
+2025-05-25 01:13:59 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 13
+2025-05-25 01:13:59 - DBConnector               - INFO - 0.004s - Article chunk with chunk_id=132 updated successfully
+2025-05-25 01:14:10 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:14:31 - DBConnector               - INFO - 0.035s - Event added with event_id: 16
+2025-05-25 01:14:31 - DBConnector               - INFO - 0.005s - Opinion not found
+2025-05-25 01:14:31 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 14
+2025-05-25 01:14:31 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 14
+2025-05-25 01:14:31 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=127 updated successfully
+2025-05-25 01:14:42 - DBConnector               - INFO - 0.030s - Event added with event_id: 17
+2025-05-25 01:14:42 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:14:42 - DBConnector               - INFO - 0.026s - Person added with person_id: 12
+2025-05-25 01:14:42 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:14:42 - DBConnector               - INFO - 0.026s - Opinion added with opinion_id: 15
+2025-05-25 01:14:42 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 15
+2025-05-25 01:14:42 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=126 updated successfully
+2025-05-25 01:15:07 - DBConnector               - INFO - 0.029s - Event added with event_id: 18
+2025-05-25 01:15:07 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:15:07 - DBConnector               - INFO - 0.026s - Person added with person_id: 13
+2025-05-25 01:15:07 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:15:07 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 16
+2025-05-25 01:15:07 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 16
+2025-05-25 01:15:07 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=125 updated successfully
+2025-05-25 01:15:26 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:16:04 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 01:16:12 - DBConnector               - INFO - 0.028s - Event added with event_id: 19
+2025-05-25 01:16:12 - DBConnector               - INFO - 0.005s - Opinion not found
+2025-05-25 01:16:12 - DBConnector               - INFO - 0.030s - Opinion added with opinion_id: 17
+2025-05-25 01:16:12 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 17
+2025-05-25 01:16:12 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=124 updated successfully
+2025-05-25 01:16:16 - DBConnector               - INFO - 0.028s - Event added with event_id: 20
+2025-05-25 01:16:16 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 01:16:16 - DBConnector               - INFO - 0.023s - Person added with person_id: 14
+2025-05-25 01:16:16 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:16:16 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 18
+2025-05-25 01:16:16 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 18
+2025-05-25 01:16:16 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=123 updated successfully
+2025-05-25 01:16:49 - DBConnector               - INFO - 0.029s - Event added with event_id: 21
+2025-05-25 01:16:49 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:16:49 - DBConnector               - INFO - 0.028s - Person added with person_id: 15
+2025-05-25 01:16:49 - DBConnector               - INFO - 0.005s - Opinion not found
+2025-05-25 01:16:49 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 19
+2025-05-25 01:16:49 - DBConnector               - INFO - 0.005s - Opinion found with opinion_id: 19
+2025-05-25 01:16:49 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=121 updated successfully
+2025-05-25 01:16:53 - DBConnector               - INFO - 0.027s - Event added with event_id: 22
+2025-05-25 01:16:53 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:16:53 - DBConnector               - INFO - 0.026s - Opinion added with opinion_id: 20
+2025-05-25 01:16:53 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 20
+2025-05-25 01:16:53 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=122 updated successfully
+2025-05-25 01:17:00 - DBConnector               - INFO - 0.026s - Found 5 opinions for person_id 4
+2025-05-25 01:17:00 - DBConnector               - INFO - 0.005s - Found 5 sentiment records for person_id 4 on topic_id 1
+2025-05-25 01:17:01 - DBConnector               - INFO - 0.005s - Attitude with fk_topic_id 1 and fk_person_id 4 not found
+2025-05-25 01:17:07 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:17:44 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:17:51 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:17:56 - DBConnector               - INFO - 0.029s - Event added with event_id: 23
+2025-05-25 01:17:56 - DBConnector               - INFO - 0.006s - Opinion not found
+2025-05-25 01:17:56 - DBConnector               - INFO - 0.030s - Opinion added with opinion_id: 21
+2025-05-25 01:17:56 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 21
+2025-05-25 01:17:56 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=120 updated successfully
+2025-05-25 01:17:59 - DBConnector               - INFO - 0.030s - Event added with event_id: 24
+2025-05-25 01:17:59 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:17:59 - DBConnector               - INFO - 0.029s - Person added with person_id: 16
+2025-05-25 01:17:59 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:17:59 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 22
+2025-05-25 01:17:59 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 22
+2025-05-25 01:17:59 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=117 updated successfully
+2025-05-25 01:18:34 - DBConnector               - INFO - 0.032s - Event added with event_id: 25
+2025-05-25 01:18:34 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:18:34 - DBConnector               - INFO - 0.024s - Person added with person_id: 17
+2025-05-25 01:18:34 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:18:34 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 23
+2025-05-25 01:18:34 - DBConnector               - INFO - 0.005s - Opinion found with opinion_id: 23
+2025-05-25 01:18:34 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=118 updated successfully
+2025-05-25 01:18:37 - DBConnector               - INFO - 0.028s - Event added with event_id: 26
+2025-05-25 01:18:37 - DBConnector               - INFO - 0.005s - Opinion not found
+2025-05-25 01:18:37 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 24
+2025-05-25 01:18:37 - DBConnector               - INFO - 0.005s - Opinion found with opinion_id: 24
+2025-05-25 01:18:37 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=119 updated successfully
+2025-05-25 01:18:45 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:18:52 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:19:30 - DBConnector               - INFO - 0.004s - Found 1 opinions for person_id 15
+2025-05-25 01:19:30 - DBConnector               - INFO - 0.004s - Found 1 sentiment records for person_id 15 on topic_id 1
+2025-05-25 01:19:30 - DBConnector               - INFO - 0.003s - Attitude with fk_topic_id 1 and fk_person_id 15 not found
+2025-05-25 01:19:37 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:19:41 - DBConnector               - INFO - 0.028s - Event added with event_id: 27
+2025-05-25 01:19:41 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 01:19:41 - DBConnector               - INFO - 0.025s - Person added with person_id: 18
+2025-05-25 01:19:41 - DBConnector               - INFO - 0.005s - Opinion not found
+2025-05-25 01:19:41 - DBConnector               - INFO - 0.030s - Opinion added with opinion_id: 25
+2025-05-25 01:19:41 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 25
+2025-05-25 01:19:41 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=115 updated successfully
+2025-05-25 01:19:45 - DBConnector               - INFO - 0.027s - Event added with event_id: 28
+2025-05-25 01:19:45 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 01:19:45 - DBConnector               - INFO - 0.025s - Person added with person_id: 19
+2025-05-25 01:19:45 - DBConnector               - INFO - 0.005s - Opinion not found
+2025-05-25 01:19:45 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 26
+2025-05-25 01:19:45 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 26
+2025-05-25 01:19:45 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=116 updated successfully
+2025-05-25 01:20:25 - DBConnector               - INFO - 0.030s - Event added with event_id: 29
+2025-05-25 01:20:25 - DBConnector               - INFO - 0.006s - Opinion not found
+2025-05-25 01:20:25 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 27
+2025-05-25 01:20:26 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 27
+2025-05-25 01:20:26 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=113 updated successfully
+2025-05-25 01:20:29 - DBConnector               - INFO - 0.028s - Event added with event_id: 30
+2025-05-25 01:20:29 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:20:29 - DBConnector               - INFO - 0.025s - Person added with person_id: 20
+2025-05-25 01:20:29 - DBConnector               - INFO - 0.005s - Opinion not found
+2025-05-25 01:20:29 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 28
+2025-05-25 01:20:29 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 28
+2025-05-25 01:20:29 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=114 updated successfully
+2025-05-25 01:20:41 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:20:51 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:21:33 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:21:39 - DBConnector               - INFO - 0.006s - Found 1 opinions for person_id 20
+2025-05-25 01:21:40 - DBConnector               - INFO - 0.004s - Found 1 sentiment records for person_id 20 on topic_id 1
+2025-05-25 01:21:40 - DBConnector               - INFO - 0.003s - Attitude with fk_topic_id 1 and fk_person_id 20 not found
+2025-05-25 01:21:44 - DBConnector               - INFO - 0.028s - Event added with event_id: 31
+2025-05-25 01:21:44 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:21:44 - DBConnector               - INFO - 0.028s - Person added with person_id: 21
+2025-05-25 01:21:44 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:21:44 - DBConnector               - INFO - 0.029s - Opinion added with opinion_id: 29
+2025-05-25 01:21:44 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 29
+2025-05-25 01:21:44 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=111 updated successfully
+2025-05-25 01:21:48 - DBConnector               - INFO - 0.030s - Event added with event_id: 32
+2025-05-25 01:21:48 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:21:48 - DBConnector               - INFO - 0.038s - Opinion added with opinion_id: 30
+2025-05-25 01:21:48 - DBConnector               - INFO - 0.005s - Opinion found with opinion_id: 30
+2025-05-25 01:21:48 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=112 updated successfully
+2025-05-25 01:22:31 - DBConnector               - INFO - 0.028s - Event added with event_id: 33
+2025-05-25 01:22:31 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:22:31 - DBConnector               - INFO - 0.025s - Person added with person_id: 22
+2025-05-25 01:22:31 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:22:31 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 31
+2025-05-25 01:22:31 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 31
+2025-05-25 01:22:31 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=110 updated successfully
+2025-05-25 01:22:34 - DBConnector               - INFO - 0.027s - Event added with event_id: 34
+2025-05-25 01:22:34 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:22:34 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 32
+2025-05-25 01:22:34 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 32
+2025-05-25 01:22:34 - DBConnector               - INFO - 0.004s - Article chunk with chunk_id=109 updated successfully
+2025-05-25 01:22:41 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:23:49 - DBConnector               - INFO - 0.029s - Event added with event_id: 35
+2025-05-25 01:23:49 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:23:49 - DBConnector               - INFO - 0.026s - Person added with person_id: 23
+2025-05-25 01:23:49 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:23:49 - DBConnector               - INFO - 0.029s - Opinion added with opinion_id: 33
+2025-05-25 01:23:49 - DBConnector               - INFO - 0.005s - Opinion found with opinion_id: 33
+2025-05-25 01:23:49 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=108 updated successfully
+2025-05-25 01:23:55 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:24:16 - DBConnector               - INFO - 0.029s - Event added with event_id: 36
+2025-05-25 01:24:16 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:24:16 - DBConnector               - INFO - 0.025s - Person added with person_id: 24
+2025-05-25 01:24:16 - DBConnector               - INFO - 0.005s - Opinion not found
+2025-05-25 01:24:16 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 34
+2025-05-25 01:24:16 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 34
+2025-05-25 01:24:16 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=106 updated successfully
+2025-05-25 01:24:48 - DBConnector               - INFO - 0.033s - Event added with event_id: 37
+2025-05-25 01:24:48 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:24:48 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 35
+2025-05-25 01:24:48 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 35
+2025-05-25 01:24:48 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=107 updated successfully
+2025-05-25 01:24:51 - DBConnector               - INFO - 0.036s - Event added with event_id: 38
+2025-05-25 01:24:51 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:24:51 - DBConnector               - INFO - 0.035s - Opinion added with opinion_id: 36
+2025-05-25 01:24:51 - DBConnector               - INFO - 0.005s - Opinion found with opinion_id: 36
+2025-05-25 01:24:51 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=105 updated successfully
+2025-05-25 01:25:07 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:25:44 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:25:52 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:25:56 - DBConnector               - INFO - 0.028s - Event added with event_id: 39
+2025-05-25 01:25:56 - DBConnector               - INFO - 0.008s - 36 updated successfully
+2025-05-25 01:25:56 - DBConnector               - INFO - 0.023s - Opinion updated with opinion_id: 36
+2025-05-25 01:25:56 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 36
+2025-05-25 01:25:56 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=104 updated successfully
+2025-05-25 01:25:59 - DBConnector               - INFO - 0.030s - Event added with event_id: 40
+2025-05-25 01:25:59 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 01:25:59 - DBConnector               - INFO - 0.025s - Person added with person_id: 25
+2025-05-25 01:25:59 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:25:59 - DBConnector               - INFO - 0.026s - Opinion added with opinion_id: 37
+2025-05-25 01:26:00 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 37
+2025-05-25 01:26:00 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=99 updated successfully
+2025-05-25 01:26:36 - DBConnector               - INFO - 0.028s - Event added with event_id: 41
+2025-05-25 01:26:36 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 01:26:36 - DBConnector               - INFO - 0.025s - Person added with person_id: 26
+2025-05-25 01:26:36 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:26:36 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 38
+2025-05-25 01:26:36 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 38
+2025-05-25 01:26:36 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=98 updated successfully
+2025-05-25 01:26:40 - DBConnector               - INFO - 0.028s - Event added with event_id: 42
+2025-05-25 01:26:40 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:26:40 - DBConnector               - INFO - 0.024s - Person added with person_id: 27
+2025-05-25 01:26:40 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:26:40 - DBConnector               - INFO - 0.036s - Opinion added with opinion_id: 39
+2025-05-25 01:26:40 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 39
+2025-05-25 01:26:40 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=97 updated successfully
+2025-05-25 01:26:47 - DBConnector               - INFO - 0.006s - Found 8 opinions for person_id 4
+2025-05-25 01:26:54 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 01:27:33 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 01:27:40 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:27:42 - DBConnector               - INFO - 0.006s - Found 8 sentiment records for person_id 4 on topic_id 1
+2025-05-25 01:27:42 - DBConnector               - INFO - 0.004s - Attitude with fk_topic_id 1 and fk_person_id 4 not found
+2025-05-25 01:27:47 - DBConnector               - INFO - 0.031s - Event added with event_id: 43
+2025-05-25 01:27:47 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 01:27:47 - DBConnector               - INFO - 0.025s - Person added with person_id: 28
+2025-05-25 01:27:47 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:27:47 - DBConnector               - INFO - 0.030s - Opinion added with opinion_id: 40
+2025-05-25 01:27:47 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 40
+2025-05-25 01:27:47 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=100 updated successfully
+2025-05-25 01:28:21 - DBConnector               - INFO - 0.032s - Event added with event_id: 44
+2025-05-25 01:28:21 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:28:21 - DBConnector               - INFO - 0.026s - Person added with person_id: 29
+2025-05-25 01:28:21 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:28:21 - DBConnector               - INFO - 0.026s - Opinion added with opinion_id: 41
+2025-05-25 01:28:21 - DBConnector               - INFO - 0.005s - Opinion found with opinion_id: 41
+2025-05-25 01:28:21 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=101 updated successfully
+2025-05-25 01:28:25 - DBConnector               - INFO - 0.027s - Event added with event_id: 45
+2025-05-25 01:28:25 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:28:25 - DBConnector               - INFO - 0.027s - Person added with person_id: 30
+2025-05-25 01:28:25 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:28:25 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 42
+2025-05-25 01:28:25 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 42
+2025-05-25 01:28:25 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=102 updated successfully
+2025-05-25 01:28:28 - DBConnector               - INFO - 0.134s - Event added with event_id: 46
+2025-05-25 01:28:28 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:28:28 - DBConnector               - INFO - 0.033s - Opinion added with opinion_id: 43
+2025-05-25 01:28:28 - DBConnector               - INFO - 0.005s - Opinion found with opinion_id: 43
+2025-05-25 01:28:28 - DBConnector               - INFO - 0.004s - Article chunk with chunk_id=96 updated successfully
+2025-05-25 01:29:19 - DBConnector               - INFO - 0.008s - Found 9 opinions for person_id 4
+2025-05-25 01:29:19 - DBConnector               - INFO - 0.005s - Found 9 sentiment records for person_id 4 on topic_id 1
+2025-05-25 01:29:19 - DBConnector               - INFO - 0.004s - Attitude with fk_topic_id 1 and fk_person_id 4 not found
+2025-05-25 01:29:30 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:30:09 - DBConnector               - INFO - 0.031s - Event added with event_id: 47
+2025-05-25 01:30:09 - DBConnector               - INFO - 0.016s - Opinion not found
+2025-05-25 01:30:09 - DBConnector               - INFO - 0.038s - Opinion added with opinion_id: 44
+2025-05-25 01:30:09 - DBConnector               - INFO - 0.005s - Opinion found with opinion_id: 44
+2025-05-25 01:30:09 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=103 updated successfully
+2025-05-25 01:30:12 - DBConnector               - INFO - 0.029s - Event added with event_id: 48
+2025-05-25 01:30:12 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:30:12 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 45
+2025-05-25 01:30:12 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 45
+2025-05-25 01:30:12 - DBConnector               - INFO - 0.004s - Article chunk with chunk_id=95 updated successfully
+2025-05-25 01:30:16 - DBConnector               - INFO - 0.028s - Event added with event_id: 49
+2025-05-25 01:30:16 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:30:16 - DBConnector               - INFO - 0.024s - Person added with person_id: 31
+2025-05-25 01:30:16 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:30:16 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 46
+2025-05-25 01:30:16 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 46
+2025-05-25 01:30:16 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=94 updated successfully
+2025-05-25 01:30:21 - DBConnector               - INFO - 0.005s - Person not found
+2025-05-25 01:30:56 - DBConnector               - INFO - 0.031s - Event added with event_id: 50
+2025-05-25 01:30:56 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:30:56 - DBConnector               - INFO - 0.027s - Person added with person_id: 32
+2025-05-25 01:30:56 - DBConnector               - INFO - 0.005s - Opinion not found
+2025-05-25 01:30:56 - DBConnector               - INFO - 0.029s - Opinion added with opinion_id: 47
+2025-05-25 01:30:56 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 47
+2025-05-25 01:30:56 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=93 updated successfully
+2025-05-25 01:31:03 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:31:11 - DBConnector               - INFO - 0.005s - Person not found
+2025-05-25 01:31:19 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:32:00 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:32:04 - DBConnector               - INFO - 0.028s - Event added with event_id: 51
+2025-05-25 01:32:04 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 01:32:04 - DBConnector               - INFO - 0.024s - Person added with person_id: 33
+2025-05-25 01:32:04 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:32:04 - DBConnector               - INFO - 0.026s - Opinion added with opinion_id: 48
+2025-05-25 01:32:04 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 48
+2025-05-25 01:32:04 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=92 updated successfully
+2025-05-25 01:32:08 - DBConnector               - INFO - 0.027s - Event added with event_id: 52
+2025-05-25 01:32:08 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 01:32:08 - DBConnector               - INFO - 0.028s - Person added with person_id: 34
+2025-05-25 01:32:08 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:32:08 - DBConnector               - INFO - 0.048s - Opinion added with opinion_id: 49
+2025-05-25 01:32:08 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 49
+2025-05-25 01:32:08 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=91 updated successfully
+2025-05-25 01:32:13 - DBConnector               - INFO - 0.028s - Event added with event_id: 53
+2025-05-25 01:32:13 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:32:13 - DBConnector               - INFO - 0.024s - Person added with person_id: 35
+2025-05-25 01:32:13 - DBConnector               - INFO - 0.005s - Opinion not found
+2025-05-25 01:32:13 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 50
+2025-05-25 01:32:13 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 50
+2025-05-25 01:32:13 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=90 updated successfully
+2025-05-25 01:32:54 - DBConnector               - INFO - 0.033s - Event added with event_id: 54
+2025-05-25 01:32:54 - DBConnector               - INFO - 0.000s - Person not found
+2025-05-25 01:32:54 - DBConnector               - INFO - 0.030s - Person added with person_id: 36
+2025-05-25 01:32:54 - DBConnector               - INFO - 0.000s - Opinion not found
+2025-05-25 01:32:54 - DBConnector               - INFO - 0.031s - Opinion added with opinion_id: 51
+2025-05-25 01:32:54 - DBConnector               - INFO - 0.000s - Opinion found with opinion_id: 51
+2025-05-25 01:32:54 - DBConnector               - INFO - 0.005s - Article chunk with chunk_id=89 updated successfully
+2025-05-25 01:33:02 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:33:09 - DBConnector               - INFO - 0.009s - Person not found
+2025-05-25 01:33:56 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:34:00 - DBConnector               - INFO - 0.028s - Event added with event_id: 55
+2025-05-25 01:34:00 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:34:00 - DBConnector               - INFO - 0.025s - Person added with person_id: 37
+2025-05-25 01:34:00 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:34:00 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 52
+2025-05-25 01:34:00 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 52
+2025-05-25 01:34:00 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=88 updated successfully
+2025-05-25 01:34:04 - DBConnector               - INFO - 0.030s - Event added with event_id: 56
+2025-05-25 01:34:04 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:34:04 - DBConnector               - INFO - 0.025s - Person added with person_id: 38
+2025-05-25 01:34:04 - DBConnector               - INFO - 0.005s - Opinion not found
+2025-05-25 01:34:04 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 53
+2025-05-25 01:34:04 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 53
+2025-05-25 01:34:04 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=87 updated successfully
+2025-05-25 01:34:37 - DBConnector               - INFO - 0.028s - Event added with event_id: 57
+2025-05-25 01:34:37 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:34:37 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 54
+2025-05-25 01:34:37 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 54
+2025-05-25 01:34:37 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=86 updated successfully
+2025-05-25 01:34:41 - DBConnector               - INFO - 0.030s - Event added with event_id: 58
+2025-05-25 01:34:41 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:34:41 - DBConnector               - INFO - 0.025s - Person added with person_id: 39
+2025-05-25 01:34:41 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:34:41 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 55
+2025-05-25 01:34:41 - DBConnector               - INFO - 0.005s - Opinion found with opinion_id: 55
+2025-05-25 01:34:41 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=85 updated successfully
+2025-05-25 01:34:52 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 01:35:05 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:35:49 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:35:57 - DBConnector               - INFO - 0.005s - Person not found
+2025-05-25 01:36:01 - DBConnector               - INFO - 0.030s - Event added with event_id: 59
+2025-05-25 01:36:01 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:36:01 - DBConnector               - INFO - 0.026s - Person added with person_id: 40
+2025-05-25 01:36:01 - DBConnector               - INFO - 0.003s - Opinion not found
+2025-05-25 01:36:01 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 56
+2025-05-25 01:36:01 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 56
+2025-05-25 01:36:01 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=83 updated successfully
+2025-05-25 01:36:05 - DBConnector               - INFO - 0.029s - Event added with event_id: 60
+2025-05-25 01:36:05 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:36:05 - DBConnector               - INFO - 0.025s - Person added with person_id: 41
+2025-05-25 01:36:05 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:36:05 - DBConnector               - INFO - 0.026s - Opinion added with opinion_id: 57
+2025-05-25 01:36:05 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 57
+2025-05-25 01:36:05 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=84 updated successfully
+2025-05-25 01:36:45 - DBConnector               - INFO - 0.031s - Event added with event_id: 61
+2025-05-25 01:36:45 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:36:45 - DBConnector               - INFO - 0.024s - Person added with person_id: 42
+2025-05-25 01:36:45 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:36:45 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 58
+2025-05-25 01:36:45 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 58
+2025-05-25 01:36:45 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=82 updated successfully
+2025-05-25 01:36:49 - DBConnector               - INFO - 0.043s - Event added with event_id: 62
+2025-05-25 01:36:49 - DBConnector               - INFO - 0.012s - Person not found
+2025-05-25 01:36:49 - DBConnector               - INFO - 0.085s - Person added with person_id: 43
+2025-05-25 01:36:49 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:36:49 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 59
+2025-05-25 01:36:49 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 59
+2025-05-25 01:36:49 - DBConnector               - INFO - 0.004s - Article chunk with chunk_id=81 updated successfully
+2025-05-25 01:37:35 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:37:49 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:37:56 - DBConnector               - INFO - 0.006s - Found 12 opinions for person_id 4
+2025-05-25 01:38:08 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:38:26 - DBConnector               - INFO - 0.029s - Event added with event_id: 63
+2025-05-25 01:38:26 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:38:26 - DBConnector               - INFO - 0.027s - Person added with person_id: 44
+2025-05-25 01:38:26 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:38:26 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 60
+2025-05-25 01:38:26 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 60
+2025-05-25 01:38:26 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=80 updated successfully
+2025-05-25 01:38:29 - DBConnector               - INFO - 0.027s - Event added with event_id: 64
+2025-05-25 01:38:29 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:38:29 - DBConnector               - INFO - 0.037s - Person added with person_id: 45
+2025-05-25 01:38:29 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:38:30 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 61
+2025-05-25 01:38:30 - DBConnector               - INFO - 0.005s - Opinion found with opinion_id: 61
+2025-05-25 01:38:30 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=79 updated successfully
+2025-05-25 01:38:35 - DBConnector               - INFO - 0.032s - Event added with event_id: 65
+2025-05-25 01:38:35 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:38:35 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 62
+2025-05-25 01:38:36 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 62
+2025-05-25 01:38:36 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=78 updated successfully
+2025-05-25 01:38:38 - DBConnector               - INFO - 0.005s - Found 12 sentiment records for person_id 4 on topic_id 1
+2025-05-25 01:38:38 - DBConnector               - INFO - 0.003s - Attitude with fk_topic_id 1 and fk_person_id 4 not found
+2025-05-25 01:39:14 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:39:20 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:39:34 - DBConnector               - INFO - 0.029s - Event added with event_id: 66
+2025-05-25 01:39:34 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:39:34 - DBConnector               - INFO - 0.029s - Opinion added with opinion_id: 63
+2025-05-25 01:39:34 - DBConnector               - INFO - 0.005s - Opinion found with opinion_id: 63
+2025-05-25 01:39:34 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=75 updated successfully
+2025-05-25 01:40:18 - DBConnector               - INFO - 0.031s - Event added with event_id: 67
+2025-05-25 01:40:18 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:40:18 - DBConnector               - INFO - 0.026s - Person added with person_id: 46
+2025-05-25 01:40:18 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:40:18 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 64
+2025-05-25 01:40:18 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 64
+2025-05-25 01:40:18 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=77 updated successfully
+2025-05-25 01:40:23 - DBConnector               - INFO - 0.030s - Event added with event_id: 68
+2025-05-25 01:40:23 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 01:40:23 - DBConnector               - INFO - 0.023s - Person added with person_id: 47
+2025-05-25 01:40:23 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:40:23 - DBConnector               - INFO - 0.033s - Opinion added with opinion_id: 65
+2025-05-25 01:40:23 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 65
+2025-05-25 01:40:23 - DBConnector               - INFO - 0.004s - Article chunk with chunk_id=76 updated successfully
+2025-05-25 01:41:19 - DBConnector               - INFO - 0.028s - Event added with event_id: 69
+2025-05-25 01:41:19 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:41:19 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 66
+2025-05-25 01:41:19 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 66
+2025-05-25 01:41:19 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=74 updated successfully
+2025-05-25 01:41:40 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:41:54 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:42:45 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:42:50 - DBConnector               - INFO - 0.029s - Event added with event_id: 70
+2025-05-25 01:42:50 - DBConnector               - INFO - 0.007s - 66 updated successfully
+2025-05-25 01:42:50 - DBConnector               - INFO - 0.022s - Opinion updated with opinion_id: 66
+2025-05-25 01:42:50 - DBConnector               - INFO - 0.005s - Opinion found with opinion_id: 66
+2025-05-25 01:42:50 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=73 updated successfully
+2025-05-25 01:42:55 - DBConnector               - INFO - 0.027s - Event added with event_id: 71
+2025-05-25 01:42:56 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 01:42:56 - DBConnector               - INFO - 0.025s - Person added with person_id: 48
+2025-05-25 01:42:56 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:42:56 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 67
+2025-05-25 01:42:56 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 67
+2025-05-25 01:42:56 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=72 updated successfully
+2025-05-25 01:43:01 - DBConnector               - INFO - 0.029s - Event added with event_id: 72
+2025-05-25 01:43:01 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 01:43:01 - DBConnector               - INFO - 0.025s - Person added with person_id: 49
+2025-05-25 01:43:01 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:43:01 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 68
+2025-05-25 01:43:01 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 68
+2025-05-25 01:43:01 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=71 updated successfully
+2025-05-25 01:43:56 - DBConnector               - INFO - 0.028s - Event added with event_id: 73
+2025-05-25 01:43:56 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:43:56 - DBConnector               - INFO - 0.027s - Person added with person_id: 50
+2025-05-25 01:43:56 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:43:56 - DBConnector               - INFO - 0.029s - Opinion added with opinion_id: 69
+2025-05-25 01:43:56 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 69
+2025-05-25 01:43:56 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=70 updated successfully
+2025-05-25 01:44:17 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:44:38 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:44:52 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:45:57 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:46:04 - DBConnector               - INFO - 0.028s - Event added with event_id: 74
+2025-05-25 01:46:04 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 01:46:04 - DBConnector               - INFO - 0.024s - Person added with person_id: 51
+2025-05-25 01:46:04 - DBConnector               - INFO - 0.005s - Opinion not found
+2025-05-25 01:46:04 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 70
+2025-05-25 01:46:04 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 70
+2025-05-25 01:46:04 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=69 updated successfully
+2025-05-25 01:46:11 - DBConnector               - INFO - 0.029s - Event added with event_id: 75
+2025-05-25 01:46:11 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:46:11 - DBConnector               - INFO - 0.027s - Person added with person_id: 52
+2025-05-25 01:46:11 - DBConnector               - INFO - 0.005s - Opinion not found
+2025-05-25 01:46:11 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 71
+2025-05-25 01:46:11 - DBConnector               - INFO - 0.005s - Opinion found with opinion_id: 71
+2025-05-25 01:46:11 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=67 updated successfully
+2025-05-25 01:46:17 - DBConnector               - INFO - 0.027s - Event added with event_id: 76
+2025-05-25 01:46:17 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:46:17 - DBConnector               - INFO - 0.027s - Person added with person_id: 53
+2025-05-25 01:46:17 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:46:17 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 72
+2025-05-25 01:46:17 - DBConnector               - INFO - 0.005s - Opinion found with opinion_id: 72
+2025-05-25 01:46:17 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=68 updated successfully
+2025-05-25 01:47:17 - DBConnector               - INFO - 0.028s - Event added with event_id: 77
+2025-05-25 01:47:17 - DBConnector               - INFO - 0.005s - Opinion not found
+2025-05-25 01:47:17 - DBConnector               - INFO - 0.026s - Opinion added with opinion_id: 73
+2025-05-25 01:47:17 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 73
+2025-05-25 01:47:17 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=66 updated successfully
+2025-05-25 01:47:51 - DBConnector               - INFO - 0.006s - Found 14 opinions for person_id 4
+2025-05-25 01:47:51 - DBConnector               - INFO - 0.004s - Found 14 sentiment records for person_id 4 on topic_id 1
+2025-05-25 01:47:51 - DBConnector               - INFO - 0.003s - Attitude with fk_topic_id 1 and fk_person_id 4 not found
+2025-05-25 01:48:10 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:48:30 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:49:06 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:49:24 - DBConnector               - INFO - 0.032s - Event added with event_id: 78
+2025-05-25 01:49:24 - DBConnector               - INFO - 0.005s - Opinion not found
+2025-05-25 01:49:24 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 74
+2025-05-25 01:49:24 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 74
+2025-05-25 01:49:24 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=64 updated successfully
+2025-05-25 01:49:30 - DBConnector               - INFO - 0.029s - Event added with event_id: 79
+2025-05-25 01:49:30 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:49:30 - DBConnector               - INFO - 0.025s - Person added with person_id: 54
+2025-05-25 01:49:30 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:49:30 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 75
+2025-05-25 01:49:30 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 75
+2025-05-25 01:49:30 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=63 updated successfully
+2025-05-25 01:49:48 - DBConnector               - INFO - 0.029s - Event added with event_id: 80
+2025-05-25 01:49:48 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 01:49:48 - DBConnector               - INFO - 0.024s - Person added with person_id: 55
+2025-05-25 01:49:48 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:49:48 - DBConnector               - INFO - 0.038s - Opinion added with opinion_id: 76
+2025-05-25 01:49:48 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 76
+2025-05-25 01:49:48 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=65 updated successfully
+2025-05-25 01:50:16 - DBConnector               - INFO - 0.028s - Event added with event_id: 81
+2025-05-25 01:50:16 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:50:16 - DBConnector               - INFO - 0.024s - Person added with person_id: 56
+2025-05-25 01:50:16 - DBConnector               - INFO - 0.005s - Opinion not found
+2025-05-25 01:50:16 - DBConnector               - INFO - 0.026s - Opinion added with opinion_id: 77
+2025-05-25 01:50:16 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 77
+2025-05-25 01:50:16 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=62 updated successfully
+2025-05-25 01:50:47 - DBConnector               - INFO - 0.006s - Found 2 opinions for person_id 15
+2025-05-25 01:50:47 - DBConnector               - INFO - 0.004s - Found 2 sentiment records for person_id 15 on topic_id 1
+2025-05-25 01:50:47 - DBConnector               - INFO - 0.004s - Attitude with fk_topic_id 1 and fk_person_id 15 not found
+2025-05-25 01:51:06 - DBConnector               - INFO - 0.016s - Found 15 opinions for person_id 4
+2025-05-25 01:51:38 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:52:17 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:52:34 - DBConnector               - INFO - 0.029s - Event added with event_id: 82
+2025-05-25 01:52:34 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:52:34 - DBConnector               - INFO - 0.032s - Opinion added with opinion_id: 78
+2025-05-25 01:52:34 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 78
+2025-05-25 01:52:34 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=60 updated successfully
+2025-05-25 01:52:41 - DBConnector               - INFO - 0.006s - Found 15 sentiment records for person_id 4 on topic_id 1
+2025-05-25 01:52:41 - DBConnector               - INFO - 0.004s - Attitude with fk_topic_id 1 and fk_person_id 4 not found
+2025-05-25 01:52:59 - DBConnector               - INFO - 0.030s - Event added with event_id: 83
+2025-05-25 01:52:59 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:52:59 - DBConnector               - INFO - 0.028s - Person added with person_id: 57
+2025-05-25 01:52:59 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:52:59 - DBConnector               - INFO - 0.030s - Opinion added with opinion_id: 79
+2025-05-25 01:52:59 - DBConnector               - INFO - 0.005s - Opinion found with opinion_id: 79
+2025-05-25 01:52:59 - DBConnector               - INFO - 0.004s - Article chunk with chunk_id=59 updated successfully
+2025-05-25 01:53:30 - DBConnector               - INFO - 0.029s - Event added with event_id: 84
+2025-05-25 01:53:30 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:53:30 - DBConnector               - INFO - 0.026s - Person added with person_id: 58
+2025-05-25 01:53:30 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:53:30 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 80
+2025-05-25 01:53:30 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 80
+2025-05-25 01:53:30 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=54 updated successfully
+2025-05-25 01:54:03 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:54:10 - DBConnector               - INFO - 0.028s - Event added with event_id: 85
+2025-05-25 01:54:10 - DBConnector               - INFO - 0.005s - Opinion not found
+2025-05-25 01:54:10 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 81
+2025-05-25 01:54:10 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 81
+2025-05-25 01:54:10 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=61 updated successfully
+2025-05-25 01:54:43 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:55:40 - DBConnector               - INFO - 0.030s - Event added with event_id: 86
+2025-05-25 01:55:40 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:55:40 - DBConnector               - INFO - 0.025s - Person added with person_id: 59
+2025-05-25 01:55:40 - DBConnector               - INFO - 0.005s - Opinion not found
+2025-05-25 01:55:40 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 82
+2025-05-25 01:55:40 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 82
+2025-05-25 01:55:40 - DBConnector               - INFO - 0.004s - Article chunk with chunk_id=55 updated successfully
+2025-05-25 01:55:55 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:56:15 - DBConnector               - INFO - 0.028s - Event added with event_id: 87
+2025-05-25 01:56:15 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:56:15 - DBConnector               - INFO - 0.026s - Person added with person_id: 60
+2025-05-25 01:56:15 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:56:15 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 83
+2025-05-25 01:56:15 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 83
+2025-05-25 01:56:15 - DBConnector               - INFO - 0.004s - Article chunk with chunk_id=56 updated successfully
+2025-05-25 01:56:46 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:57:04 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:57:09 - DBConnector               - INFO - 0.028s - Event added with event_id: 88
+2025-05-25 01:57:09 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:57:09 - DBConnector               - INFO - 0.025s - Person added with person_id: 61
+2025-05-25 01:57:09 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:57:09 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 84
+2025-05-25 01:57:09 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 84
+2025-05-25 01:57:09 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=58 updated successfully
+2025-05-25 01:57:13 - DBConnector               - INFO - 0.030s - Event added with event_id: 89
+2025-05-25 01:57:13 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:57:13 - DBConnector               - INFO - 0.028s - Person added with person_id: 62
+2025-05-25 01:57:13 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:57:13 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 85
+2025-05-25 01:57:13 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 85
+2025-05-25 01:57:13 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=57 updated successfully
+2025-05-25 01:57:21 - DBConnector               - INFO - 0.005s - Found 1 opinions for person_id 36
+2025-05-25 01:57:21 - DBConnector               - INFO - 0.005s - Found 1 sentiment records for person_id 36 on topic_id 1
+2025-05-25 01:57:21 - DBConnector               - INFO - 0.003s - Attitude with fk_topic_id 1 and fk_person_id 36 not found
+2025-05-25 01:58:02 - DBConnector               - INFO - 0.032s - Event added with event_id: 90
+2025-05-25 01:58:02 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 01:58:02 - DBConnector               - INFO - 0.023s - Person added with person_id: 63
+2025-05-25 01:58:02 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:58:02 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 86
+2025-05-25 01:58:02 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 86
+2025-05-25 01:58:02 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=51 updated successfully
+2025-05-25 01:58:09 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:58:17 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:58:22 - DBConnector               - INFO - 0.028s - Event added with event_id: 91
+2025-05-25 01:58:22 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:58:22 - DBConnector               - INFO - 0.026s - Opinion added with opinion_id: 87
+2025-05-25 01:58:22 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 87
+2025-05-25 01:58:22 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=52 updated successfully
+2025-05-25 01:59:11 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:59:17 - DBConnector               - INFO - 0.028s - Event added with event_id: 92
+2025-05-25 01:59:17 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 01:59:17 - DBConnector               - INFO - 0.027s - Person added with person_id: 64
+2025-05-25 01:59:17 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:59:17 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 88
+2025-05-25 01:59:17 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 88
+2025-05-25 01:59:17 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=53 updated successfully
+2025-05-25 01:59:21 - DBConnector               - INFO - 0.028s - Event added with event_id: 93
+2025-05-25 01:59:21 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 01:59:21 - DBConnector               - INFO - 0.023s - Person added with person_id: 65
+2025-05-25 01:59:21 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 01:59:21 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 89
+2025-05-25 01:59:21 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 89
+2025-05-25 01:59:21 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=50 updated successfully
+2025-05-25 01:59:30 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:00:13 - DBConnector               - INFO - 0.036s - Event added with event_id: 94
+2025-05-25 02:00:13 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:00:13 - DBConnector               - INFO - 0.025s - Person added with person_id: 66
+2025-05-25 02:00:13 - DBConnector               - INFO - 0.005s - Opinion not found
+2025-05-25 02:00:13 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 90
+2025-05-25 02:00:13 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 90
+2025-05-25 02:00:13 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=49 updated successfully
+2025-05-25 02:00:21 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 02:00:28 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:00:33 - DBConnector               - INFO - 0.033s - Event added with event_id: 95
+2025-05-25 02:00:33 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 02:00:33 - DBConnector               - INFO - 0.026s - Person added with person_id: 67
+2025-05-25 02:00:33 - DBConnector               - INFO - 0.005s - Opinion not found
+2025-05-25 02:00:33 - DBConnector               - INFO - 0.030s - Opinion added with opinion_id: 91
+2025-05-25 02:00:33 - DBConnector               - INFO - 0.005s - Opinion found with opinion_id: 91
+2025-05-25 02:00:33 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=46 updated successfully
+2025-05-25 02:01:18 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:01:24 - DBConnector               - INFO - 0.028s - Event added with event_id: 96
+2025-05-25 02:01:24 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 02:01:24 - DBConnector               - INFO - 0.025s - Person added with person_id: 68
+2025-05-25 02:01:24 - DBConnector               - INFO - 0.005s - Opinion not found
+2025-05-25 02:01:24 - DBConnector               - INFO - 0.026s - Opinion added with opinion_id: 92
+2025-05-25 02:01:24 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 92
+2025-05-25 02:01:24 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=45 updated successfully
+2025-05-25 02:01:28 - DBConnector               - INFO - 0.028s - Event added with event_id: 97
+2025-05-25 02:01:28 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:01:28 - DBConnector               - INFO - 0.026s - Person added with person_id: 69
+2025-05-25 02:01:28 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 02:01:28 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 93
+2025-05-25 02:01:28 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 93
+2025-05-25 02:01:28 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=44 updated successfully
+2025-05-25 02:01:37 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:02:29 - DBConnector               - INFO - 0.030s - Event added with event_id: 98
+2025-05-25 02:02:29 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 02:02:29 - DBConnector               - INFO - 0.023s - Person added with person_id: 70
+2025-05-25 02:02:29 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 02:02:29 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 94
+2025-05-25 02:02:29 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 94
+2025-05-25 02:02:29 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=43 updated successfully
+2025-05-25 02:02:38 - DBConnector               - INFO - 0.008s - Found 1 opinions for person_id 70
+2025-05-25 02:02:38 - DBConnector               - INFO - 0.003s - Found 1 sentiment records for person_id 70 on topic_id 1
+2025-05-25 02:02:39 - DBConnector               - INFO - 0.004s - Attitude with fk_topic_id 1 and fk_person_id 70 not found
+2025-05-25 02:02:47 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 02:02:53 - DBConnector               - INFO - 0.026s - Event added with event_id: 99
+2025-05-25 02:02:53 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:02:53 - DBConnector               - INFO - 0.024s - Person added with person_id: 71
+2025-05-25 02:02:53 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 02:02:53 - DBConnector               - INFO - 0.029s - Opinion added with opinion_id: 95
+2025-05-25 02:02:53 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 95
+2025-05-25 02:02:53 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=42 updated successfully
+2025-05-25 02:03:44 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:03:49 - DBConnector               - INFO - 0.033s - Event added with event_id: 100
+2025-05-25 02:03:49 - DBConnector               - INFO - 0.005s - Opinion not found
+2025-05-25 02:03:49 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 96
+2025-05-25 02:03:49 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 96
+2025-05-25 02:03:49 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=41 updated successfully
+2025-05-25 02:03:54 - DBConnector               - INFO - 0.029s - Event added with event_id: 101
+2025-05-25 02:03:54 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:03:54 - DBConnector               - INFO - 0.025s - Person added with person_id: 72
+2025-05-25 02:03:54 - DBConnector               - INFO - 0.005s - Opinion not found
+2025-05-25 02:03:54 - DBConnector               - INFO - 0.033s - Opinion added with opinion_id: 97
+2025-05-25 02:03:54 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 97
+2025-05-25 02:03:54 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=40 updated successfully
+2025-05-25 02:04:06 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:04:57 - DBConnector               - INFO - 0.029s - Event added with event_id: 102
+2025-05-25 02:04:57 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 02:04:57 - DBConnector               - INFO - 0.024s - Person added with person_id: 73
+2025-05-25 02:04:57 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 02:04:57 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 98
+2025-05-25 02:04:57 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 98
+2025-05-25 02:04:57 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=47 updated successfully
+2025-05-25 02:05:28 - DBConnector               - INFO - 0.029s - Event added with event_id: 103
+2025-05-25 02:05:28 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 02:05:28 - DBConnector               - INFO - 0.026s - Person added with person_id: 74
+2025-05-25 02:05:28 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 02:05:28 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 99
+2025-05-25 02:05:28 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 99
+2025-05-25 02:05:28 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=48 updated successfully
+2025-05-25 02:06:10 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:06:17 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:06:27 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:06:42 - DBConnector               - INFO - 0.031s - Event added with event_id: 104
+2025-05-25 02:06:42 - DBConnector               - INFO - 0.005s - Opinion not found
+2025-05-25 02:06:42 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 100
+2025-05-25 02:06:42 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 100
+2025-05-25 02:06:42 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=39 updated successfully
+2025-05-25 02:06:46 - DBConnector               - INFO - 0.029s - Event added with event_id: 105
+2025-05-25 02:06:46 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 02:06:46 - DBConnector               - INFO - 0.025s - Person added with person_id: 75
+2025-05-25 02:06:46 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 02:06:46 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 101
+2025-05-25 02:06:46 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 101
+2025-05-25 02:06:46 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=38 updated successfully
+2025-05-25 02:06:59 - DBConnector               - INFO - 0.030s - Event added with event_id: 106
+2025-05-25 02:06:59 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 02:06:59 - DBConnector               - INFO - 0.025s - Person added with person_id: 76
+2025-05-25 02:06:59 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 02:06:59 - DBConnector               - INFO - 0.026s - Opinion added with opinion_id: 102
+2025-05-25 02:06:59 - DBConnector               - INFO - 0.005s - Opinion found with opinion_id: 102
+2025-05-25 02:06:59 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=37 updated successfully
+2025-05-25 02:07:26 - DBConnector               - INFO - 0.028s - Event added with event_id: 107
+2025-05-25 02:07:26 - DBConnector               - INFO - 0.005s - Opinion not found
+2025-05-25 02:07:26 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 103
+2025-05-25 02:07:26 - DBConnector               - INFO - 0.005s - Opinion found with opinion_id: 103
+2025-05-25 02:07:26 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=36 updated successfully
+2025-05-25 02:08:06 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:08:27 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:08:52 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:09:08 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:09:14 - DBConnector               - INFO - 0.035s - Event added with event_id: 108
+2025-05-25 02:09:14 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 02:09:14 - DBConnector               - INFO - 0.025s - Person added with person_id: 77
+2025-05-25 02:09:14 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 02:09:14 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 104
+2025-05-25 02:09:14 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 104
+2025-05-25 02:09:14 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=34 updated successfully
+2025-05-25 02:09:31 - DBConnector               - INFO - 0.030s - Event added with event_id: 109
+2025-05-25 02:09:31 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 02:09:31 - DBConnector               - INFO - 0.026s - Person added with person_id: 78
+2025-05-25 02:09:31 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 02:09:31 - DBConnector               - INFO - 0.026s - Opinion added with opinion_id: 105
+2025-05-25 02:09:31 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 105
+2025-05-25 02:09:31 - DBConnector               - INFO - 0.004s - Article chunk with chunk_id=29 updated successfully
+2025-05-25 02:09:35 - DBConnector               - INFO - 0.030s - Event added with event_id: 110
+2025-05-25 02:09:35 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:09:35 - DBConnector               - INFO - 0.024s - Person added with person_id: 79
+2025-05-25 02:09:35 - DBConnector               - INFO - 0.003s - Opinion not found
+2025-05-25 02:09:35 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 106
+2025-05-25 02:09:35 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 106
+2025-05-25 02:09:35 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=35 updated successfully
+2025-05-25 02:09:54 - DBConnector               - INFO - 0.027s - Event added with event_id: 111
+2025-05-25 02:09:54 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 02:09:54 - DBConnector               - INFO - 0.025s - Person added with person_id: 80
+2025-05-25 02:09:55 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 02:09:55 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 107
+2025-05-25 02:09:55 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 107
+2025-05-25 02:09:55 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=28 updated successfully
+2025-05-25 02:10:25 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 02:10:46 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:10:53 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:11:12 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:11:33 - DBConnector               - INFO - 0.029s - Event added with event_id: 112
+2025-05-25 02:11:33 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:11:33 - DBConnector               - INFO - 0.024s - Person added with person_id: 81
+2025-05-25 02:11:33 - DBConnector               - INFO - 0.005s - Opinion not found
+2025-05-25 02:11:33 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 108
+2025-05-25 02:11:33 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 108
+2025-05-25 02:11:33 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=27 updated successfully
+2025-05-25 02:11:50 - DBConnector               - INFO - 0.038s - Event added with event_id: 113
+2025-05-25 02:11:50 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 02:11:50 - DBConnector               - INFO - 0.024s - Person added with person_id: 82
+2025-05-25 02:11:50 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 02:11:50 - DBConnector               - INFO - 0.026s - Opinion added with opinion_id: 109
+2025-05-25 02:11:50 - DBConnector               - INFO - 0.005s - Opinion found with opinion_id: 109
+2025-05-25 02:11:50 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=26 updated successfully
+2025-05-25 02:11:54 - DBConnector               - INFO - 0.030s - Event added with event_id: 114
+2025-05-25 02:11:54 - DBConnector               - INFO - 0.005s - Person not found
+2025-05-25 02:11:54 - DBConnector               - INFO - 0.035s - Person added with person_id: 83
+2025-05-25 02:11:54 - DBConnector               - INFO - 0.005s - Opinion not found
+2025-05-25 02:11:54 - DBConnector               - INFO - 0.029s - Opinion added with opinion_id: 110
+2025-05-25 02:11:54 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 110
+2025-05-25 02:11:54 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=25 updated successfully
+2025-05-25 02:12:11 - DBConnector               - INFO - 0.028s - Event added with event_id: 115
+2025-05-25 02:12:11 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 02:12:11 - DBConnector               - INFO - 0.026s - Person added with person_id: 84
+2025-05-25 02:12:11 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 02:12:11 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 111
+2025-05-25 02:12:11 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 111
+2025-05-25 02:12:11 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=24 updated successfully
+2025-05-25 02:12:46 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 02:13:10 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:13:19 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 02:13:36 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 02:14:00 - DBConnector               - INFO - 0.028s - Event added with event_id: 116
+2025-05-25 02:14:00 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:14:00 - DBConnector               - INFO - 0.024s - Person added with person_id: 85
+2025-05-25 02:14:00 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 02:14:00 - DBConnector               - INFO - 0.036s - Opinion added with opinion_id: 112
+2025-05-25 02:14:00 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 112
+2025-05-25 02:14:00 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=22 updated successfully
+2025-05-25 02:14:15 - DBConnector               - INFO - 0.032s - Event added with event_id: 117
+2025-05-25 02:14:15 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 02:14:15 - DBConnector               - INFO - 0.025s - Person added with person_id: 86
+2025-05-25 02:14:15 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 02:14:15 - DBConnector               - INFO - 0.026s - Opinion added with opinion_id: 113
+2025-05-25 02:14:15 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 113
+2025-05-25 02:14:15 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=21 updated successfully
+2025-05-25 02:14:19 - DBConnector               - INFO - 0.030s - Event added with event_id: 118
+2025-05-25 02:14:19 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:14:19 - DBConnector               - INFO - 0.027s - Person added with person_id: 87
+2025-05-25 02:14:19 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 02:14:19 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 114
+2025-05-25 02:14:19 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 114
+2025-05-25 02:14:19 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=20 updated successfully
+2025-05-25 02:14:37 - DBConnector               - INFO - 0.027s - Event added with event_id: 119
+2025-05-25 02:14:37 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 02:14:37 - DBConnector               - INFO - 0.026s - Person added with person_id: 88
+2025-05-25 02:14:37 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 02:14:37 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 115
+2025-05-25 02:14:37 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 115
+2025-05-25 02:14:37 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=19 updated successfully
+2025-05-25 02:15:07 - DBConnector               - INFO - 0.005s - Found 1 opinions for person_id 25
+2025-05-25 02:15:07 - DBConnector               - INFO - 0.004s - Found 1 sentiment records for person_id 25 on topic_id 1
+2025-05-25 02:15:07 - DBConnector               - INFO - 0.004s - Attitude with fk_topic_id 1 and fk_person_id 25 not found
+2025-05-25 02:15:28 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:15:37 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 02:15:59 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 02:16:22 - DBConnector               - INFO - 0.031s - Event added with event_id: 120
+2025-05-25 02:16:22 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 02:16:22 - DBConnector               - INFO - 0.033s - Opinion added with opinion_id: 116
+2025-05-25 02:16:22 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 116
+2025-05-25 02:16:22 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=18 updated successfully
+2025-05-25 02:16:37 - DBConnector               - INFO - 0.041s - Event added with event_id: 121
+2025-05-25 02:16:37 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:16:37 - DBConnector               - INFO - 0.029s - Person added with person_id: 89
+2025-05-25 02:16:37 - DBConnector               - INFO - 0.005s - Opinion not found
+2025-05-25 02:16:37 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 117
+2025-05-25 02:16:37 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 117
+2025-05-25 02:16:37 - DBConnector               - INFO - 0.004s - Article chunk with chunk_id=17 updated successfully
+2025-05-25 02:16:41 - DBConnector               - INFO - 0.032s - Event added with event_id: 122
+2025-05-25 02:16:41 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:16:41 - DBConnector               - INFO - 0.028s - Person added with person_id: 90
+2025-05-25 02:16:41 - DBConnector               - INFO - 0.005s - Opinion not found
+2025-05-25 02:16:41 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 118
+2025-05-25 02:16:41 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 118
+2025-05-25 02:16:41 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=23 updated successfully
+2025-05-25 02:16:58 - DBConnector               - INFO - 0.029s - Event added with event_id: 123
+2025-05-25 02:16:58 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 02:16:58 - DBConnector               - INFO - 0.023s - Person added with person_id: 91
+2025-05-25 02:16:58 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 02:16:58 - DBConnector               - INFO - 0.040s - Opinion added with opinion_id: 119
+2025-05-25 02:16:58 - DBConnector               - INFO - 0.005s - Opinion found with opinion_id: 119
+2025-05-25 02:16:58 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=16 updated successfully
+2025-05-25 02:17:29 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 02:17:50 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:17:58 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:18:16 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:18:40 - DBConnector               - INFO - 0.031s - Event added with event_id: 124
+2025-05-25 02:18:40 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 02:18:40 - DBConnector               - INFO - 0.024s - Person added with person_id: 92
+2025-05-25 02:18:40 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 02:18:40 - DBConnector               - INFO - 0.026s - Opinion added with opinion_id: 120
+2025-05-25 02:18:40 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 120
+2025-05-25 02:18:40 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=15 updated successfully
+2025-05-25 02:18:55 - DBConnector               - INFO - 0.032s - Event added with event_id: 125
+2025-05-25 02:18:55 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 02:18:55 - DBConnector               - INFO - 0.025s - Person added with person_id: 93
+2025-05-25 02:18:55 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 02:18:55 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 121
+2025-05-25 02:18:55 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 121
+2025-05-25 02:18:55 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=14 updated successfully
+2025-05-25 02:18:59 - DBConnector               - INFO - 0.032s - Event added with event_id: 126
+2025-05-25 02:18:59 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 02:18:59 - DBConnector               - INFO - 0.029s - Person added with person_id: 94
+2025-05-25 02:18:59 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 02:19:00 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 122
+2025-05-25 02:19:00 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 122
+2025-05-25 02:19:00 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=13 updated successfully
+2025-05-25 02:19:16 - DBConnector               - INFO - 0.029s - Event added with event_id: 127
+2025-05-25 02:19:16 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 02:19:16 - DBConnector               - INFO - 0.025s - Person added with person_id: 95
+2025-05-25 02:19:16 - DBConnector               - INFO - 0.005s - Opinion not found
+2025-05-25 02:19:16 - DBConnector               - INFO - 0.031s - Opinion added with opinion_id: 123
+2025-05-25 02:19:16 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 123
+2025-05-25 02:19:16 - DBConnector               - INFO - 0.004s - Article chunk with chunk_id=9 updated successfully
+2025-05-25 02:19:44 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 02:20:05 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:20:14 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 02:20:35 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:20:57 - DBConnector               - INFO - 0.028s - Event added with event_id: 128
+2025-05-25 02:20:57 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 02:20:57 - DBConnector               - INFO - 0.024s - Person added with person_id: 96
+2025-05-25 02:20:57 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 02:20:57 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 124
+2025-05-25 02:20:57 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 124
+2025-05-25 02:20:57 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=10 updated successfully
+2025-05-25 02:21:11 - DBConnector               - INFO - 0.028s - Event added with event_id: 129
+2025-05-25 02:21:11 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 02:21:11 - DBConnector               - INFO - 0.025s - Person added with person_id: 97
+2025-05-25 02:21:11 - DBConnector               - INFO - 0.005s - Opinion not found
+2025-05-25 02:21:11 - DBConnector               - INFO - 0.039s - Opinion added with opinion_id: 125
+2025-05-25 02:21:11 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 125
+2025-05-25 02:21:11 - DBConnector               - INFO - 0.004s - Article chunk with chunk_id=11 updated successfully
+2025-05-25 02:21:15 - DBConnector               - INFO - 0.029s - Event added with event_id: 130
+2025-05-25 02:21:15 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 02:21:15 - DBConnector               - INFO - 0.026s - Person added with person_id: 98
+2025-05-25 02:21:15 - DBConnector               - INFO - 0.005s - Opinion not found
+2025-05-25 02:21:15 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 126
+2025-05-25 02:21:15 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 126
+2025-05-25 02:21:15 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=12 updated successfully
+2025-05-25 02:21:33 - DBConnector               - INFO - 0.029s - Event added with event_id: 131
+2025-05-25 02:21:33 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:21:33 - DBConnector               - INFO - 0.025s - Person added with person_id: 99
+2025-05-25 02:21:33 - DBConnector               - INFO - 0.005s - Opinion not found
+2025-05-25 02:21:33 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 127
+2025-05-25 02:21:33 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 127
+2025-05-25 02:21:33 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=8 updated successfully
+2025-05-25 02:22:06 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:22:28 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 02:22:36 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 02:23:29 - DBConnector               - INFO - 0.032s - Event added with event_id: 132
+2025-05-25 02:23:29 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:23:29 - DBConnector               - INFO - 0.027s - Person added with person_id: 100
+2025-05-25 02:23:29 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 02:23:29 - DBConnector               - INFO - 0.030s - Opinion added with opinion_id: 128
+2025-05-25 02:23:29 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 128
+2025-05-25 02:23:29 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=7 updated successfully
+2025-05-25 02:23:42 - DBConnector               - INFO - 0.028s - Event added with event_id: 133
+2025-05-25 02:23:42 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:23:42 - DBConnector               - INFO - 0.027s - Person added with person_id: 101
+2025-05-25 02:23:42 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 02:23:42 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 129
+2025-05-25 02:23:42 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 129
+2025-05-25 02:23:42 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=6 updated successfully
+2025-05-25 02:23:47 - DBConnector               - INFO - 0.029s - Event added with event_id: 134
+2025-05-25 02:23:47 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 02:23:47 - DBConnector               - INFO - 0.023s - Person added with person_id: 102
+2025-05-25 02:23:47 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 02:23:47 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 130
+2025-05-25 02:23:47 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 130
+2025-05-25 02:23:47 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=32 updated successfully
+2025-05-25 02:24:09 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:24:45 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:24:50 - DBConnector               - INFO - 0.030s - Event added with event_id: 135
+2025-05-25 02:24:50 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:24:50 - DBConnector               - INFO - 0.025s - Person added with person_id: 103
+2025-05-25 02:24:50 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 02:24:50 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 131
+2025-05-25 02:24:50 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 131
+2025-05-25 02:24:50 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=31 updated successfully
+2025-05-25 02:24:58 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:25:07 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 02:25:55 - DBConnector               - INFO - 0.030s - Event added with event_id: 136
+2025-05-25 02:25:55 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 02:25:55 - DBConnector               - INFO - 0.023s - Person added with person_id: 104
+2025-05-25 02:25:55 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 02:25:55 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 132
+2025-05-25 02:25:55 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 132
+2025-05-25 02:25:55 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=30 updated successfully
+2025-05-25 02:26:04 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:26:10 - DBConnector               - INFO - 0.030s - Event added with event_id: 137
+2025-05-25 02:26:10 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 02:26:10 - DBConnector               - INFO - 0.027s - Person added with person_id: 105
+2025-05-25 02:26:10 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 02:26:10 - DBConnector               - INFO - 0.029s - Opinion added with opinion_id: 133
+2025-05-25 02:26:10 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 133
+2025-05-25 02:26:10 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=33 updated successfully
+2025-05-25 02:26:14 - DBConnector               - INFO - 0.027s - Event added with event_id: 138
+2025-05-25 02:26:14 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:26:14 - DBConnector               - INFO - 0.025s - Person added with person_id: 106
+2025-05-25 02:26:14 - DBConnector               - INFO - 0.005s - Opinion not found
+2025-05-25 02:26:14 - DBConnector               - INFO - 0.032s - Opinion added with opinion_id: 134
+2025-05-25 02:26:14 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 134
+2025-05-25 02:26:14 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=5 updated successfully
+2025-05-25 02:27:16 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:27:21 - DBConnector               - INFO - 0.028s - Event added with event_id: 139
+2025-05-25 02:27:21 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 02:27:21 - DBConnector               - INFO - 0.025s - Person added with person_id: 107
+2025-05-25 02:27:21 - DBConnector               - INFO - 0.005s - Opinion not found
+2025-05-25 02:27:21 - DBConnector               - INFO - 0.028s - Opinion added with opinion_id: 135
+2025-05-25 02:27:21 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 135
+2025-05-25 02:27:21 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=4 updated successfully
+2025-05-25 02:27:30 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:27:39 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 02:28:13 - DBConnector               - INFO - 0.029s - Event added with event_id: 140
+2025-05-25 02:28:13 - DBConnector               - INFO - 0.003s - Person not found
+2025-05-25 02:28:13 - DBConnector               - INFO - 0.024s - Person added with person_id: 108
+2025-05-25 02:28:14 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 02:28:14 - DBConnector               - INFO - 0.026s - Opinion added with opinion_id: 136
+2025-05-25 02:28:14 - DBConnector               - INFO - 0.005s - Opinion found with opinion_id: 136
+2025-05-25 02:28:14 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=3 updated successfully
+2025-05-25 02:28:18 - DBConnector               - INFO - 0.029s - Event added with event_id: 141
+2025-05-25 02:28:18 - DBConnector               - INFO - 0.004s - Person not found
+2025-05-25 02:28:18 - DBConnector               - INFO - 0.027s - Person added with person_id: 109
+2025-05-25 02:28:18 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 02:28:18 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 137
+2025-05-25 02:28:18 - DBConnector               - INFO - 0.003s - Opinion found with opinion_id: 137
+2025-05-25 02:28:18 - DBConnector               - INFO - 0.003s - Article chunk with chunk_id=2 updated successfully
+2025-05-25 02:28:22 - DBConnector               - INFO - 0.026s - Event added with event_id: 142
+2025-05-25 02:28:22 - DBConnector               - INFO - 0.002s - Person not found
+2025-05-25 02:28:22 - DBConnector               - INFO - 0.024s - Person added with person_id: 110
+2025-05-25 02:28:22 - DBConnector               - INFO - 0.004s - Opinion not found
+2025-05-25 02:28:22 - DBConnector               - INFO - 0.027s - Opinion added with opinion_id: 138
+2025-05-25 02:28:22 - DBConnector               - INFO - 0.004s - Opinion found with opinion_id: 138
+2025-05-25 02:28:22 - DBConnector               - INFO - 0.002s - Article chunk with chunk_id=1 updated successfully

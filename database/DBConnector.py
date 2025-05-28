@@ -190,11 +190,6 @@ class DimPerson(Base):
     person_id = Column(Integer, primary_key=True, autoincrement=True)
     person_name = Column(String(100), nullable=False)
     image_url = Column(String(100), nullable=True)
-    political_party = Column(String(50), nullable=True)
-    attribute_1 = Column(String(100), nullable=True)
-    attribute_2 = Column(String(100), nullable=True)
-    attribute_3 = Column(String(100), nullable=True)
-    attribute_4 = Column(String(100), nullable=True)
 
     # One-to-many relationship with DimOpinion
     opinions = relationship("DimOpinion", back_populates="person")
@@ -236,7 +231,6 @@ class FctAttitude(Base):
     sentiment_deviation = Column(Float, nullable=True)
     stance = Column(String(30), nullable=True)
     person_summary = Column(String(300), nullable=True)
-    is_expert_flag = Column(Boolean, nullable=True)
 
     # Many-to-one relationship with DimTopic
     topic = relationship("DimTopic", back_populates="attitudes")
@@ -933,12 +927,7 @@ def find_person_by_conditions(**conditions):
 
 def add_person(
         person_name: str,
-        image_url: str = None,
-        political_party: str = None,
-        attribute_1: str = None,
-        attribute_2: str = None,
-        attribute_3: str = None,
-        attribute_4: str = None) -> int:
+        image_url: str = None) -> int:
     """Додає новий запис у dimPerson, якщо його ще немає, і повертає його person_id."""
     with _get_session() as session:
         start_time = time.time()
@@ -948,12 +937,7 @@ def add_person(
 
         new_person = DimPerson(
             person_name=person_name,
-            image_url=image_url,
-            political_party=political_party,
-            attribute_1=attribute_1,
-            attribute_2=attribute_2,
-            attribute_3=attribute_3,
-            attribute_4=attribute_4
+            image_url=image_url
         )
         session.add(new_person)
         session.commit()
@@ -964,12 +948,7 @@ def add_person(
 
 def add_person_full(
     person_name: str,
-    image_url: str = None,
-    political_party: str = None,
-    attribute_1: str = None,
-    attribute_2: str = None,
-    attribute_3: str = None,
-    attribute_4: str = None
+    image_url: str = None
 ) -> int:
     """Додає новий запис у dimPerson з можливістю встановлення всіх полів, або оновлює існуючий запис, і повертає його person_id."""
     with _get_session() as session:
@@ -980,23 +959,13 @@ def add_person_full(
             update_person(
                 person_id=existing_person.person_id,
                 person_name=person_name,
-                image_url=image_url,
-                political_party=political_party,
-                attribute_1=attribute_1,
-                attribute_2=attribute_2,
-                attribute_3=attribute_3,
-                attribute_4=attribute_4
+                image_url=image_url
             )
             return existing_person.person_id
 
         new_person = DimPerson(
             person_name=person_name,
-            image_url=image_url,
-            political_party=political_party,
-            attribute_1=attribute_1,
-            attribute_2=attribute_2,
-            attribute_3=attribute_3,
-            attribute_4=attribute_4
+            image_url=image_url
         )
         session.add(new_person)
         session.commit()
@@ -1035,12 +1004,7 @@ def get_person(person_id: int) -> pd.Series:
             person_dict = {
                 'person_id': person.person_id,
                 'person_name': person.person_name,
-                'image_url': person.image_url,
-                'political_party': person.political_party,
-                'attribute_1': person.attribute_1,
-                'attribute_2': person.attribute_2,
-                'attribute_3': person.attribute_3,
-                'attribute_4': person.attribute_4
+                'image_url': person.image_url
             }
             logger.info(f"Person found with person_id: {person_id}", extra={"execution_time": log.timeUsed(start_time, end_time)})
             return pd.Series(person_dict)
@@ -1059,12 +1023,7 @@ def get_person_df(person_ids: list) -> pd.DataFrame:
             person_dicts = [{
                 'person_id': person.person_id,
                 'person_name': person.person_name,
-                'image_url': person.image_url,
-                'political_party': person.political_party,
-                'attribute_1': person.attribute_1,
-                'attribute_2': person.attribute_2,
-                'attribute_3': person.attribute_3,
-                'attribute_4': person.attribute_4
+                'image_url': person.image_url
             } for person in persons]
             logger.info(f"Found {len(persons)} persons", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return pd.DataFrame(person_dicts)
@@ -1075,12 +1034,7 @@ def get_person_df(person_ids: list) -> pd.DataFrame:
 def update_person(
     person_id: int,
     person_name: str = None,
-    image_url: str = None,
-    political_party: str = None,
-    attribute_1: str = None,
-    attribute_2: str = None,
-    attribute_3: str = None,
-    attribute_4: str = None
+    image_url: str = None
 ):
     """Оновлює існуючий запис у dimPerson, доповнюючи його новими даними."""
     with _get_session() as session:
@@ -1094,16 +1048,6 @@ def update_person(
             person.person_name = str(person_name)
         if image_url is not None:
             person.image_url = str(image_url)
-        if political_party is not None:
-            person.political_party = str(political_party)
-        if attribute_1 is not None:
-            person.attribute_1 = str(attribute_1)
-        if attribute_2 is not None:
-            person.attribute_2 = str(attribute_2)
-        if attribute_3 is not None:
-            person.attribute_3 = str(attribute_3)
-        if attribute_4 is not None:
-            person.attribute_4 = str(attribute_4)
         session.commit()
         end_time = time.time()
         logger.info(f"{int(person_id)} updated successfully", extra={'execution_time': log.timeUsed(start_time, end_time)})
@@ -1960,7 +1904,7 @@ def find_attitude_by_conditions(**conditions):
             logger.warning(f"No attitudes found matching conditions", extra={'execution_time': log.timeUsed(start_time, end_time)})
             return []
 
-def add_attitude(fk_topic_id: int, fk_person_id: int, sentiment_deviation: float = None, stance: str = None, person_summary: str = None, is_expert_flag: bool = None) -> None:
+def add_attitude(fk_topic_id: int, fk_person_id: int, sentiment_deviation: float = None, stance: str = None, person_summary: str = None) -> None:
     """Додає новий запис у fctAttitude, якщо його ще немає."""
     with _get_session() as session:
         start_time = time.time()
@@ -1975,15 +1919,14 @@ def add_attitude(fk_topic_id: int, fk_person_id: int, sentiment_deviation: float
             fk_person_id=fk_person_id,
             sentiment_deviation=sentiment_deviation,
             stance=stance,
-            person_summary=person_summary,
-            is_expert_flag=bool(is_expert_flag)
+            person_summary=person_summary
         )
         session.add(new_attitude)
         session.commit()
         end_time = time.time()
         logger.info(f"Attitude added with fk_topic_id: {fk_topic_id} and fk_person_id: {fk_person_id}", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
-def add_attitude_full(fk_topic_id: int, fk_person_id: int, sentiment_deviation: float = None, stance: str = None, person_summary: str = None, is_expert_flag: bool = None) -> None:
+def add_attitude_full(fk_topic_id: int, fk_person_id: int, sentiment_deviation: float = None, stance: str = None, person_summary: str = None) -> None:
     """Додає новий запис у fctAttitude з можливістю встановлення всіх полів, або оновлює існуючий запис."""
     with _get_session() as session:
         start_time = time.time()
@@ -1996,8 +1939,7 @@ def add_attitude_full(fk_topic_id: int, fk_person_id: int, sentiment_deviation: 
                 fk_person_id=fk_person_id,
                 sentiment_deviation=sentiment_deviation,
                 stance=stance,
-                person_summary=person_summary,
-                is_expert_flag=is_expert_flag
+                person_summary=person_summary
             )
             logger.info(f"Attitude updated with fk_topic_id: {fk_topic_id} and fk_person_id: {fk_person_id}", extra={'execution_time': log.timeUsed(start_time, time.time())})
             return
@@ -2008,8 +1950,7 @@ def add_attitude_full(fk_topic_id: int, fk_person_id: int, sentiment_deviation: 
             fk_person_id=fk_person_id,
             sentiment_deviation=sentiment_deviation,
             stance=stance,
-            person_summary=person_summary,
-            is_expert_flag=bool(is_expert_flag)
+            person_summary=person_summary
         )
         session.add(new_attitude)
         session.commit()
@@ -2056,7 +1997,6 @@ def get_attitude(fk_topic_id: int, fk_person_id: int) -> pd.Series:
                 'sentiment_deviation': attitude.sentiment_deviation,
                 'stance': attitude.stance,
                 'person_summary': attitude.person_summary,
-                'is_expert_flag': attitude.is_expert_flag,
                 'created_at': attitude.created_at,
                 'modified_at': attitude.modified_at
             }
@@ -2082,7 +2022,6 @@ def get_attitude_df(attitude_ids: list) -> pd.DataFrame:
                 'sentiment_deviation': attitude.sentiment_deviation,
                 'stance': attitude.stance,
                 'person_summary': attitude.person_summary,
-                'is_expert_flag': attitude.is_expert_flag,
                 'created_at': attitude.created_at,
                 'modified_at': attitude.modified_at
             } for attitude in attitudes]
@@ -2097,8 +2036,7 @@ def update_attitude(
     fk_person_id: int,
     sentiment_deviation: float = None,
     stance: str = None,
-    person_summary: str = None,
-    is_expert_flag: bool = None
+    person_summary: str = None
 ):
     """Оновлює існуючий запис у fctAttitude, доповнюючи його новими даними."""
     with _get_session() as session:
@@ -2118,8 +2056,6 @@ def update_attitude(
             attitude.stance = str(stance)
         if person_summary is not None:
             attitude.person_summary = str(person_summary)
-        if is_expert_flag is not None:
-            attitude.is_expert_flag = bool(is_expert_flag)
         end_time = time.time()
         logger.info(f"Attitude with fk_topic_id={int(fk_topic_id)} and fk_person_id={int(fk_person_id)} updated successfully", extra={'execution_time': log.timeUsed(start_time, end_time)})
 
