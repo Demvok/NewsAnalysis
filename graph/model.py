@@ -1,14 +1,16 @@
 import logging, os, sys
 from langchain_openai.chat_models import ChatOpenAI
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config import USE_TWO_LLMS
 
 llm_main = ChatOpenAI(openai_api_base="http://127.0.0.1:1234/v1",
                  model='gemma-3-4b-it-qat',
                  temperature=0.1)
 
-llm_text = ChatOpenAI(openai_api_base="http://127.0.0.1:1234/v1",
-                 model='qwen3-4b',
-                 temperature=0.1)
+if USE_TWO_LLMS:
+    llm_text = ChatOpenAI(openai_api_base="http://127.0.0.1:1234/v1",
+                    model='qwen3-4b',
+                    temperature=0.1)
 
 
 # Configure logging

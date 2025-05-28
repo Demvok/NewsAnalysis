@@ -1,7 +1,7 @@
 # Sets LLM policy on dealing with outputs longer than supported. Supported policies are: 'IGNORE' / 'RETRY' / 'REFINE' / 'TRUNCATE'.
 # Ignore will skip the error, retry will try again (3) times, refine will call LLM to shrink the length and truncate will cut off extra characters (not recommended).
 FIELD_LENGTH_POLICY = 'REFINE'
-USE_TWO_LLMS = True # If True, use two different LLMs for different tasks (text generation and processing)
+USE_TWO_LLMS = False # If True, use two different LLMs for different tasks (text generation and processing)
 MAX_RETRIES = 3
 N_THREADS = 4 # Number of threads for parallel processing (only for the main_parallelised.py file)
 

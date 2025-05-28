@@ -40,7 +40,7 @@ def _truncate_comment(comment_text):
 def _refine_comment(comment_text):
     """Refine comment to fit within character limit using the LLM."""
     try:
-        refinement_prompt = REFINING_PROMPT.format(max_lenth=300, field_value=comment_text)
+        refinement_prompt = REFINING_PROMPT.format(max_length=300, field_value=comment_text)
         response = llm_invoke(refinement_prompt, usage_type='refine', model='text')
         
         # Handle different response structures

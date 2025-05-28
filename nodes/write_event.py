@@ -102,18 +102,27 @@ def main(state):
                         is_selected=is_selected
                     )
                     
-                    # Verify the saved values
+                    # Verify the saved values with rounding to 3 digits
                     saved_event = get_event(event_id)
                     if saved_event.empty:
                         logger.error(f"Event wasn't properly saved to database")
-                    elif (saved_event['relevance_score'] != relevance_score or
-                          saved_event['influence_score'] != influence_score or
-                          saved_event['novelty_score'] != novelty_score or
-                          saved_event['event_hotness'] != event_hotness):
-                        logger.error(f"Event scores not saved correctly: Expected {relevance_score}, {influence_score}, " +
-                                      f"{novelty_score}, {event_hotness} but got {saved_event['relevance_score']}, " +
-                                      f"{saved_event['influence_score']}, {saved_event['novelty_score']}, " +
-                                      f"{saved_event['event_hotness']}")
+                    else:
+                        def r3(x):
+                            try:
+                                return round(float(x), 3) if x is not None else None
+                            except Exception:
+                                return x
+                        issues = []
+                        if r3(saved_event['relevance_score']) != r3(relevance_score):
+                            issues.append(f"relevance: expected {r3(relevance_score)}, got {r3(saved_event['relevance_score'])}")
+                        if r3(saved_event['influence_score']) != r3(influence_score):
+                            issues.append(f"influence: expected {r3(influence_score)}, got {r3(saved_event['influence_score'])}")
+                        if r3(saved_event['novelty_score']) != r3(novelty_score):
+                            issues.append(f"novelty: expected {r3(novelty_score)}, got {r3(saved_event['novelty_score'])}")
+                        if r3(saved_event['event_hotness']) != r3(event_hotness):
+                            issues.append(f"hotness: expected {r3(event_hotness)}, got {r3(saved_event['event_hotness'])}")
+                        if issues:
+                            logger.error(f"Event scores not saved correctly for ID {event_id}: {', '.join(issues)}")
                 except Exception as e:
                     logger.error(f"Error adding scored event: {e}")
 
@@ -206,18 +215,23 @@ def main(state):
                     if saved_opinion.empty:
                         logger.error(f"Opinion wasn't properly saved to database")
                     else:
-                        # Build verification report with all scores
+                        # Build verification report with all scores, rounding to 3 digits
+                        def r3(x):
+                            try:
+                                return round(float(x), 3) if x is not None else None
+                            except Exception:
+                                return x
                         issues = []
-                        if saved_opinion['sentiment_score'] != sentiment:
-                            issues.append(f"sentiment: expected {sentiment}, got {saved_opinion['sentiment_score']}")
-                        if saved_opinion['controversy_score'] != controversy_score:
-                            issues.append(f"controversy: expected {controversy_score}, got {saved_opinion['controversy_score']}")
-                        if saved_opinion['relevancy_score'] != relevance_score:
-                            issues.append(f"relevance: expected {relevance_score}, got {saved_opinion['relevancy_score']}")
-                        if saved_opinion['contribution_score'] != contribution_score:
-                            issues.append(f"contribution: expected {contribution_score}, got {saved_opinion['contribution_score']}")
-                        if saved_opinion['opinion_hotness'] != opinion_hotness:
-                            issues.append(f"hotness: expected {opinion_hotness}, got {saved_opinion['opinion_hotness']}")
+                        if r3(saved_opinion['sentiment_score']) != r3(sentiment):
+                            issues.append(f"sentiment: expected {r3(sentiment)}, got {r3(saved_opinion['sentiment_score'])}")
+                        if r3(saved_opinion['controversy_score']) != r3(controversy_score):
+                            issues.append(f"controversy: expected {r3(controversy_score)}, got {r3(saved_opinion['controversy_score'])}")
+                        if r3(saved_opinion['relevancy_score']) != r3(relevance_score):
+                            issues.append(f"relevance: expected {r3(relevance_score)}, got {r3(saved_opinion['relevancy_score'])}")
+                        if r3(saved_opinion['contribution_score']) != r3(contribution_score):
+                            issues.append(f"contribution: expected {r3(contribution_score)}, got {r3(saved_opinion['contribution_score'])}")
+                        if r3(saved_opinion['opinion_hotness']) != r3(opinion_hotness):
+                            issues.append(f"hotness: expected {r3(opinion_hotness)}, got {r3(saved_opinion['opinion_hotness'])}")
                         
                         if issues:
                             logger.error(f"Opinion scores not saved correctly for ID {opinion_id}: {', '.join(issues)}")
@@ -325,7 +339,6 @@ def main(state):
                     # Type safety conversions
                     stance = str(event.get('stance')) if event.get('stance') is not None else None
                     sentiment_deviation = float(event.get('sentiment_deviation')) if event.get('sentiment_deviation') is not None else None
-                    is_expert_flag = bool(event.get('is_expert_flag')) if event.get('is_expert_flag') is not None else False
                     person_summary = smart_strip(event.get('person_summary'))
                     
                     attitude_id = add_attitude_full(
@@ -334,21 +347,17 @@ def main(state):
                         sentiment_deviation=sentiment_deviation,
                         stance=stance,
                         person_summary=person_summary,
-                        is_expert_flag=is_expert_flag
                     )
                     
                     # Verify attitude was saved correctly
                     saved_attitude = get_attitude(fk_topic_id=topic_id, fk_person_id=fk_person_id)
                     if saved_attitude.empty:
                         logger.error(f"Attitude wasn't properly saved to database")
-                    elif (saved_attitude['sentiment_deviation'] != sentiment_deviation or
-                          saved_attitude['stance'] != stance or
-                          saved_attitude['is_expert_flag'] != is_expert_flag):
+                    elif (saved_attitude['sentiment_deviation'] != sentiment_deviation or saved_attitude['stance'] != stance):
                         logger.error(f"Attitude data not saved correctly: Expected deviation={sentiment_deviation}, " +
-                                      f"stance={stance}, expert={is_expert_flag}, got " +
+                                      f"stance={stance}, got " +
                                       f"deviation={saved_attitude['sentiment_deviation']}, " +
-                                      f"stance={saved_attitude['stance']}, " +
-                                      f"expert={saved_attitude['is_expert_flag']}")
+                                      f"stance={saved_attitude['stance']}")
                     
             except Exception as e:
                 logger.error(f"Error processing person event: {e}")
