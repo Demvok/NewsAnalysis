@@ -41,7 +41,7 @@ def _refine_comment(comment_text):
     """Refine comment to fit within character limit using the LLM."""
     try:
         refinement_prompt = REFINING_PROMPT.format(max_lenth=300, field_value=comment_text)
-        response = llm_invoke(refinement_prompt, usage_type='refine')
+        response = llm_invoke(refinement_prompt, usage_type='refine', model='text')
         
         # Handle different response structures
         if hasattr(response, 'content'):
@@ -99,7 +99,7 @@ def _get_summary_from_llm(prompt, max_retries=MAX_RETRIES):
     start_time = time.time()
     
     # First attempt
-    response = llm_invoke(prompt, usage_type='person_summary')
+    response = llm_invoke(prompt, usage_type='person_summary', model='text')
 
     # Rest of the function remains the same
     try:
@@ -116,7 +116,7 @@ def _get_summary_from_llm(prompt, max_retries=MAX_RETRIES):
             break  # Skip retries for IGNORE mode
                 
         retries += 1
-        response = llm_invoke(prompt, usage_type='person_summary')
+        response = llm_invoke(prompt, usage_type='person_summary', model='text')
 
         try:
             parsed = _parse_event_output(response.content)

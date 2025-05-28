@@ -1,6 +1,7 @@
 # Sets LLM policy on dealing with outputs longer than supported. Supported policies are: 'IGNORE' / 'RETRY' / 'REFINE' / 'TRUNCATE'.
 # Ignore will skip the error, retry will try again (3) times, refine will call LLM to shrink the length and truncate will cut off extra characters (not recommended).
 FIELD_LENGTH_POLICY = 'REFINE'
+USE_TWO_LLMS = True # If True, use two different LLMs for different tasks (text generation and processing)
 MAX_RETRIES = 3
 N_THREADS = 4 # Number of threads for parallel processing (only for the main_parallelised.py file)
 
@@ -72,7 +73,7 @@ def get_deviation_score(deviation: float):
 
 def calculate_opinion_hotness(relevancy, contribution, controversy):
     """Calculate opinion hotness as a weighted sum of scores."""
-    return 0.25*relevancy + 0.35*contribution + 0.4*controversy
+    return 0.68*relevancy + 0.18*contribution + 0.14*controversy
 
 def calculate_event_hotness(relevance, influence, novelty):
     """Calculate event hotness as a weighted sum of scores."""

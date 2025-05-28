@@ -1,4 +1,4 @@
-REFINING_PROMPT = "Refine the following text to fit within {max_length} characters:\n\n{field_value}"
+REFINING_PROMPT = "Refine the following text to fit within {max_length} characters:\n\n{field_value} /no_think"
 
 EVENT_CLASSIFICATION_PROMPT = """
 You are an expert journalist assistant. Your task is to extract:
@@ -33,6 +33,7 @@ Return a JSON object in the following format:
 }}
 Article:
 {chunk}
+/no_think
 """
 
 SENTIMENT_ANALYSIS_PROMPT = """
@@ -63,6 +64,7 @@ Previous citations:
 {previous_formatted}
 
 Write **only one paragraph**, max **200 characters**, pointing out the sentiment inconsistency. Do not include quotes or metadata—just the concise comment.
+/no_think
 """
 
 PERSON_SUMMARY_PROMPT = """
@@ -90,6 +92,7 @@ Recently found inconsistency: {inconsistency}
 {{/if}}
 Context:
 {content}
+/no_think
 """
 
 OPINION_SCORING_PROMPT = """

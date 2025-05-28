@@ -97,7 +97,7 @@ def get_opinion_scores(
         sentiment_deviation=sentiment_deviation,
         person_summary=person_summary
     )
-    response = llm_invoke(formatted_prompt, usage_type='opinion_scoring')
+    response = llm_invoke(formatted_prompt, usage_type='opinion_scoring', model='main')
 
     try:
         parsed = _parse_scoring_output(response.content)
@@ -115,7 +115,7 @@ def get_opinion_scores(
             break
                 
         retries += 1
-        response = llm_invoke(formatted_prompt, usage_type='opinion_scoring')
+        response = llm_invoke(formatted_prompt, usage_type='opinion_scoring', model='main')
 
         try:
             parsed = _parse_scoring_output(response.content)

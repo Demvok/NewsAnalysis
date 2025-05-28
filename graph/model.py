@@ -2,8 +2,12 @@ import logging, os, sys
 from langchain_openai.chat_models import ChatOpenAI
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-llm = ChatOpenAI(openai_api_base="http://127.0.0.1:1234/v1",
-                 model='gemma-3-4b-it',
+llm_main = ChatOpenAI(openai_api_base="http://127.0.0.1:1234/v1",
+                 model='gemma-3-4b-it-qat',
+                 temperature=0.1)
+
+llm_text = ChatOpenAI(openai_api_base="http://127.0.0.1:1234/v1",
+                 model='qwen3-4b',
                  temperature=0.1)
 
 
@@ -19,20 +23,28 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S"
 )
 
-def llm_invoke(*args, usage_type="unspecified", **kwargs):
+def llm_invoke(*args, usage_type="unspecified", model='main', **kwargs):
     """
     Invoke the language model with logging of token usage and purpose.
     
     Args:
         *args: Arguments to pass to the model's invoke method
         usage_type: String describing what the LLM is being used for (e.g. "event_scoring", "sentiment_analysis")
+        model: The model to use ('main' for llm_main, 'text' for llm_text)
         **kwargs: Keyword arguments to pass to the model's invoke method
     
     Returns:
         The model's response
     """
-    response = llm.invoke(*args, **kwargs)
-    
+    if model == 'main':
+        response = llm_main.invoke(*args, **kwargs)
+    elif model == 'text':
+        # Check if llm_text is declared, else use llm_main
+        if 'llm_text' in globals() and llm_text is not None:
+            response = llm_text.invoke(*args, **kwargs)
+        else:
+            response = llm_main.invoke(*args, **kwargs)
+
     # Extract token usage from response metadata
     token_usage = response.response_metadata.get('token_usage', {})
     total_tokens = token_usage.get('total_tokens', 0)
