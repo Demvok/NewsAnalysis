@@ -12,7 +12,7 @@ CONSOLE_LOG = True # If True, log to console
 LOGGING_LEVEL = 'INFO' # Logging level for the logger. Options are: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'
 
 EVENTS_HOTNESS_THRESHOLD = 0.8  # Threshold for selecting events based on hotness score
-OPINION_HOTNESS_THRESHOLD = 0.6  # Threshold for selecting opinions based on hotness score
+OPINION_HOTNESS_THRESHOLD = 0.7  # Threshold for selecting opinions based on hotness score
 
 INCONSISTENCY_TOLERANCE = 0.4 # Used for filtering off consistent opinions, possibly can be from 0 to 2
 OPINION_FRESHNESS_THRESHOLD = 365  # Filters off opinions older than n days from given date of event, basically sets the time for person to safely change their opinion
@@ -73,7 +73,7 @@ def get_deviation_score(deviation: float):
 
 def calculate_opinion_hotness(relevancy, contribution, controversy):
     """Calculate opinion hotness as a weighted sum of scores."""
-    return 0.68*relevancy + 0.18*contribution + 0.14*controversy
+    return 0.315*relevancy + 0.352*contribution + 0.333*controversy
 
 def calculate_event_hotness(relevance, influence, novelty):
     """Calculate event hotness as a weighted sum of scores."""

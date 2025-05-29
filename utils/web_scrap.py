@@ -166,6 +166,7 @@ def main():
     logger.info("--- Starting article scraping process... ---")
 
     topics = get_topic_df(find_topic_by_conditions())
+    # topics = get_topic_df([3])
 
     for _, topic in topics.iterrows():
         for page in range(1, N_SEARCH_PAGES_TO_SCRAPE + 1):  # Scrape first n pages for each topic

@@ -252,6 +252,7 @@ def t_execute_query(query: str):
         result = conn.execute(text(query))
         if result.returns_rows:
             data = result.fetchall()
+        return data if result.returns_rows else None
 
 def t_get_events_input(processing_stage=-1, **conditions):
     """Gets a list of event_ids that match the given conditions (e.g., is_selected=1).

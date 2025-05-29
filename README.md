@@ -24,3 +24,4 @@
 8. 50 articles = 142 chunks llama-3.2-3b-instruct = 1hr 22m = 34.78 s/ch
 9. 50 articles = 142 chunks qwen3-4b /no_think = 1hr 19m = 33.64 s/ch
 10. 50 articles = 142 chunks gemma-3-4b-it = 1hr 37m = 40.90 s/ch
+11. 258 articles = 884 chunks gemma-3-4b-it-qat = 11 hr 40m 46.81 s/ch
