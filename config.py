@@ -1,5 +1,7 @@
 # Sets LLM policy on dealing with outputs longer than supported. Supported policies are: 'IGNORE' / 'RETRY' / 'REFINE' / 'TRUNCATE'.
 # Ignore will skip the error, retry will try again (3) times, refine will call LLM to shrink the length and truncate will cut off extra characters (not recommended).
+import os
+
 FIELD_LENGTH_POLICY = 'REFINE'
 USE_TWO_LLMS = False # If True, use two different LLMs for different tasks (text generation and processing)
 MAX_RETRIES = 3
@@ -18,6 +20,16 @@ INCONSISTENCY_TOLERANCE = 0.4 # Used for filtering off consistent opinions, poss
 OPINION_FRESHNESS_THRESHOLD = 365  # Filters off opinions older than n days from given date of event, basically sets the time for person to safely change their opinion
 
 MIXED_INTERVAL = 0.3 # Interval (+- from 0) for telling if opinion is mixed
+
+CHUNK_SIZE = 2500  # Default chunk size for text splitting, set -1 to not split at all, default is 2500 characters
+CHUNK_OVERLAP = 200  # Default chunk overlap for text splitting
+
+# Optional: Database URL fallback if env var not set.
+# Prefer setting the environment variable `DATABASE_URL`.
+# Example (MySQL via PyMySQL):
+# mysql+pymysql://user:password@host:3306/dbname
+DATABASE_URL = 'mysql+pymysql://admin:gvce924b@195.189.106.16:3306/news_analysis_database_iad'
+
 
 def get_weighted_sentiment(df):  # For inconsistency analysis
     df['index'] = df.index

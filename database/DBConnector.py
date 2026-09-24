@@ -13,12 +13,39 @@ import threading
 
 ############################################################################################################
 
-DATABASE_URL = os.getenv('DATABASE_URL')
+# def _resolve_database_url():
+#     """Resolve the database URL from environment or config.
+
+#     Order of precedence:
+#     1. Environment variable `DATABASE_URL`
+#     2. `config.DATABASE_URL` if present
+#     """
+#     # 1) Environment variable
+#     url = os.getenv('DATABASE_URL')
+#     if url:
+#         return url
+
+#     # 2) Config fallback (optional)
+#     try:
+#         from config import DATABASE_URL as CONF_DB_URL  # lazy import to avoid circulars
+#         if CONF_DB_URL:
+#             return CONF_DB_URL
+#     except Exception:
+#         pass
+
+#     return None
+
+DATABASE_URL = 'mysql+pymysql://admin:gvce924b@195.189.106.16:3306/news_analysis_database_iad'
 logger = log.setup_logger(name='DBConnector', log_file='dbloader.log')
 
 ############################################################################################################
 
 # Create engine with improved connection pooling settings
+if not DATABASE_URL:
+    raise RuntimeError(
+        "DATABASE_URL is not configured. Set the environment variable DATABASE_URL or define DATABASE_URL in config.py."
+    )
+
 engine = create_engine(
     DATABASE_URL,
     pool_pre_ping=True,  # Check connection validity before using

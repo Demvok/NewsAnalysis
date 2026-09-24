@@ -19,7 +19,7 @@ import pandas as pd
 
 logger = setup_logger('scrap', "scrap_articles.log")
 
-N_SEARCH_PAGES_TO_SCRAPE = 3
+N_SEARCH_PAGES_TO_SCRAPE = 10
 
 
 

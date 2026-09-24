@@ -25,3 +25,8 @@
 9. 50 articles = 142 chunks qwen3-4b /no_think = 1hr 19m = 33.64 s/ch
 10. 50 articles = 142 chunks gemma-3-4b-it = 1hr 37m = 40.90 s/ch
 11. 258 articles = 884 chunks gemma-3-4b-it-qat = 11 hr 40m 46.81 s/ch
+12. 258 articles = 884 chunks two models = (71% 583 ch) 8hr 21m (3 hr 35m left) 54.92 s/ch
+
+
+
+May help a bit: https://huggingface.co/datasets/tasksource/crowdflower/viewer/airline-sentiment?row=94

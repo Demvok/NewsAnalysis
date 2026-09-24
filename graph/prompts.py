@@ -3,37 +3,53 @@ REFINING_PROMPT = "Refine the following text to fit within {max_length} characte
 EVENT_CLASSIFICATION_PROMPT = """
 You are an expert journalist assistant. Your task is to extract:
 
-1. General events related to the topic "{topic}" from the article.
-2. Person events related to someone’s statement or action regarding "{topic}".
+1. Person events related to statements or actions regarding "{topic}" from the article.
+2. General events related to the topic "{topic}" from the article.
 
 Ensure the following constraints:
-- The "title" of the general event must not exceed 50 characters.
-- The "description" of the general event must not exceed 200 characters.
+- The "title" of each general event must not exceed 50 characters.
+- The "description" of each general event must not exceed 200 characters.
 - The "person_name" must not exceed 150 characters.
-- The "person_name" should be the name of single person, if more present select most relevant one.
-- If  "person_name" is unknown, use "Unspecified".
+- The "person_name" should be the name of a single person; if multiple people are present, create separate person events.
+- If "person_name" is unknown, use "Unspecified".
 - The "citation" must not exceed 300 characters.
 
-Without superfluous information, just the most important details. Provide only the answear, do not include any additional text or explanations.
-If general event is not found, use `null` for the "general_event" field.
-If person event is not found, use `null` for the "person_event" field.
-If both events are not found, return `null` for the entire response.
+Without superfluous information, extract only the most important details. Provide only the answer, do not include any additional text or explanations.
 
 Return a JSON object in the following format:
-
 {{
-"general_event": {{
-    "title": "...",
-    "description": "..."
-}},
-"person_event": {{
+"person_events": [
+  {{
     "person_name": "...",
     "citation": "..."
+  }},
+  {{
+    "person_name": "...",
+    "citation": "..."
+  }}
+],
+"general_events": [
+  {{
+    "title": "...",
+    "description": "..."
+  }},
+  {{
+    "title": "...",
+    "description": "..."
+  }}
+]
 }}
+
+If no person events are found, use an empty array for "person_events".
+If no general events are found, use an empty array for "general_events".
+If no events of either type are found, return:
+{{
+"person_events": [],
+"general_events": []
 }}
+
 Article:
 {chunk}
-/no_think
 """
 
 SENTIMENT_ANALYSIS_PROMPT = """
@@ -64,7 +80,6 @@ Previous citations:
 {previous_formatted}
 
 Write **only one paragraph**, max **200 characters**, pointing out the sentiment inconsistency. Do not include quotes or metadata—just the concise comment.
-/no_think
 """
 
 PERSON_SUMMARY_PROMPT = """
@@ -92,7 +107,6 @@ Recently found inconsistency: {inconsistency}
 {{/if}}
 Context:
 {content}
-/no_think
 """
 
 OPINION_SCORING_PROMPT = """
