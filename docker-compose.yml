@@ -18,13 +18,28 @@ services:
 
   data-storage:
     build: ./data-storage
-    container_name: news-data-storage
+    container_name: data-storage
     environment:
       DATABASE_URL: postgresql://news:${POSTGRES_PASSWORD:-news_dev_password}@postgres:5432/news
     ports:
       - "8000:8000"
     depends_on:
       postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["executable", "arg"]
+      interval: 1m30s
+      timeout: 30s
+      retries: 5
+      start_period: 30s
+
+  data-ingestion:
+    build: ./data-ingestion
+    container_name: data-ingestion
+    environment:
+      DATABASE_URL: postgresql://news:${POSTGRES_PASSWORD:-news_dev_password}@postgres:5432/news
+    depends_on:
+      data-storage:
         condition: service_healthy
 
 volumes:
