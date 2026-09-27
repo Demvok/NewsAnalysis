@@ -1,0 +1,21 @@
+/* src/styles/tooltip.module.css */
+.tooltip {
+  position: absolute;
+  pointer-events: auto;
+  background: rgba(0, 0, 0, 0.85);
+  color: white;
+  border-radius: 8px;
+  padding: 10px;
+  max-width: 300px;
+  z-index: 1000;
+  transition: opacity 0.2s ease;
+  white-space: pre-wrap;
+  font-size: 14px;
+  line-height: 1.4;
+  display: none;
+}
+
+
+.tooltip.show {
+  display: block;
+}

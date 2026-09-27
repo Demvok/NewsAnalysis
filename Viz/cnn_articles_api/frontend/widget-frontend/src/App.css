@@ -1,0 +1,27 @@
+.App {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+  position: relative;
+}
+.Legend {
+  margin-bottom: -30px; 
+}
+.SvgTooltipWrapper{
+  position: relative;
+  
+}
+
+.bubble-label {
+  font-size: 10px;
+  fill: #333;
+  font-weight: bold;
+  text-align: center;
+}
+.ScrollableContainer {
+  max-height: 600px; /* Встановіть максимальну висоту для контейнера */
+  overflow-x: auto; /* Дозволяє вертикальну прокрутку */
+  overflow-y: hidden; /* Забороняє горизонтальну прокрутку */
+  border: 1px solid #ddd; /* Опціонально: рамка для візуалізації */
+  padding: 10px; /* Відступи всередині контейнера */
+}

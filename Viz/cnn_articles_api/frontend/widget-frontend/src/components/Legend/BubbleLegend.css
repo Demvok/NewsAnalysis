@@ -1,0 +1,66 @@
+.legend-container {
+    width: 500px; /* Set fixed width for the whole legend */
+    margin: 20px; /* Add margin around the legend box */
+    padding: 15px; /* Padding inside the legend box */
+    border: 1px solid #ccc; /* Optional border */
+    border-radius: 8px; /* Rounded corners */
+    background-color: #f9f9f9; /* Background color */
+    display: flex;
+    flex-direction: column;
+    gap: 50px;
+    position: absolute;
+    top: -90px; /*  Adjust to move the legend container below the button */
+    left: 45px; /* Center horizontally relative to the wrapper */
+    transform: translateY(-50%);
+    z-index: 500;
+  }
+  
+  .legend-wrapper {
+    position: relative;
+    margin: 10px;
+    margin-bottom: 20px;
+  }
+  
+  .info-button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 0.9em;
+    position: relative;
+  }
+  
+  .legend-columns {
+    display: flex;
+    gap: 50px; /* Space between the two columns */
+  }
+  
+  .legend-bubble-sizes, .legend-details {
+    display: flex;
+    flex-direction: column;
+    /*gap: 10px;*/
+    justify-content: space-around;
+  }
+  
+  .legend-bubble-row, .legend-line-row {
+    display: flex;
+    align-items: center;
+    margin-right: 30px;
+  }
+  
+  .legend-inconsistency {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  .line-title {
+    font-size: 14px;
+  }
+  
+  .pulsing {
+    animation: scaleIn 2s infinite ease-in-out;
+  }
+  

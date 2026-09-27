@@ -1,0 +1,178 @@
+/* Persona grid layout */
+.persona-grid {
+  display: flex;
+  gap: 20px;
+  padding: 5px;
+  justify-content: space-around;
+  width: 100%;
+  margin-left: 70px;
+  margin-bottom: 30px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  max-height: 300px;
+}
+  
+  /* Widget container */
+  .widget {
+    background-color: #ffffff;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    height: 140px; /* Fixed height */
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    padding: 10px;
+    position: relative;
+    flex-shrink: 0;
+  }
+  
+  /* Flex container to align icons and stance */
+  .icon-container {
+    display: flex;
+    align-items: center;
+    justify-content: center; /* Center stance in the container */
+    gap: 8px;
+    margin-top: -20px;
+    position: relative;
+  }
+  
+  .icon-party,
+  .icon-consistency,
+  .icon-placeholder {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+  }
+  
+  .icon-placeholder {
+    background-color: transparent;
+  }
+  
+  .stance {
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-weight: bold;
+    font-size: 0.85em;
+    color: #ffffff;
+    background-color: #007bff;
+    text-align: center;
+    display: inline-block;
+  }
+  
+  .stance.for {
+    background-color: green;
+  }
+  
+  .stance.against {
+    background-color: red;
+  }
+  
+  .stance.mixed {
+    background-color: orange;
+  }
+  
+  /* Expanded widget styling */
+  .widget.expanded {
+    flex: none;
+    max-width: 450px;
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.5); /* Extra shadow for expanded */
+    border: 1px solid #007bff; /* Border for selected */
+  }
+  
+  /* Shrunk widget styling */
+  .widget.shrunk {
+    flex: none;
+  }
+  
+  /* Layout for expanded content */
+  .widget-content {
+    display: flex;
+    width: 100%;
+    align-items: flex-start;
+    overflow-y: auto;
+  }
+  
+  .widget.expanded .widget-content {
+    flex-direction: row;
+    justify-content: flex-start;
+  }
+  
+  /* Left side: image and name */
+  .widget-left {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-right: 0px;
+    flex-shrink: 0;
+    width: 100%;
+  }
+  
+  .widget.expanded .widget-left {
+    margin-right: 20px;
+    width: unset;
+  }
+  
+  .widget-img {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 50%;
+  }
+  
+  .widget-name {
+    font-weight: bold;
+    font-size: 1em;
+    text-align: center;
+    white-space: nowrap;
+  }
+  
+  /* Right side: additional information */
+  .widget-right {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    font-size: 0.95em;
+    color: #333;
+    flex: 1;
+  }
+  
+  .widget-info {
+    margin-bottom: 0.5em;
+  }
+  
+  .widget-info span {
+    font-weight: bold;
+  }
+  
+  /* Full-width description text */
+  .widget-text {
+    font-size: 0.85em;
+    color: #555;
+    width: 100%;
+    text-align: left;
+    justify-content: center;
+  }
+
+  .widget-text p {
+    margin: 0;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  @media screen and (max-width: 550px) and (min-width: 500px) {
+    .widget.expanded {
+      max-width: 400px;
+    }
+  }
+  /* 
+  @media screen and (max-width: 450px) {
+    .widget.expanded {
+      max-width: 300px;
+    }
+    ....
+  } */
