@@ -1,7 +1,7 @@
 services:
   postgres:
     image: pgvector/pgvector:pg17
-    container_name: news-postgres
+    container_name: postgres-db
     environment:
       POSTGRES_DB: news
       POSTGRES_USER: news
@@ -27,17 +27,26 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["executable", "arg"]
-      interval: 1m30s
-      timeout: 30s
-      retries: 5
-      start_period: 30s
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
 
   data-ingestion:
     build: ./data-ingestion
     container_name: data-ingestion
     environment:
       DATABASE_URL: postgresql://news:${POSTGRES_PASSWORD:-news_dev_password}@postgres:5432/news
+    ports:
+      - "9000:9000"
+    depends_on:
+      data-storage:
+        condition: service_healthy
+
+  analysis-layer:
+    build: ./analysis-layer
+    container_name: analysis-layer
+    environment:
+      DATABASE_URL: postgresql://news:${POSTGRES_PASSWORD:-news_dev_password}@postgres:5432/news
+    ports:
+      - "7000:7000"
     depends_on:
       data-storage:
         condition: service_healthy

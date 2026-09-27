@@ -1,0 +1,2 @@
+cd .\frontend\widget-frontend
+npm run dev

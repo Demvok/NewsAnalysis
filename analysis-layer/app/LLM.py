@@ -2,9 +2,12 @@ import logging, os, sys
 from langchain_openai.chat_models import ChatOpenAI
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-llm_main = ChatOpenAI(openai_api_base="http://127.0.0.1:1234/v1",
-                 model='google/gemma-3-12b',
-                 temperature=0.1)
+llm_main = ChatOpenAI(
+    base_url="http://host.docker.internal:1234/v1",
+    model='google/gemma-4-e4b',
+    api_key="fake_api_key",
+    temperature=0.1
+)
 
 
 # Configure logging
@@ -32,14 +35,7 @@ def llm_invoke(*args, usage_type="unspecified", model='main', **kwargs):
     Returns:
         The model's response
     """
-    if model == 'main':
-        response = llm_main.invoke(*args, **kwargs)
-    elif model == 'text':
-        # Check if llm_text is declared, else use llm_main
-        if 'llm_text' in globals() and llm_text is not None:
-            response = llm_text.invoke(*args, **kwargs)
-        else:
-            response = llm_main.invoke(*args, **kwargs)
+    response = llm_main.invoke(*args, **kwargs)
 
     # Extract token usage from response metadata
     token_usage = response.response_metadata.get('token_usage', {})

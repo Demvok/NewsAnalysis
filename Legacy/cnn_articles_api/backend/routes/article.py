@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from backend.database import get_db
-from backend.models import DimArticle
-from backend.schemas import ArticleSchema, ArticleCreateSchema
+from Legacy.cnn_articles_api.backend.database import get_db
+from Legacy.cnn_articles_api.backend.models import DimArticle
+from Legacy.cnn_articles_api.backend.schemas import ArticleSchema, ArticleCreateSchema
 from typing import List
 
 router = APIRouter()

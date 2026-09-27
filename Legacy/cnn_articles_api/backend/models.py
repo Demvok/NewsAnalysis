@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean, Float
 from sqlalchemy.orm import relationship
-from backend.database import Base
+from Legacy.cnn_articles_api.backend.database import Base
 import datetime
 
 class DimPerson(Base):

@@ -1,6 +1,7 @@
+from Legacy.cnn_articles_api.backend.routes import article, attitude, events, opinion, person
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from backend.routes import article, opinion, person, topic, events, attitude
+from Legacy.cnn_articles_api.backend.routes import topic
 
 app = FastAPI()
 

@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from backend.database import get_db
-from backend.models import FctAttitude
-from backend.schemas import FctAttitudeSchema
+from Legacy.cnn_articles_api.backend.database import get_db
+from Legacy.cnn_articles_api.backend.models import FctAttitude
+from Legacy.cnn_articles_api.backend.schemas import FctAttitudeSchema
 from typing import List
 
 router = APIRouter()

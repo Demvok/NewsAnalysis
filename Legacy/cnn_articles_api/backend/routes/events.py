@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
-from backend.database import get_db
-from backend.models import dimEvents
-from backend.schemas import EventSchema
+from Legacy.cnn_articles_api.backend.database import get_db
+from Legacy.cnn_articles_api.backend.models import dimEvents
+from Legacy.cnn_articles_api.backend.schemas import EventSchema
 from typing import List, Optional
 
 router = APIRouter()

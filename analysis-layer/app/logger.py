@@ -1,5 +1,5 @@
 import logging, time, sys, os
-from config import FIELD_LENGTH_POLICY, LOGGING_LEVEL, CONSOLE_LOG
+from config import LOGGING_LEVEL, CONSOLE_LOG
 
 if LOGGING_LEVEL == "DEBUG":
     LEVEL = logging.DEBUG
@@ -71,18 +71,5 @@ def setup_logger(name: str, log_file: str) -> logging.Logger:
         console_handler.setFormatter(formatter)
         logger.addHandler(console_handler)
     
-    if FIELD_LENGTH_POLICY == "IGNORE":
-        logger.debug("Ignoring field length policy")
-    elif FIELD_LENGTH_POLICY == "RETRY":
-        logger.debug("Retrying field length policy")
-    elif FIELD_LENGTH_POLICY == "REFINE":
-        logger.debug("Refining field length policy")
-    elif FIELD_LENGTH_POLICY == "TRUNCATE":
-        logger.debug("Truncating field length policy")
-    else:
-        logger.error(f"Unknown field length policy: {FIELD_LENGTH_POLICY}")
-        raise ValueError(f"Unknown field length policy: {FIELD_LENGTH_POLICY}")
-
-
     return logger
 

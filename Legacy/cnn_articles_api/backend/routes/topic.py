@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from backend.database import get_db
-from backend.models import DimTopic
-from backend.schemas import TopicSchema
+from Legacy.cnn_articles_api.backend.database import get_db
+from Legacy.cnn_articles_api.backend.models import DimTopic
+from Legacy.cnn_articles_api.backend.schemas import TopicSchema
 from typing import List
 
 router = APIRouter()
