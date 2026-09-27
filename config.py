@@ -3,7 +3,6 @@
 import os
 
 FIELD_LENGTH_POLICY = 'REFINE'
-USE_TWO_LLMS = False # If True, use two different LLMs for different tasks (text generation and processing)
 MAX_RETRIES = 3
 N_THREADS = 4 # Number of threads for parallel processing (only for the main_parallelised.py file)
 
