@@ -10,7 +10,7 @@ app = FastAPI(
 
 logger = logging.getLogger("data-analysis")
 
-@app.get("/", summary="Health check")
+@app.get("/health", summary="Health check")
 async def root():
     return {"message": "Analysis API Server is running", "version": app.version}
 
@@ -18,3 +18,8 @@ async def root():
 def test_llm_connection(query: str):
     response = LLM.llm_invoke(query)
     return {"message": "LLM connection is successful", "response": response}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=7000)

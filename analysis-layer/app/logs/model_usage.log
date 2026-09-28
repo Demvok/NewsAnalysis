@@ -1,0 +1,11 @@
+2026-09-28 19:17:32 - Retrying request to /chat/completions in 0.439568 seconds
+2026-09-28 19:17:54 - Retrying request to /chat/completions in 0.963255 seconds
+2026-09-28 19:22:38 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2026-09-28 19:22:38 - unspecified - total_tokens: 244, prompt_tokens: 22, completion_tokens: 222
+2026-09-28 20:12:01 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2026-09-28 21:18:32 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2026-09-28 21:21:43 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2026-09-28 21:53:29 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2026-09-28 22:27:07 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2026-09-28 22:28:16 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2026-09-28 22:44:13 - HTTP Request: POST http://127.0.0.1:1234/v1/chat/completions "HTTP/1.1 200 OK"

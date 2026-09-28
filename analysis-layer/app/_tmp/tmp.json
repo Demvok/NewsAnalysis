@@ -1,0 +1,144 @@
+{
+    "article": "A misinformation expert encouraged picket lines at Tesla sites to protest DOGE cuts. Then came the online threats",
+    "status": "PROCESSED",
+    "speakers": [
+        {
+            "speaker_name": "Joan Donovan",
+            "speaker_role": "Sociologist/Academic/Activist",
+            "aliases": [],
+            "citations": [
+                {
+                    "exact_quote": "I’d be an idiot,” Donovan said, “if I didn’t worry.",
+                    "context": "Responding to a social media post that accused her of being the lead agitator behind 'nationwide Tesla terrorism' after Elon Musk reposted the message.",
+                    "citation_type": "Direct Quote",
+                    "summarized_quote": "She feels genuine concern and fear due to the severe online accusations and threats she has received.",
+                    "confidence_level": 0.98,
+                    "extraction_confidence": 0.95
+                },
+                {
+                    "exact_quote": "But the protest movement Donovan helped create in February was always meant to be an alternative to violence, not to encourage it,” she told CNN.",
+                    "context": "Addressing the FBI task force's investigation into 'domestic terrorism' linked to anti-Tesla actions.",
+                    "citation_type": "Direct Quote",
+                    "summarized_quote": "The movement she organized was fundamentally designed as a peaceful alternative, not an encouragement of violence.",
+                    "confidence_level": 0.97,
+                    "extraction_confidence": 0.93
+                },
+                {
+                    "exact_quote": "I was appalled to see the property damage that was on the rise and vandalism around Tesla, so one of my major goals was to figure out what is a public tactic that other people can feel safe participating in,” she said Tuesday.",
+                    "context": "Explaining her motivation for initiating peaceful protests against Musk's company and policies.",
+                    "citation_type": "Direct Quote",
+                    "summarized_quote": "Her goal was to establish a secure, public form of protest since she was distressed by the rising property damage and vandalism targeting Tesla.",
+                    "confidence_level": 0.96,
+                    "extraction_confidence": 0.91
+                },
+                {
+                    "exact_quote": "I think part of it is a stereotype of being one of these university professors that they wish didn’t exist,” said Donovan.",
+                    "context": "Explaining why her name frequently appears in MAGA social media criticism.",
+                    "citation_type": "Direct Quote",
+                    "summarized_quote": "She believes her targeting is rooted in the stereotype that conservative groups dislike university professors.",
+                    "confidence_level": 0.95,
+                    "extraction_confidence": 0.92
+                },
+                {
+                    "exact_quote": "#TeslaTakedown movement is committed to waging nonviolence,” she reiterated Sunday on the social network Bluesky.",
+                    "context": "Reiterating the core principles of her organized protest effort.",
+                    "citation_type": "Direct Quote",
+                    "summarized_quote": "The #TeslaTakedown campaign maintains a firm commitment to nonviolent action.",
+                    "confidence_level": 0.98,
+                    "extraction_confidence": 0.94
+                },
+                {
+                    "exact_quote": "…but really Musk is the one who’s done the most damage to his own brand’s reputation.",
+                    "context": "Arguing against claims that conspiracy or cabal activity caused Tesla's recent financial struggles.",
+                    "citation_type": "Paraphrase",
+                    "summarized_quote": "She asserts that Elon Musk himself is responsible for harming the reputation of his brand.",
+                    "confidence_level": 0.94,
+                    "extraction_confidence": 0.89
+                }
+            ]
+        },
+        {
+            "speaker_name": "Elon Musk",
+            "speaker_role": "CEO/Tech Titan/Political Figure",
+            "aliases": [],
+            "citations": [
+                {
+                    "exact_quote": "\"Anyone who vandalizes a Tesla will have a criminal record. Go ahead, make my day.\"",
+                    "context": "A post on X made about a month before the inauguration concerning vandalism.",
+                    "citation_type": "Direct Quote",
+                    "summarized_quote": "He warned that anyone vandalizing a Tesla would face legal consequences and challenged them to continue.",
+                    "confidence_level": 0.99,
+                    "extraction_confidence": 0.98
+                },
+                {
+                    "exact_quote": "She’s mentally ill.",
+                    "context": "A response on X to a video posted by a woman who was 'judging' Tesla drivers.",
+                    "citation_type": "Direct Quote",
+                    "summarized_quote": "He dismissed the criticism of his company's drivers by labeling the critic as 'mentally ill.'",
+                    "confidence_level": 0.97,
+                    "extraction_confidence": 0.95
+                }
+            ]
+        },
+        {
+            "speaker_name": "Pam Bondi / Kash Patel",
+            "speaker_role": "Attorney General/FBI Director (Government Officials)",
+            "aliases": [],
+            "citations": [
+                {
+                    "exact_quote": "The FBI task force now investigating the sort of incidents Attorney General Pam Bondi and FBI Director Kash Patel have labeled domestic terrorism.",
+                    "context": "Describing the classification given to the rise in violent attacks on Tesla facilities.",
+                    "citation_type": "Reported Labeling",
+                    "summarized_quote": "Government officials classified the series of anti-Tesla incidents as 'domestic terrorism.'",
+                    "confidence_level": 0.96,
+                    "extraction_confidence": 0.93
+                }
+            ]
+        },
+        {
+            "speaker_name": "FBI (Official Announcement)",
+            "speaker_role": "Law Enforcement Agency",
+            "aliases": [],
+            "citations": [
+                {
+                    "exact_quote": "the incidents “appear to have been conducted by lone offenders” who “may perceive these attacks as victimless property crimes.”",
+                    "context": "A recent FBI announcement regarding the investigation into anti-Tesla attacks.",
+                    "citation_type": "Official Statement",
+                    "summarized_quote": "The FBI stated that the incidents appear to be committed by isolated individuals who view them merely as non-harmful property crimes.",
+                    "confidence_level": 0.98,
+                    "extraction_confidence": 0.96
+                }
+            ]
+        },
+        {
+            "speaker_name": "Alex Winter",
+            "speaker_role": "Actor/Documentary Filmmaker/Activist",
+            "aliases": [],
+            "citations": [
+                {
+                    "exact_quote": "reached out to Donovan, combining the protest effort with his own campaign to encourage people to sell their Tesla stock and vehicles.",
+                    "context": "Describing how the peaceful protest movement gained momentum after he connected with Joan Donovan.",
+                    "citation_type": "Reported Action",
+                    "summarized_quote": "He joined the anti-Tesla protest by linking it with his personal advocacy encouraging people to divest from Tesla stock and vehicles.",
+                    "confidence_level": 0.95,
+                    "extraction_confidence": 0.91
+                }
+            ]
+        },
+        {
+            "speaker_name": "Dan Ives",
+            "speaker_role": "Wedbush Securities Analyst",
+            "aliases": [],
+            "citations": [
+                {
+                    "exact_quote": "Tesla is Musk, and Musk is Tesla,” Wedbush Securities analyst Dan Ives wrote in a note to clients. “They are synonymous and cannot be separated.”",
+                    "context": "Providing commentary regarding the difficulty of pressuring Musk to step down as CEO.",
+                    "citation_type": "Direct Quote/Analysis",
+                    "summarized_quote": "He analyzed that Tesla and Elon Musk are inextricably linked entities that cannot be viewed separately.",
+                    "confidence_level": 0.97,
+                    "extraction_confidence": 0.94
+                }
+            ]
+        }
+    ]
+}

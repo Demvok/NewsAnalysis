@@ -1,0 +1,21 @@
+{
+    "speaker_name": "**person_name**",
+    "speaker_role": "**person_role**",
+    "aliases": [],
+    "citations": [
+        {
+            "exact_quote": "**exact_quote**",
+            "context": "**context**",
+            "citation_type": "**citation_type**",
+            "summarized_quote": "**summarized_quote**",
+            "confidence_level": 0.98,
+            "mentioned_topics": [
+                {
+                    "topic_name": "**topic_name**",
+                    "relevancy_score": 0.95, # How much the quote is relevant to the topic, on a scale of 0 to 1
+                    "stance": 4 # Person's stance on the topic, on the scale form -10 to 10, where -10 is strongly against, 0 is neutral, and 10 is strongly in favor
+                }
+            ]
+        }
+    ]
+}

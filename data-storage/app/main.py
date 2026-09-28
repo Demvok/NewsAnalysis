@@ -17,7 +17,7 @@ app = FastAPI(
 engine = create_engine(os.environ["DATABASE_URL"])
 
 
-@app.get("/")
+@app.get("/health", summary="Health check")
 def health(summary="Health check"):
     with engine.connect() as connection:
         result = connection.execute(text("SELECT 1"))

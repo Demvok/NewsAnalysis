@@ -10,6 +10,6 @@ app = FastAPI(
 
 logger = logging.getLogger("data-ingestion")
 
-@app.get("/", summary="Health check")
+@app.get("/health", summary="Health check")
 async def root():
     return {"message": "Data Ingestion API Server is running", "version": app.version}
