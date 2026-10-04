@@ -1,58 +1,57 @@
 {
   "article_title": "Nuclear energy scares people. The climate crisis is giving it another chance",
-  "status": "Expert Extraction Complete",
+  "status": "Complete",
   "speakers": [
     {
-      "speaker_name": "Iida Ruishalme",
-      "speaker_role": "Mothers for Nuclear member; Protester in Berlin",
+      "speaker_name": "Mothers for Nuclear member",
+      "speaker_role": "Protest participant/Advocate for nuclear energy",
       "aliases": [],
       "citations": [
         {
-          "exact_quote": "We have to give this technology a chance.",
-          "context": "Speaking at protests outside the Brandenburg Gate, Ruishalme and fellow demonstrators advocated for increased commitment to nuclear energy as a solution to climate change.",
+          "exact_quote": "“We have to give this technology a chance,”",
+          "context": "Speaking outside the Brandenburg Gate in Berlin, joining protests advocating for increased commitment to nuclear energy as a solution to climate change.",
           "citation_type": "Direct Quote",
-          "summarized_quote": "She urged that nuclear energy be given an opportunity despite existing public skepticism.",
-          "confidence_level": 5.0,
-          "extraction_confidence": 5.0
-        },
+          "summarized_quote": "Advocates that nuclear energy should be given an opportunity.",
+          "confidence_level": 1.0504876296341665,
+          "extraction_confidence": 1.0
+        }
+      ]
+    },
+    {
+      "speaker_name": "Iida Ruishalme",
+      "speaker_role": "Protest participant/Environmental advocate",
+      "aliases": [],
+      "citations": [
         {
-          "exact_quote": "Our gut feelings don’t produce ready-made solutions.",
-          "context": "Ruishalme stated this after admitting she had initially found nuclear energy 'too risky,' but changed her mind after researching its pros and cons, highlighting the need for rational decision-making in climate policy.",
+          "exact_quote": "“Our gut feelings don’t produce ready-made solutions,”",
+          "context": "Discussing the need to move beyond emotional anxieties and instinctual reactions when addressing complex global issues like climate change.",
           "citation_type": "Direct Quote",
-          "summarized_quote": "She argued that relying on emotional responses is insufficient for developing concrete solutions to global issues like the climate crisis.",
-          "confidence_level": 5.0,
-          "extraction_confidence": 5.0
+          "summarized_quote": "Believes that relying solely on gut feelings is insufficient for creating practical, real-world solutions.",
+          "confidence_level": 1.0497526389499756,
+          "extraction_confidence": 1.0
         }
       ]
     },
     {
       "speaker_name": "James Hansen",
-      "speaker_role": "Climate scientist at Columbia University; Berlin demonstration participant",
+      "speaker_role": "Climate scientist at Columbia University",
       "aliases": [],
       "citations": [
         {
-          "exact_quote": "We need renewables to be complemented by a reliable, 24/7 energy source.",
-          "context": "Hansen argued that while renewable sources are important, they require a dependable, continuous power supply to function effectively in the energy mix.",
+          "exact_quote": "“We need renewables to be complemented by a reliable, 24/7 energy source,”",
+          "context": "Speaking during the Berlin demonstration, emphasizing that intermittent renewable sources require continuous backup power.",
           "citation_type": "Direct Quote",
-          "summarized_quote": "Renewable energy must be supported by a reliable power source available around the clock.",
-          "confidence_level": 5.0,
-          "extraction_confidence": 5.0
+          "summarized_quote": "Argues that renewable energy must be supported and complemented by a reliable, always-on energy supply.",
+          "confidence_level": 1.0492685376035888,
+          "extraction_confidence": 1.0
         },
         {
-          "exact_quote": "The consequence of treating it as not sustainable is we’re not going to have a pathway to limit climate change to the level that young people are now demanding.",
-          "context": "Hansen warned against classifying nuclear energy as unsustainable, linking such classifications directly to the failure to meet ambitious youth-driven climate goals.",
+          "exact_quote": "“The consequence of treating it as not sustainable is we’re not going to have a pathway to limit climate change to the level that young people are now demanding,” and “It’s really important that Germany not be able to impose this policy on the rest of Europe and on the world.”",
+          "context": "Commenting on the EU's decision regarding nuclear classification, stressing the global importance of sustainable energy decisions.",
           "citation_type": "Direct Quote",
-          "summarized_quote": "Failing to recognize nuclear power as sustainable will prevent humanity from reaching the necessary low-emissions targets demanded by younger generations.",
-          "confidence_level": 5.0,
-          "extraction_confidence": 5.0
-        },
-        {
-          "exact_quote": "It’s really important that Germany not be able to impose this policy on the rest of Europe and on the world.",
-          "context": "Hansen stressed that Germany should not use its political influence to dictate energy policies globally, particularly regarding the classification of nuclear power.",
-          "citation_type": "Direct Quote",
-          "summarized_quote": "Germany must refrain from imposing its specific energy policies onto Europe or the world at large.",
-          "confidence_level": 5.0,
-          "extraction_confidence": 5.0
+          "summarized_quote": "Warns that failing to recognize nuclear power as sustainable risks preventing humanity from meeting climate goals demanded by younger generations, and stresses against Germany dictating policy to Europe or the world.",
+          "confidence_level": 1.0487629359060546,
+          "extraction_confidence": 1.0
         }
       ]
     },
@@ -62,27 +61,12 @@
       "aliases": [],
       "citations": [
         {
-          "exact_quote": "I think we need to find a way of recognizing that these two energy sources play a role in the energy transition. That does not make them green, but it does acknowledge the fact that nuclear being zero emissions is very important to reduce emissions, and that natural gas will be very important in transiting away from coal into renewable energy.",
-          "context": "Timmermans addressed the need for EU policy to recognize both nuclear power (for its zero-emission status) and natural gas (as a transitional fuel away from coal) within the broader context of the energy transition.",
+          "exact_quote": "“I think we need to find a way of recognizing that these two energy sources play a role in the energy transition,” and “That does not make them green, but it does acknowledge the fact that nuclear being zero emissions is very important to reduce emissions, and that natural gas will be very important in transiting away from coal into renewable energy.”",
+          "context": "Speaking at an event hosted by Politico, proposing a framework for recognizing both nuclear power and natural gas's contribution during the shift toward sustainable energy.",
           "citation_type": "Direct Quote",
-          "summarized_quote": "He advocated that while not strictly 'green,' both nuclear and natural gas should be acknowledged for their crucial supporting roles in reducing emissions during the shift away from fossil fuels.",
-          "confidence_level": 5.0,
-          "extraction_confidence": 5.0
-        }
-      ]
-    },
-    {
-      "speaker_name": "Henning Gloystein",
-      "speaker_role": "Director of energy, climate and resources at Eurasia Group",
-      "aliases": [],
-      "citations": [
-        {
-          "exact_quote": "If there is a nuclear accident, a new major one, that could kill the entire industry.",
-          "context": "Gloystein commented on the role of public opinion in determining the future of nuclear energy, warning about the catastrophic potential of another major incident.",
-          "citation_type": "Direct Quote",
-          "summarized_quote": "He cautioned that a significant new nuclear accident could lead to the complete collapse or end of the entire industry.",
-          "confidence_level": 5.0,
-          "extraction_confidence": 5.0
+          "summarized_quote": "Suggests acknowledging that zero-emission nuclear power and transitional natural gas play important roles in moving away from coal, even if they aren't strictly classified as 'green.'",
+          "confidence_level": 1.0482639573946309,
+          "extraction_confidence": 1.0
         }
       ]
     },
@@ -92,20 +76,12 @@
       "aliases": [],
       "citations": [
         {
-          "exact_quote": "Looking at the time frames, it cannot be a huge help in combating climate change.",
-          "context": "Wealer criticized the viability of new nuclear plants given their long construction times, arguing they are too slow to make a significant impact on immediate climate goals.",
+          "exact_quote": "“Looking at the time frames, it cannot be a huge help in combating climate change,” and “It blocks the cash we need for renewables.”",
+          "context": "Arguing against the immediate reliance on new nuclear plants due to long construction timelines.",
           "citation_type": "Direct Quote",
-          "summarized_quote": "Due to extended development timelines, new nuclear power is not fast enough to provide substantial aid in the fight against climate change.",
-          "confidence_level": 5.0,
-          "extraction_confidence": 5.0
-        },
-        {
-          "exact_quote": "It blocks the cash we need for renewables.",
-          "context": "Wealer argued that investment in slow-to-build nuclear projects diverts financial resources away from faster and more immediately scalable renewable energy solutions.",
-          "citation_type": "Direct Quote",
-          "summarized_quote": "Nuclear development consumes capital that could otherwise be used to accelerate the deployment of renewable energy sources.",
-          "confidence_level": 5.0,
-          "extraction_confidence": 5.0
+          "summarized_quote": "Contends that, given current time constraints, nuclear energy cannot significantly aid climate change mitigation and diverts necessary capital away from renewables.",
+          "confidence_level": 1.047762958833718,
+          "extraction_confidence": 1.0
         }
       ]
     },
@@ -115,43 +91,58 @@
       "aliases": [],
       "citations": [
         {
-          "exact_quote": "We’re talking about a very toxic, high radioactive waste, which is producing problems for the next tens of thousands, or even hundreds of thousands of years. And we’re directing this problem, when using nuclear power, to future generations.",
-          "context": "Hamann emphasized the extreme long-term hazard posed by nuclear waste and the ethical burden placed on subsequent generations by the current use of nuclear power.",
+          "exact_quote": "“We’re talking about a very toxic, high radioactive waste, which is producing problems for the next tens of thousands, or even hundreds of thousands of years. And we’re directing this problem, when using nuclear power, to future generations,”",
+          "context": "Discussing government efforts concerning long-term storage solutions for nuclear waste.",
           "citation_type": "Direct Quote",
-          "summarized_quote": "Nuclear energy generates highly toxic radioactive waste that will continue to pose severe problems for tens or even hundreds of thousands of years, effectively passing this problem onto future societies.",
-          "confidence_level": 5.0,
-          "extraction_confidence": 5.0
+          "summarized_quote": "Stresses that the highly toxic radioactive waste from nuclear power presents a massive problem for future generations spanning tens or hundreds of thousands of years.",
+          "confidence_level": 1.047263978272795,
+          "extraction_confidence": 1.0
         }
       ]
     },
     {
       "speaker_name": "Tom Samson",
-      "speaker_role": "CEO of the new Rolls-Royce venture (Small Modular Reactors)",
+      "speaker_role": "CEO of the new Rolls-Royce venture (Small nuclear reactors)",
       "aliases": [],
       "citations": [
         {
-          "exact_quote": "It’s very, very difficult for any country to achieve net zero ambitions without nuclear.",
-          "context": "Samson stressed that nuclear power is a critical component required for nations aiming to meet their ambitious net-zero emissions targets.",
+          "exact_quote": "“It’s very, very difficult for any country to achieve net zero ambitions without nuclear,”",
+          "context": "Advocating for small modular reactors as a critical element in achieving national climate goals.",
           "citation_type": "Direct Quote",
-          "summarized_quote": "He asserted that achieving national net-zero goals would be nearly impossible without the inclusion of nuclear energy.",
-          "confidence_level": 5.0,
-          "extraction_confidence": 5.0
+          "summarized_quote": "Maintains that reaching net-zero targets is exceptionally difficult for any nation if nuclear power is excluded.",
+          "confidence_level": 1.046762998351872,
+          "extraction_confidence": 1.0
         },
         {
-          "exact_quote": "If you look back in history, you can find lots of examples of big nuclear projects that have struggled. We’ve designed ours to be different.",
-          "context": "Samson acknowledged the historical challenges and setbacks faced by large-scale nuclear construction but maintained confidence in his company's new designs as a solution.",
+          "exact_quote": "“If you look back in history, you can find lots of examples of big nuclear projects that have struggled,” and “We’ve designed ours to be different.”",
+          "context": "Addressing historical failures in large-scale nuclear construction while promoting the unique design features of Rolls-Royce's smaller reactors.",
           "citation_type": "Direct Quote",
-          "summarized_quote": "While admitting that past massive nuclear projects have encountered difficulties, he claimed that their current design philosophy is specifically engineered to overcome those historical struggles.",
-          "confidence_level": 5.0,
-          "extraction_confidence": 5.0
+          "summarized_quote": "Acknowledges that past major nuclear projects have faced struggles, but asserts that their new designs are specifically engineered to overcome those historical issues.",
+          "confidence_level": 1.046263998857357,
+          "extraction_confidence": 1.0
         },
         {
-          "exact_quote": "The spent fuel from a small modular reactor operating for 60 years would fill an Olympic-size swimming pool.",
-          "context": "Samson used this statement to provide a comparative measure of the waste volume generated by SMRs, suggesting they produce less waste than traditional large reactors.",
+          "exact_quote": "Samson also emphasizes that smaller reactors produce little waste.",
+          "context": "Describing the environmental benefits of small modular reactors (SMRs).",
+          "citation_type": "Paraphrased Statement/Attributed Opinion",
+          "summarized_quote": "Highlights that small modular reactors generate a minimal amount of waste.",
+          "confidence_level": 1.04576399928704,
+          "extraction_confidence": 1.0
+        }
+      ]
+    },
+    {
+      "speaker_name": "Henning Gloystein",
+      "speaker_role": "Director of energy, climate and resources at Eurasia Group",
+      "aliases": [],
+      "citations": [
+        {
+          "exact_quote": "“If there is a nuclear accident, a new major one, that could kill the entire industry,”",
+          "context": "Discussing how public opinion influences the future viability of nuclear power.",
           "citation_type": "Direct Quote",
-          "summarized_quote": "He provided an estimate that the spent fuel from a small modular reactor operating for six decades would only occupy the space equivalent to one Olympic-sized swimming pool.",
-          "confidence_level": 5.0,
-          "extraction_confidence": 5.0
+          "summarized_quote": "Warns that a subsequent large-scale nuclear accident could be so devastating that it would lead to the complete collapse of the industry.",
+          "confidence_level": 1.04526399879673,
+          "extraction_confidence": 1.0
         }
       ]
     }

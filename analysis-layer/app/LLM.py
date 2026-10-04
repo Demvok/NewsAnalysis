@@ -32,6 +32,9 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S"
 )
 
+# === Basics ===
+
+
 def llm_invoke(*args, usage_type="unspecified", reasoning="on", temperature=None, **kwargs):
     """
     Invoke the language model with logging of token usage and purpose.
@@ -68,6 +71,8 @@ def llm_invoke(*args, usage_type="unspecified", reasoning="on", temperature=None
     return response
 
 
+# === Extraction ===
+
 def extract_citations(article_title, article_content):
     """
     Extract citations from the given article using the citation extraction prompt.
@@ -85,7 +90,6 @@ def extract_citations(article_title, article_content):
     })
 
     return response
-
 
 def extract_citations_refined(article_title, article_content):
     """
@@ -112,6 +116,8 @@ def extract_citations_refined(article_title, article_content):
 
     return response
 
+# === Sentiment Analysis ===
+
 def sentiment_analysis(speaker: prompts.ExtractedSpeaker):
     """
     Perform sentiment analysis on the given content with respect to the specified topic.
@@ -120,7 +126,7 @@ def sentiment_analysis(speaker: prompts.ExtractedSpeaker):
         topic: The topic to analyze sentiment for
         content: The text content to analyze
     """
-    sentiment_chain = prompts.CITATION_EVALUATION_PROMPT | llm_main.with_structured_output(prompts.CitationEvaluationOutput)
+    sentiment_chain = prompts.TOPIC_EXTRACTION_PROMPT | llm_main.with_structured_output(prompts.TopicExtractionOutput) | prompts.CITATION_EVALUATION_PROMPT | llm_main.with_structured_output(prompts.CitationEvaluationOutput)
 
     response = sentiment_chain.invoke({
         'speaker_name': speaker['speaker_name'],
@@ -130,3 +136,6 @@ def sentiment_analysis(speaker: prompts.ExtractedSpeaker):
     })
 
     return response
+
+
+
