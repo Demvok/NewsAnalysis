@@ -1,2 +1,10 @@
 fastapi
 uvicorn[standard]
+feedparser>=6.0.14
+httpx>=0.28.1
+pydantic>=2.13.5
+pydantic-settings>=2.15.0
+python-dateutil>=2.9.0.post0
+sqlalchemy>=2.0.54
+psycopg[binary]>=3.2.0
+trafilatura>=2.2.0

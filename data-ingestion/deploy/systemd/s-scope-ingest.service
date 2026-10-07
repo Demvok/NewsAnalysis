@@ -1,0 +1,10 @@
+[Unit]
+Description=NewsAnalysis daily article ingestion
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/NewsAnalysis
+ExecStart=%h/NewsAnalysis/data-ingestion/scripts/daily_ingest.sh
+Nice=10

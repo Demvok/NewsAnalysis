@@ -17,3 +17,5 @@ Viz/cnn_articles_api/api_start.txt
 Viz/cnn_articles_api/start.txt
 Viz/cnn_articles_api/start.sh
 Viz/cnn_articles_api/activate.txt
+
+/pytest-cache__/
