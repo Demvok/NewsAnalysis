@@ -1,13 +1,6 @@
-# Sets LLM policy on dealing with outputs longer than supported. Supported policies are: 'IGNORE' / 'RETRY' / 'REFINE' / 'TRUNCATE'.
-# Ignore will skip the error, retry will try again (3) times, refine will call LLM to shrink the length and truncate will cut off extra characters (not recommended).
-import os
-
-FIELD_LENGTH_POLICY = 'REFINE'
 MAX_RETRIES = 3
-N_THREADS = 4 # Number of threads for parallel processing (only for the main_parallelised.py file)
 
 MARK_PROCESSED = True # If True, mark the chunk as processed in the database
-WRITE_TO_DB = True # If True, write the results to the database
 
 CONSOLE_LOG = True # If True, log to console
 LOGGING_LEVEL = 'INFO' # Logging level for the logger. Options are: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'
@@ -19,9 +12,6 @@ INCONSISTENCY_TOLERANCE = 0.4 # Used for filtering off consistent opinions, poss
 OPINION_FRESHNESS_THRESHOLD = 365  # Filters off opinions older than n days from given date of event, basically sets the time for person to safely change their opinion
 
 MIXED_INTERVAL = 0.3 # Interval (+- from 0) for telling if opinion is mixed
-
-CHUNK_SIZE = 2500  # Default chunk size for text splitting, set -1 to not split at all, default is 2500 characters
-CHUNK_OVERLAP = 200  # Default chunk overlap for text splitting
 
 
 def get_weighted_sentiment(df):  # For inconsistency analysis

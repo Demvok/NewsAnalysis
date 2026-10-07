@@ -84,24 +84,6 @@ def extract_citations(article_title, article_content):
 
     extraction_chain = prompts.CITATION_EXTRACTION_PROMPT | llm_main.with_structured_output(prompts.CitationExtractionOutput)
 
-    response = extraction_chain.invoke({
-    'article_title': article_title,
-    'article_content': article_content
-    })
-
-    return response
-
-def extract_citations_refined(article_title, article_content):
-    """
-    Extract citations from the given article using the citation extraction prompt.
-    
-    Args:
-        article_title: The name of the article
-        article_content: The content of the article
-    """
-
-    extraction_chain = prompts.CITATION_EXTRACTION_PROMPT | llm_main.with_structured_output(prompts.CitationExtractionOutput)
-
 
     refined_extraction_chain = (
         RunnablePassthrough.assign(extraction=extraction_chain)

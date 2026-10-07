@@ -18,7 +18,7 @@ from app.s_scope.storage.database import DatabaseManager
 app = FastAPI(
     title="NewsAnalysis-DataIngestion",
     description="Full API for NewsAnalysis data ingestion",
-    version="0.0.1"
+    version="0.1.0"
 )
 
 logger = logging.getLogger("data-ingestion")

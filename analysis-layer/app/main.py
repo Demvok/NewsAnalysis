@@ -5,7 +5,7 @@ from app import LLM
 app = FastAPI(
     title="NewsAnalysis-AnalysisLayer",
     description="Full API for NewsAnalysis data analysis",
-    version="0.0.1"
+    version="0.0.2"
 )
 
 logger = logging.getLogger("data-analysis")

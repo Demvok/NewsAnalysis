@@ -87,7 +87,7 @@ The API allows one active ingestion job at a time. Use `DELETE /ingest/{job_id}`
 4. In full mode, downloads pages and extracts text with `trafilatura`.
 5. Writes JSON files and inserts new articles into the configured database.
 
-The default database setting is SQLite. Docker Compose supplies PostgreSQL through `DATABASE_URL`. The database table is created automatically.
+The default database setting targets the shared PostgreSQL service at `postgres-db`. Docker Compose supplies the same value through `DATABASE_URL`. The database table is created automatically.
 
 ## 5. CLI alternative
 

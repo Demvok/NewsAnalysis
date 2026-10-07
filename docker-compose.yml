@@ -20,7 +20,7 @@ services:
     build: ./data-storage
     container_name: data-storage
     environment:
-      DATABASE_URL: postgresql://news:${POSTGRES_PASSWORD:-POSTGRES_PASSWORD}@postgres:5432/news
+      DATABASE_URL: postgresql+psycopg://news:${POSTGRES_PASSWORD:-POSTGRES_PASSWORD}@postgres-db:5432/news
     ports:
       - "8000:8000"
     depends_on:
@@ -33,7 +33,7 @@ services:
     build: ./data-ingestion
     container_name: data-ingestion
     environment:
-      DATABASE_URL: postgresql://news:${POSTGRES_PASSWORD:-POSTGRES_PASSWORD}@postgres:5432/news
+      DATABASE_URL: postgresql+psycopg://news:${POSTGRES_PASSWORD:-POSTGRES_PASSWORD}@postgres-db:5432/news
     ports:
       - "9000:9000"
     depends_on:
@@ -44,7 +44,7 @@ services:
     build: ./analysis-layer
     container_name: analysis-layer
     environment:
-      DATABASE_URL: postgresql://news:${POSTGRES_PASSWORD:-POSTGRES_PASSWORD}@postgres:5432/news
+      DATABASE_URL: postgresql+psycopg://news:${POSTGRES_PASSWORD:-POSTGRES_PASSWORD}@postgres-db:5432/news
     ports:
       - "7000:7000"
     depends_on:

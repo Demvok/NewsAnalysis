@@ -7,7 +7,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     project_root: Path = Field(default_factory=lambda: Path(__file__).resolve().parents[2])
-    database_url: str = Field(default="sqlite:///data/s_scope.db")
+    database_url: str = Field(
+        default="postgresql+psycopg://news:POSTGRES_PASSWORD@postgres-db:5432/news"
+    )
     ingestion_concurrency: int = Field(default=15)
     request_timeout: float = Field(default=15.0)
     min_content_length: int = Field(default=150)

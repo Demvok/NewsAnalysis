@@ -1,6 +1,7 @@
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 from pydantic import BaseModel, Field
 import json
+from enum import Enum
 
 
 class ModelCompatibleChatPromptTemplate(ChatPromptTemplate):
@@ -47,10 +48,38 @@ CITATION_EXTRACTION_PROMPT = ModelCompatibleChatPromptTemplate.from_messages([
     ),
 ])
 
+class CitationType(str, Enum):
+    DIRECT = "direct"
+    PARTIAL = "partial"
+    INDIRECT = "indirect"
+    SUMMARY = "summary"
+    POSITION = "position"
+    MENTION = "mention"
+
 class CitationExtractionCitation(BaseModel):
     exact_quote: str = Field(..., description="The exact quote from the speaker in the article")
     context: str = Field(..., description="The context of the quote in the article")
-    citation_type: str = Field(..., description="The type of citation, e.g. direct quote or paraphrase")
+    citation_type: CitationType =  Field(description=(
+        """Classify how a person's statement or opinion is presented in the article. 
+        Choose exactly one type:\n
+        - direct: The person's exact words are reproduced verbatim, normally within quotation marks. 
+        The wording is presented as the person's own original speech.\n
+        - partial: A combination of direct and indirect quotation. 
+        Some words or phrases are reproduced verbatim, while the rest of the statement is paraphrased 
+        or integrated into the journalist's sentence.\n
+        - indirect: The article explicitly attributes a specific statement to the person, 
+        but conveys its content entirely in the journalist's own words rather than reproducing the person's exact wording.\n
+        - summary: The article summarizes the general content or main ideas of one or more statements 
+        made by the person, without preserving a specific statement or its exact wording. 
+        This is broader and less specific than an indirect quotation.\n
+        - position: The article attributes a general position, belief, attitude, or stance to the person 
+        without presenting a specific statement made by that person. 
+        Use this when the text describes what the person believes, supports, opposes, or generally advocates, 
+        rather than reporting a particular utterance.\n
+        - mention: The person is merely mentioned or associated with the topic, but the article does not 
+        attribute any statement, opinion, position, or stance to them. 
+        Do not use this type if the text provides evidence of the person's expressed opinion."""
+    ))
     summarized_quote: str = Field(..., description="A summarized version of the quote")
     confidence_level: float = Field(..., description="Confidence that the quote accurately represents the speaker's stance, from 0 to 1")
     extraction_confidence: float = Field(..., description="Confidence in the extraction process, from 0 to 1")
