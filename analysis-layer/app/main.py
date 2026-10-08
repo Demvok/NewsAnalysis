@@ -1,5 +1,6 @@
 import logging
 import os
+from uuid import UUID
 
 import httpx
 from fastapi import FastAPI, HTTPException
@@ -41,9 +42,34 @@ def analyze_citations(request: models.AnalysisRequest) -> models.CitationExtract
     )
     result = extract_citations(article)
     if request.article_id is not None:
+        _persist_extraction(request.article_id, result)
+    return result
+
+
+def _persist_extraction(article_id: UUID, result: models.CitationExtractionResult) -> None:
+    people = [
+        {
+            "name": speaker.speaker_name.strip(),
+            "affiliation": speaker.speaker_role or None,
+            "aliases": speaker.aliases,
+        }
+        for speaker in result.speakers
+        if speaker.speaker_name.strip()
+    ]
+    if not people:
+        return
+    try:
+        people_response = httpx.post(f"{STORAGE_URL}/people/bulk", json=people, timeout=30.0)
+        people_response.raise_for_status()
+        persisted_people = people_response.json()
+        person_ids = {
+            person["name"].strip().casefold(): person["person_uuid"]
+            for person in persisted_people
+        }
         citations = [
             {
-                "origin_article_id": str(request.article_id),
+                "origin_article_id": str(article_id),
+                "person_uuid": person_ids[speaker.speaker_name.strip().casefold()],
                 "exact_quote": citation.exact_quote,
                 "context": citation.context,
                 "citation_type": citation.citation_type.value,
@@ -53,15 +79,18 @@ def analyze_citations(request: models.AnalysisRequest) -> models.CitationExtract
             }
             for speaker in result.speakers
             for citation in speaker.citations
+            if speaker.speaker_name.strip().casefold() in person_ids
         ]
         if citations:
-            try:
-                response = httpx.post(f"{STORAGE_URL}/citations/bulk", json=citations, timeout=30.0)
-                response.raise_for_status()
-            except httpx.HTTPError as exc:
-                logger.exception("Failed to persist extracted citations for article %s", request.article_id)
-                raise HTTPException(status_code=502, detail="Storage API rejected extracted citations") from exc
-    return result
+            citations_response = httpx.post(
+                f"{STORAGE_URL}/citations/bulk",
+                json=citations,
+                timeout=30.0,
+            )
+            citations_response.raise_for_status()
+    except (httpx.HTTPError, KeyError, ValueError) as exc:
+        logger.exception("Failed to persist extraction for article %s", article_id)
+        raise HTTPException(status_code=502, detail="Storage API rejected extracted people or citations") from exc
 
 
 if __name__ == "__main__":

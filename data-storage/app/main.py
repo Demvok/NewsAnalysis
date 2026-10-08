@@ -5,7 +5,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import FastAPI, HTTPException, Query, status
-from sqlalchemy import delete, or_, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 
 from app.database import (
@@ -289,7 +289,23 @@ def delete_person(person_uuid: UUID) -> None:
 
 @app.post("/people/bulk", status_code=201, response_model=None, tags=["People - Bulk"], summary="Create people in bulk")
 def create_people_bulk(payload: list[PersonPayload]) -> list[dict[str, Any]]:
-    return _bulk_create(DimPerson, [item.model_dump() for item in payload])
+    results: list[dict[str, Any]] = []
+    try:
+        with get_session() as session:
+            for item in payload:
+                values = item.model_dump(exclude_none=True)
+                existing = session.scalar(
+                    select(DimPerson).where(func.lower(DimPerson.name) == item.name.strip().casefold())
+                )
+                if existing is None:
+                    existing = DimPerson(**values)
+                    session.add(existing)
+                    session.flush()
+                results.append(_as_dict(existing))
+        return results
+    except IntegrityError as exc:
+        logger.exception("Failed to create people in bulk")
+        raise HTTPException(status_code=409, detail="Bulk request conflicts with existing records") from exc
 
 
 @app.patch("/people/bulk", response_model=None, tags=["People - Bulk"], summary="Update people in bulk")

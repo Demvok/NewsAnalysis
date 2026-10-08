@@ -43,6 +43,7 @@ class ArticlePayload(BaseModel):
 
 
 class PersonPayload(BaseModel):
+    person_uuid: UUID | None = None
     name: str = Field(min_length=1, max_length=512)
     image_url: str | None = None
     affiliation: Any = None
