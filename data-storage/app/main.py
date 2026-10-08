@@ -410,7 +410,22 @@ def delete_topic(topic_uuid: UUID) -> None:
 def create_topics_bulk(payload: list[TopicPayload]) -> list[dict[str, Any]]:
     for item in payload:
         _validate_vector(item.topic_description_vector)
-    return _bulk_create(DimTopic, [item.model_dump() for item in payload])
+    results: list[dict[str, Any]] = []
+    try:
+        with get_session() as session:
+            for item in payload:
+                existing = session.scalar(
+                    select(DimTopic).where(func.lower(DimTopic.topic_name) == item.topic_name.strip().casefold())
+                )
+                if existing is None:
+                    existing = DimTopic(**item.model_dump(exclude_none=True))
+                    session.add(existing)
+                    session.flush()
+                results.append(_as_dict(existing))
+        return results
+    except IntegrityError as exc:
+        logger.exception("Failed to create topics in bulk")
+        raise HTTPException(status_code=409, detail="Bulk request conflicts with existing records") from exc
 
 
 @app.patch("/topics/bulk", response_model=None, tags=["Topics - Bulk"], summary="Update topics in bulk")

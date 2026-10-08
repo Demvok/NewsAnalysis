@@ -41,3 +41,8 @@ def analyze_speaker_sentiment(speaker: dict):
         dict: A dictionary containing the sentiment analysis results.
     """
     return LLM.sentiment_analysis(speaker=speaker)
+
+
+def analyze_speaker_topics(speaker: models.SpeakerExtraction):
+    """Evaluate topics and stance for all citations attributed to one speaker."""
+    return LLM.sentiment_analysis(speaker.model_dump())

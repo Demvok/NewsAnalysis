@@ -6,7 +6,7 @@ import httpx
 from fastapi import FastAPI, HTTPException
 
 from app import models
-from app.analysis import extract_citations
+from app.analysis import analyze_speaker_topics, extract_citations
 
 app = FastAPI(
     title="NewsAnalysis-AnalysisLayer",
@@ -81,16 +81,62 @@ def _persist_extraction(article_id: UUID, result: models.CitationExtractionResul
             for citation in speaker.citations
             if speaker.speaker_name.strip().casefold() in person_ids
         ]
-        if citations:
-            citations_response = httpx.post(
-                f"{STORAGE_URL}/citations/bulk",
-                json=citations,
-                timeout=30.0,
-            )
-            citations_response.raise_for_status()
+        if not citations:
+            return
+        citations_response = httpx.post(
+            f"{STORAGE_URL}/citations/bulk",
+            json=citations,
+            timeout=30.0,
+        )
+        citations_response.raise_for_status()
+        persisted_citations = citations_response.json()
+        citation_ids = {
+            citation["exact_quote"]: citation["citation_uuid"]
+            for citation in persisted_citations
+            if citation.get("exact_quote")
+        }
+        for speaker in result.speakers:
+            evaluation = analyze_speaker_topics(speaker)
+            topics = [
+                {
+                    "topic_name": topic.topic_name.strip(),
+                    "topic_description": topic.topic_description,
+                }
+                for citation in evaluation.evaluated_citations
+                for topic in citation.evaluated_topics
+                if topic.topic_name.strip() and topic.stance_detected
+            ]
+            if not topics:
+                continue
+            topics_response = httpx.post(f"{STORAGE_URL}/topics/bulk", json=topics, timeout=30.0)
+            topics_response.raise_for_status()
+            topic_ids = {
+                topic["topic_name"].strip().casefold(): topic["topic_uuid"]
+                for topic in topics_response.json()
+            }
+            attitudes = [
+                {
+                    "topic_uuid": topic_ids[topic.topic_name.strip().casefold()],
+                    "citation_uuid": citation_ids[citation.exact_quote],
+                    "stance": str(topic.stance) if topic.stance is not None else None,
+                    "relevancy_score": topic.relevancy_score,
+                    "stance_summary": topic.topic_description,
+                }
+                for citation in evaluation.evaluated_citations
+                if citation.exact_quote in citation_ids
+                for topic in citation.evaluated_topics
+                if topic.topic_name.strip().casefold() in topic_ids
+            ]
+            if attitudes:
+                attitudes_response = httpx.post(
+                    f"{STORAGE_URL}/attitudes/bulk",
+                    json=attitudes,
+                    timeout=30.0,
+                )
+                attitudes_response.raise_for_status()
     except (httpx.HTTPError, KeyError, ValueError) as exc:
         logger.exception("Failed to persist extraction for article %s", article_id)
-        raise HTTPException(status_code=502, detail="Storage API rejected extracted people or citations") from exc
+        raise HTTPException(status_code=502, detail="Storage API rejected extracted analytical data") from exc
 
 
 if __name__ == "__main__":
