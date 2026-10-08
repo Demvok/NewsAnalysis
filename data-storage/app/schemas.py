@@ -4,14 +4,25 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from enum import Enum
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ORMModel(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class CitationType(str, Enum):
+    DIRECT = "direct"
+    PARTIAL = "partial"
+    INDIRECT = "indirect"
+    SUMMARY = "summary"
+    POSITION = "position"
+    MENTION = "mention"
+
+
 class ArticlePayload(BaseModel):
+    article_id: UUID | None = None
     article_title: str | None = None
     article_content: str | None = None
     author: str | None = None
@@ -25,9 +36,14 @@ class ArticlePayload(BaseModel):
     tags: Any = None
     description: str | None = None
 
+    @field_validator("url")
+    @classmethod
+    def normalize_url(cls, value: str | None) -> str | None:
+        return value.strip() if value else value
+
 
 class PersonPayload(BaseModel):
-    name: str
+    name: str = Field(min_length=1, max_length=512)
     image_url: str | None = None
     affiliation: Any = None
     aliases: Any = None
@@ -41,7 +57,7 @@ class CitationPayload(BaseModel):
     person_uuid: UUID | None = None
     exact_quote: str | None = None
     context: str | None = None
-    citation_type: str | None = None
+    citation_type: CitationType | None = None
     summarized_quote: str | None = None
     summarized_quote_vector: list[float] | None = None
     confidence_level: float | None = Field(default=None, ge=0, le=1)
@@ -49,7 +65,7 @@ class CitationPayload(BaseModel):
 
 
 class TopicPayload(BaseModel):
-    topic_name: str
+    topic_name: str = Field(min_length=1, max_length=512)
     topic_description: str | None = None
     topic_description_vector: list[float] | None = None
     general_topic_field: str | None = None
@@ -59,7 +75,7 @@ class AttitudePayload(BaseModel):
     topic_uuid: UUID
     citation_uuid: UUID
     stance: str | None = None
-    relevancy_score: float | None = None
+    relevancy_score: float | None = Field(default=None, ge=0, le=1)
     stance_summary: str | None = None
     inconsistency_detected: bool | None = None
     inconsistent_with: Any = None
@@ -84,7 +100,7 @@ class CitationUpdate(BaseModel):
     person_uuid: UUID | None = None
     exact_quote: str | None = None
     context: str | None = None
-    citation_type: str | None = None
+    citation_type: CitationType | None = None
     summarized_quote: str | None = None
     summarized_quote_vector: list[float] | None = None
     confidence_level: float | None = Field(default=None, ge=0, le=1)

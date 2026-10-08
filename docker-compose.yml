@@ -34,6 +34,7 @@ services:
     container_name: data-ingestion
     environment:
       DATABASE_URL: postgresql+psycopg://news:${POSTGRES_PASSWORD:-POSTGRES_PASSWORD}@postgres-db:5432/news
+      STORAGE_URL: http://data-storage:8000
     ports:
       - "9000:9000"
     depends_on:
@@ -45,6 +46,7 @@ services:
     container_name: analysis-layer
     environment:
       DATABASE_URL: postgresql+psycopg://news:${POSTGRES_PASSWORD:-POSTGRES_PASSWORD}@postgres-db:5432/news
+      STORAGE_URL: http://data-storage:8000
     ports:
       - "7000:7000"
     depends_on:

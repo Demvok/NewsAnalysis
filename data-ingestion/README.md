@@ -85,9 +85,9 @@ The API allows one active ingestion job at a time. Use `DELETE /ingest/{job_id}`
 2. Keeps entries with a publication date in the previous 24 hours.
 3. Removes duplicate URLs and balances articles across sources.
 4. In full mode, downloads pages and extracts text with `trafilatura`.
-5. Writes JSON files and inserts new articles into the configured database.
+5. Writes JSON files and submits full-text articles to the data-storage API in Docker Compose.
 
-The default database setting targets the shared PostgreSQL service at `postgres-db`. Docker Compose supplies the same value through `DATABASE_URL`. The database table is created automatically.
+Docker Compose supplies `STORAGE_URL=http://data-storage:8000`; the storage service owns PostgreSQL and article idempotency. For standalone/local runs, pass `storage_url` to use the API, or pass `db_url` to retain the local SQLite fallback.
 
 ## 5. CLI alternative
 

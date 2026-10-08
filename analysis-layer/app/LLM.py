@@ -2,7 +2,7 @@ import logging, os, sys
 from langchain_openai.chat_models import ChatOpenAI
 from langchain_core.runnables import ConfigurableField, RunnablePassthrough
 
-import prompts
+from . import prompts
 
 
 llm_main = ChatOpenAI(
@@ -118,6 +118,5 @@ def sentiment_analysis(speaker: prompts.ExtractedSpeaker):
     })
 
     return response
-
 
 

@@ -1,25 +1,36 @@
-from analysis-layer.app import LLM
+from __future__ import annotations
+
+import logging
+
+from . import LLM, models
 
 
-def extract_citations(article):
+logger = logging.getLogger(__name__)
+
+def extract_citations(article: models.Article) -> models.CitationExtractionResult:
     """
     Extracts citations from the given article title and content.
 
     Args:
-        article (dict): A dictionary containing the article's title and content.
+        article (Article): An Article object containing the article's title and content.
 
     Returns:
         list: A list of extracted citations.
     """
-    article_title = article.get('title', '')
-    article_content = article.get('content', '')
+    if not article:
+        raise ValueError("article is required")
 
-    citations = LLM.extract_citations(article_title=article_title, article_content=article_content)
+    response = LLM.extract_citations(
+        article_title=article.article_title or "",
+        article_content=article.article_content or "",
+    )
+    result = models.CitationExtractionResult.model_validate(response.model_dump())
+    logger.info("Extracted %d speakers", len(result.speakers))
+    return result
 
-    return citations
 
 
-def analyze_speaker_sentiment(speaker):
+def analyze_speaker_sentiment(speaker: dict):
     """
     Analyzes the sentiment of the given speaker's content.
 
@@ -29,5 +40,4 @@ def analyze_speaker_sentiment(speaker):
     Returns:
         dict: A dictionary containing the sentiment analysis results.
     """
-    sentiment_result = LLM.sentiment_analysis(speaker=speaker)
-    return sentiment_result
+    return LLM.sentiment_analysis(speaker=speaker)

@@ -29,6 +29,7 @@ class IngestionRequest(BaseModel):
     output_json: str = "data/articles_500.json"
     output_index: str = "data/articles_index.json"
     db_url: Optional[str] = None
+    storage_url: Optional[str] = None
     concurrency: int = Field(default=settings.ingestion_concurrency, ge=1, le=100)
     timeout: float = Field(default=settings.request_timeout, gt=0, le=300)
     metadata_only: bool = False
@@ -64,6 +65,7 @@ async def _run_ingestion(job_id: str, request: IngestionRequest) -> None:
             output_json=request.output_json,
             output_index=request.output_index,
             db_url=None if request.metadata_only else (request.db_url or settings.database_url),
+            storage_url=None if request.metadata_only else (request.storage_url or settings.storage_url),
             metadata_only=request.metadata_only,
         )
         _set_job(

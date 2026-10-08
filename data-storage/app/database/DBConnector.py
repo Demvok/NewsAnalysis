@@ -6,7 +6,7 @@ from typing import Iterator
 from uuid import UUID, uuid4
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import DateTime, Float, ForeignKey, JSON, String, Text, create_engine, text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, Float, ForeignKey, JSON, String, Text, create_engine, text
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 
@@ -24,6 +24,9 @@ class Base(DeclarativeBase):
 
 class DimArticle(Base):
     __tablename__ = "dimArticle"
+    __table_args__ = (
+        CheckConstraint("status <> ''", name="ck_dim_article_status_nonempty"),
+    )
 
     article_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
     article_title: Mapped[str | None] = mapped_column(Text)
@@ -57,6 +60,13 @@ class DimPerson(Base):
 
 class DimCitation(Base):
     __tablename__ = "dimCitation"
+    __table_args__ = (
+        CheckConstraint("confidence_level IS NULL OR confidence_level BETWEEN 0 AND 1", name="ck_citation_confidence"),
+        CheckConstraint(
+            "extraction_confidence IS NULL OR extraction_confidence BETWEEN 0 AND 1",
+            name="ck_citation_extraction_confidence",
+        ),
+    )
 
     citation_uuid: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
     origin_article_id: Mapped[UUID] = mapped_column(
@@ -76,6 +86,9 @@ class DimCitation(Base):
 
 class DimTopic(Base):
     __tablename__ = "dimTopic"
+    __table_args__ = (
+        CheckConstraint("topic_name <> ''", name="ck_topic_name_nonempty"),
+    )
 
     topic_uuid: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
     topic_name: Mapped[str] = mapped_column(String(512), nullable=False)
@@ -86,6 +99,9 @@ class DimTopic(Base):
 
 class FctAttitude(Base):
     __tablename__ = "fctAttitude"
+    __table_args__ = (
+        CheckConstraint("relevancy_score IS NULL OR relevancy_score BETWEEN 0 AND 1", name="ck_attitude_relevancy"),
+    )
 
     topic_uuid: Mapped[UUID] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("dimTopic.topic_uuid", ondelete="CASCADE"), primary_key=True
@@ -96,7 +112,7 @@ class FctAttitude(Base):
     stance: Mapped[str | None] = mapped_column(String(64))
     relevancy_score: Mapped[float | None] = mapped_column(Float)
     stance_summary: Mapped[str | None] = mapped_column(Text)
-    inconsistency_detected: Mapped[bool | None]
+    inconsistency_detected: Mapped[bool | None] = mapped_column(Boolean)
     inconsistent_with: Mapped[object | None] = mapped_column(JSON)
     inconsistency_comment: Mapped[str | None] = mapped_column(Text)
 

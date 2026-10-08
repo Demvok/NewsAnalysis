@@ -52,7 +52,15 @@ class IngestionPipeline:
         self.feed_reader = FeedReader(timeout=timeout)
         self.extractor = ArticleExtractor(timeout=timeout, min_content_length=min_content_length)
 
-    async def run(self, target_count: int = 500, output_json: str = "data/articles_500.json", output_index: str = "data/articles_index.json", db_url: Optional[str] = "sqlite:///data/s_scope.db", metadata_only: bool = False) -> List[Article]:
+    async def run(
+        self,
+        target_count: int = 500,
+        output_json: str = "data/articles_500.json",
+        output_index: str = "data/articles_index.json",
+        db_url: Optional[str] = "sqlite:///data/s_scope.db",
+        storage_url: Optional[str] = None,
+        metadata_only: bool = False,
+    ) -> List[Article]:
         window_end = datetime.now(timezone.utc)
         window_start = window_end - PUBLICATION_WINDOW
         limits = httpx.Limits(max_keepalive_connections=20, max_connections=40)
@@ -86,6 +94,40 @@ class IngestionPipeline:
             export_articles_to_json(articles, output_json)
         if output_index:
             export_index_to_json(articles, output_index)
-        if db_url and not metadata_only:
+        if storage_url and not metadata_only:
+            await self._save_to_storage(articles, storage_url)
+        elif db_url and not metadata_only:
             DatabaseManager(db_url=db_url).save_articles(articles)
         return articles
+
+    async def _save_to_storage(self, articles: List[Article], storage_url: str) -> None:
+        payload = [
+            {
+                "article_id": article.id,
+                "article_title": article.title,
+                "article_content": article.content_c,
+                "author": article.author,
+                "status": "NEW",
+                "source": article.source,
+                "language": article.language,
+                "url": article.url,
+                "published_at": article.published_at.isoformat() if article.published_at else None,
+                "parsed_at": article.parsed_at.isoformat() if article.parsed_at else None,
+                "tags": article.tags,
+                "description": article.description,
+            }
+            for article in articles
+        ]
+        if not payload:
+            return
+        async with httpx.AsyncClient(timeout=self.extractor.timeout) as client:
+            for offset in range(0, len(payload), 100):
+                response = await client.post(
+                    f"{storage_url.rstrip('/')}/articles/bulk",
+                    json=payload[offset : offset + 100],
+                )
+                try:
+                    response.raise_for_status()
+                except httpx.HTTPStatusError as exc:
+                    logger.error("Storage API rejected articles: status=%s body=%s", response.status_code, response.text)
+                    raise RuntimeError("Storage API rejected an article batch") from exc
