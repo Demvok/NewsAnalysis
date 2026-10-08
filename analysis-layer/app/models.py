@@ -61,6 +61,8 @@ class AnalysisRequest(BaseModel):
     article_id: UUID | None = None
     article_title: str = ""
     article_content: str = ""
+    published_at: datetime | None = None
+    inconsistency_window_days: int = Field(default=365, ge=1, le=3650)
 
 
 class TopicAttitude(BaseModel):

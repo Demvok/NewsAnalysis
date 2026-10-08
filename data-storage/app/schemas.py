@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from enum import Enum
@@ -81,6 +81,20 @@ class AttitudePayload(BaseModel):
     inconsistency_detected: bool | None = None
     inconsistent_with: Any = None
     inconsistency_comment: str | None = None
+
+
+class InconsistencyPayload(BaseModel):
+    person_uuid: UUID
+    topic_uuid: UUID
+    citation_a_uuid: UUID
+    citation_b_uuid: UUID
+    attitude_a: str | None = None
+    attitude_b: str | None = None
+    classification: Literal["CONSISTENT", "POSITION_CHANGE", "CONTRADICTION", "INSUFFICIENT_EVIDENCE"]
+    severity: str | None = None
+    confidence: float | None = Field(default=None, ge=0, le=1)
+    inconsistency_comment: str | None = None
+    detected_at: datetime | None = None
 
 
 class ArticleUpdate(ArticlePayload):

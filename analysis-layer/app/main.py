@@ -1,11 +1,12 @@
 import logging
 import os
+from datetime import datetime
 from uuid import UUID
 
 import httpx
 from fastapi import FastAPI, HTTPException
 
-from app import models
+from app import LLM, models
 from app.analysis import analyze_speaker_topics, extract_citations
 
 app = FastAPI(
@@ -39,6 +40,7 @@ def analyze_citations(request: models.AnalysisRequest) -> models.CitationExtract
         article_id=request.article_id or "00000000-0000-0000-0000-000000000000",
         article_title=request.article_title,
         article_content=request.article_content,
+        published_at=request.published_at,
     )
     result = extract_citations(article)
     if request.article_id is not None:
@@ -134,9 +136,71 @@ def _persist_extraction(article_id: UUID, result: models.CitationExtractionResul
                     timeout=30.0,
                 )
                 attitudes_response.raise_for_status()
+                _persist_inconsistencies(
+                    person_uuid=person_ids[speaker.speaker_name.strip().casefold()],
+                    current_citations=citation_ids,
+                    topic_ids=topic_ids,
+                    topics=topics,
+                    attitudes=attitudes,
+                    before=request.published_at,
+                    window_days=request.inconsistency_window_days,
+                )
     except (httpx.HTTPError, KeyError, ValueError) as exc:
         logger.exception("Failed to persist extraction for article %s", article_id)
         raise HTTPException(status_code=502, detail="Storage API rejected extracted analytical data") from exc
+
+
+def _persist_inconsistencies(
+    person_uuid: str,
+    current_citations: dict[str, str],
+    topic_ids: dict[str, str],
+    topics: list[dict[str, object]],
+    attitudes: list[dict[str, object]],
+    before: datetime | None,
+    window_days: int,
+) -> None:
+    topic_names = {topic["topic_name"].strip().casefold(): topic["topic_name"] for topic in topics}
+    for attitude in attitudes:
+        topic_uuid = str(attitude["topic_uuid"])
+        topic_name = next((name for key, name in topic_names.items() if topic_ids.get(key) == topic_uuid), None)
+        citation_uuid = str(attitude["citation_uuid"])
+        if not topic_name:
+            continue
+        history_response = httpx.get(
+            f"{STORAGE_URL}/attitudes/history",
+            params={
+                "person_uuid": person_uuid,
+                "topic_uuid": topic_uuid,
+                "before": before.isoformat() if before else None,
+                "window_days": window_days,
+                "exclude_citation_uuid": citation_uuid,
+            },
+            timeout=30.0,
+        )
+        history_response.raise_for_status()
+        current_quote = next((quote for quote, value in current_citations.items() if value == citation_uuid), "")
+        for historical in history_response.json():
+            comparison = LLM.compare_attitudes(
+                topic_name=topic_name,
+                earlier=historical.get("exact_quote") or historical.get("summarized_quote") or "",
+                earlier_stance=historical.get("stance"),
+                newer=current_quote,
+                newer_stance=str(attitude.get("stance")) if attitude.get("stance") is not None else None,
+            )
+            payload = {
+                "person_uuid": person_uuid,
+                "topic_uuid": topic_uuid,
+                "citation_a_uuid": historical["citation_uuid"],
+                "citation_b_uuid": citation_uuid,
+                "attitude_a": historical.get("stance"),
+                "attitude_b": attitude.get("stance"),
+                "classification": comparison.classification,
+                "severity": comparison.severity,
+                "confidence": comparison.confidence,
+                "inconsistency_comment": comparison.comment,
+            }
+            response = httpx.post(f"{STORAGE_URL}/inconsistencies", json=payload, timeout=30.0)
+            response.raise_for_status()
 
 
 if __name__ == "__main__":

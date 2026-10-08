@@ -6,7 +6,7 @@ from typing import Iterator
 from uuid import UUID, uuid4
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Boolean, CheckConstraint, DateTime, Float, ForeignKey, JSON, String, Text, create_engine, text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, Float, ForeignKey, JSON, String, Text, UniqueConstraint, create_engine, text
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 
@@ -115,6 +115,39 @@ class FctAttitude(Base):
     inconsistency_detected: Mapped[bool | None] = mapped_column(Boolean)
     inconsistent_with: Mapped[object | None] = mapped_column(JSON)
     inconsistency_comment: Mapped[str | None] = mapped_column(Text)
+
+
+class FctInconsistency(Base):
+    __tablename__ = "fctInconsistency"
+    __table_args__ = (
+        UniqueConstraint("topic_uuid", "citation_a_uuid", "citation_b_uuid", name="uq_inconsistency_evidence_pair"),
+        CheckConstraint(
+            "classification IN ('CONSISTENT', 'POSITION_CHANGE', 'CONTRADICTION', 'INSUFFICIENT_EVIDENCE')",
+            name="ck_inconsistency_classification",
+        ),
+        CheckConstraint("confidence IS NULL OR confidence BETWEEN 0 AND 1", name="ck_inconsistency_confidence"),
+    )
+
+    inconsistency_uuid: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    person_uuid: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("dimPerson.person_uuid", ondelete="CASCADE"), nullable=False
+    )
+    topic_uuid: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("dimTopic.topic_uuid", ondelete="CASCADE"), nullable=False
+    )
+    citation_a_uuid: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("dimCitation.citation_uuid", ondelete="CASCADE"), nullable=False
+    )
+    citation_b_uuid: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("dimCitation.citation_uuid", ondelete="CASCADE"), nullable=False
+    )
+    attitude_a: Mapped[str | None] = mapped_column(String(64))
+    attitude_b: Mapped[str | None] = mapped_column(String(64))
+    classification: Mapped[str] = mapped_column(String(32), nullable=False)
+    severity: Mapped[str | None] = mapped_column(String(32))
+    confidence: Mapped[float | None] = mapped_column(Float)
+    inconsistency_comment: Mapped[str | None] = mapped_column(Text)
+    detected_at: Mapped[object | None] = mapped_column(DateTime(timezone=True))
 
 
 engine = create_engine(database_url(), pool_pre_ping=True, pool_recycle=1800)

@@ -120,3 +120,18 @@ def sentiment_analysis(speaker: prompts.ExtractedSpeaker):
     return response
 
 
+def compare_attitudes(
+    topic_name: str,
+    earlier: str,
+    earlier_stance: str | None,
+    newer: str,
+    newer_stance: str | None,
+) -> prompts.InconsistencyComparison:
+    chain = prompts.INCONSISTENCY_COMPARISON_PROMPT | llm_main.with_structured_output(prompts.InconsistencyComparison)
+    return chain.invoke({
+        "topic_name": topic_name,
+        "earlier": earlier,
+        "earlier_stance": earlier_stance,
+        "newer": newer,
+        "newer_stance": newer_stance,
+    })

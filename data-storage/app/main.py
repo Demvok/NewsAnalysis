@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID
 
@@ -14,6 +15,7 @@ from app.database import (
     DimPerson,
     DimTopic,
     FctAttitude,
+    FctInconsistency,
     check_database,
     create_database,
     engine,
@@ -29,6 +31,7 @@ from app.schemas import (
     AttitudeKey,
     AttitudePayload,
     AttitudeUpdate,
+    InconsistencyPayload,
     BulkAttitudeDeleteRequest,
     BulkDeleteRequest,
     CitationBulkUpdate,
@@ -445,6 +448,42 @@ def list_attitudes(limit: int = Query(50, ge=1, le=500)) -> list[dict[str, Any]]
     return _list(FctAttitude, limit)
 
 
+@app.get("/attitudes/history", response_model=None, tags=["Attitudes"], summary="Find historical attitudes")
+def history_attitudes(
+    person_uuid: UUID,
+    topic_uuid: UUID,
+    before: datetime | None = None,
+    window_days: int = Query(365, ge=1, le=3650),
+    exclude_citation_uuid: UUID | None = None,
+) -> list[dict[str, Any]]:
+    cutoff = (before or datetime.now(timezone.utc)) - timedelta(days=window_days)
+    with get_session() as session:
+        statement = (
+            select(FctAttitude, DimCitation, DimArticle)
+            .join(DimCitation, FctAttitude.citation_uuid == DimCitation.citation_uuid)
+            .join(DimArticle, DimCitation.origin_article_id == DimArticle.article_id)
+            .where(
+                FctAttitude.topic_uuid == topic_uuid,
+                DimCitation.person_uuid == person_uuid,
+                DimArticle.published_at.is_not(None),
+                DimArticle.published_at >= cutoff,
+                DimArticle.published_at <= (before or datetime.now(timezone.utc)),
+            )
+            .order_by(DimArticle.published_at.desc())
+        )
+        if exclude_citation_uuid is not None:
+            statement = statement.where(FctAttitude.citation_uuid != exclude_citation_uuid)
+        return [
+            {
+                **_as_dict(attitude),
+                "exact_quote": citation.exact_quote,
+                "summarized_quote": citation.summarized_quote,
+                "published_at": article.published_at,
+            }
+            for attitude, citation, article in session.execute(statement).all()
+        ]
+
+
 @app.get("/attitudes/{topic_uuid}/{citation_uuid}", response_model=None, tags=["Attitudes"], summary="Get an attitude")
 def get_attitude(topic_uuid: UUID, citation_uuid: UUID) -> dict[str, Any]:
     return _get(FctAttitude, (topic_uuid, citation_uuid))
@@ -485,6 +524,30 @@ def update_attitudes_bulk(payload: list[AttitudeBulkUpdate]) -> list[dict[str, A
             result.append(item)
         session.flush()
         return [_as_dict(item) for item in result]
+
+
+@app.post("/inconsistencies", status_code=201, response_model=None, tags=["Inconsistencies"], summary="Create an inconsistency assessment")
+def create_inconsistency(payload: InconsistencyPayload) -> dict[str, Any]:
+    values = payload.model_dump(exclude_none=True)
+    with get_session() as session:
+        existing = session.scalar(
+            select(FctInconsistency).where(
+                FctInconsistency.topic_uuid == payload.topic_uuid,
+                FctInconsistency.citation_a_uuid == payload.citation_a_uuid,
+                FctInconsistency.citation_b_uuid == payload.citation_b_uuid,
+            )
+        )
+        if existing is not None:
+            return _as_dict(existing)
+        item = FctInconsistency(**values)
+        session.add(item)
+        session.flush()
+        return _as_dict(item)
+
+
+@app.get("/inconsistencies", response_model=None, tags=["Inconsistencies"], summary="List inconsistency assessments")
+def list_inconsistencies(limit: int = Query(50, ge=1, le=500)) -> list[dict[str, Any]]:
+    return _list(FctInconsistency, limit)
 
 
 @app.post("/topics/search", response_model=None, tags=["Topics"], summary="Search topics by embedding")

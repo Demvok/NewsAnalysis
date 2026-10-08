@@ -261,3 +261,30 @@ class CitationEvaluationOutput(BaseModel):
     speaker_role: str = Field(..., description="The role or affiliation of the speaker if he represents an organization")
     aliases: list[str] = Field(..., description="A list of aliases used for the speaker in the article")
     evaluated_citations: list[EvaluatedCitation] = Field(..., description="Citations attributed to the speaker with their topic evaluations and stances")
+
+
+class InconsistencyComparison(BaseModel):
+    classification: str = Field(description="CONSISTENT, POSITION_CHANGE, CONTRADICTION, or INSUFFICIENT_EVIDENCE")
+    severity: str | None = None
+    confidence: float = Field(ge=0, le=1)
+    comment: str
+
+
+INCONSISTENCY_COMPARISON_PROMPT = ModelCompatibleChatPromptTemplate.from_messages([
+    ("system", """
+        Compare two dated statements by the same person about the same canonical topic.
+        Do not classify different stance values as a contradiction by themselves.
+        Use CONSISTENT when the statements are compatible, POSITION_CHANGE when the
+        person appears to have changed position without logical incompatibility,
+        CONTRADICTION only when the propositions are meaningfully incompatible, and
+        INSUFFICIENT_EVIDENCE when the evidence or context is inadequate.
+        Return only the structured assessment.
+    """),
+    ("human", """
+        Topic: {topic_name}
+        Earlier statement: {earlier}
+        Earlier stance: {earlier_stance}
+        New statement: {newer}
+        New stance: {newer_stance}
+    """),
+])
