@@ -3,11 +3,13 @@ from langchain_openai.chat_models import ChatOpenAI
 from langchain_core.runnables import ConfigurableField, RunnablePassthrough
 
 from . import prompts
+from dotenv import load_dotenv
 
+load_dotenv()  # Load environment variables from .env file
 
 llm_main = ChatOpenAI(
     # base_url="http://host.docker.internal:1234/v1",
-    base_url="http://127.0.0.1:1234/v1",
+    base_url=os.getenv("LLM_URL"),
     model='google/gemma-4-e4b',
     api_key="fake_api_key",
     temperature=0.5
@@ -54,10 +56,9 @@ def llm_invoke(*args, usage_type="unspecified", reasoning="on", temperature=None
     if temperature is not None:
         configurable = dict(config.get("configurable", {}))
         configurable["temperature"] = temperature
-        configurable["reasoning"] = reasoning
         config["configurable"] = configurable
 
-    response = llm_main.invoke(*args, config=config, reasoning=reasoning, **kwargs)
+    response = llm_main.invoke(*args, config=config, **kwargs)
 
     # Extract token usage from response metadata
     token_usage = response.response_metadata.get('token_usage', {})

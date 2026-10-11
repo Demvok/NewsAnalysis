@@ -65,6 +65,13 @@ class AnalysisRequest(BaseModel):
     inconsistency_window_days: int = Field(default=365, ge=1, le=3650)
 
 
+class CitationAnalysisRequest(BaseModel):
+    article_id: UUID
+    extraction: CitationExtractionResult
+    published_at: datetime | None = None
+    inconsistency_window_days: int = Field(default=365, ge=1, le=3650)
+
+
 class TopicAttitude(BaseModel):
     topic_name: str
     topic_description: str | None = None
