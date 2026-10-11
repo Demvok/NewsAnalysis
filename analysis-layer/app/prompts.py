@@ -57,7 +57,14 @@ class CitationType(str, Enum):
     MENTION = "mention"
 
 class CitationExtractionCitation(BaseModel):
-    exact_quote: str = Field(..., description="The exact quote from the speaker in the article")
+    exact_quote: str = Field(
+        ...,
+        min_length=1,
+        description=(
+            "The exact non-empty quote from the speaker in the article. "
+            "If the article does not provide source wording, do not create a citation."
+        ),
+    )
     context: str = Field(..., description="The context of the quote in the article")
     citation_type: CitationType =  Field(description=(
         """Classify how a person's statement or opinion is presented in the article. 
@@ -81,8 +88,18 @@ class CitationExtractionCitation(BaseModel):
         Do not use this type if the text provides evidence of the person's expressed opinion."""
     ))
     summarized_quote: str = Field(..., description="A summarized version of the quote")
-    confidence_level: float = Field(..., description="Confidence that the quote accurately represents the speaker's stance, from 0 to 1")
-    extraction_confidence: float = Field(..., description="Confidence in the extraction process, from 0 to 1")
+    confidence_level: float = Field(
+        ...,
+        ge=0,
+        le=1,
+        description="Confidence that the quote accurately represents the speaker's stance, from 0 to 1",
+    )
+    extraction_confidence: float = Field(
+        ...,
+        ge=0,
+        le=1,
+        description="Confidence in the extraction process, from 0 to 1",
+    )
 
 class ExtractedSpeaker(BaseModel):
     speaker_name: str = Field(..., description="The name of the speaker")
@@ -261,3 +278,30 @@ class CitationEvaluationOutput(BaseModel):
     speaker_role: str = Field(..., description="The role or affiliation of the speaker if he represents an organization")
     aliases: list[str] = Field(..., description="A list of aliases used for the speaker in the article")
     evaluated_citations: list[EvaluatedCitation] = Field(..., description="Citations attributed to the speaker with their topic evaluations and stances")
+
+
+class InconsistencyComparison(BaseModel):
+    classification: str = Field(description="CONSISTENT, POSITION_CHANGE, CONTRADICTION, or INSUFFICIENT_EVIDENCE")
+    severity: str | None = None
+    confidence: float = Field(ge=0, le=1)
+    comment: str
+
+
+INCONSISTENCY_COMPARISON_PROMPT = ModelCompatibleChatPromptTemplate.from_messages([
+    ("system", """
+        Compare two dated statements by the same person about the same canonical topic.
+        Do not classify different stance values as a contradiction by themselves.
+        Use CONSISTENT when the statements are compatible, POSITION_CHANGE when the
+        person appears to have changed position without logical incompatibility,
+        CONTRADICTION only when the propositions are meaningfully incompatible, and
+        INSUFFICIENT_EVIDENCE when the evidence or context is inadequate.
+        Return only the structured assessment.
+    """),
+    ("human", """
+        Topic: {topic_name}
+        Earlier statement: {earlier}
+        Earlier stance: {earlier_stance}
+        New statement: {newer}
+        New stance: {newer_stance}
+    """),
+])

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID
 
 from fastapi import FastAPI, HTTPException, Query, status
-from sqlalchemy import delete, or_, select
+from pydantic import ValidationError
+from sqlalchemy import delete, func, or_, select
+from sqlalchemy.exc import IntegrityError
 
 from app.database import (
     DimArticle,
@@ -13,6 +16,7 @@ from app.database import (
     DimPerson,
     DimTopic,
     FctAttitude,
+    FctInconsistency,
     check_database,
     create_database,
     engine,
@@ -20,6 +24,7 @@ from app.database import (
     recreate_database,
 )
 from app.database.DBConnector import EMBEDDING_DIMENSION
+from app.fileread import read_temp_articles
 from app.schemas import (
     ArticleBulkUpdate,
     ArticlePayload,
@@ -28,6 +33,7 @@ from app.schemas import (
     AttitudeKey,
     AttitudePayload,
     AttitudeUpdate,
+    InconsistencyPayload,
     BulkAttitudeDeleteRequest,
     BulkDeleteRequest,
     CitationBulkUpdate,
@@ -77,24 +83,32 @@ def _list(model: Any, limit: int) -> list[dict[str, Any]]:
 
 
 def _create(model: Any, values: dict[str, Any]) -> dict[str, Any]:
-    with get_session() as session:
-        item = model(**values)
-        session.add(item)
-        session.flush()
-        session.refresh(item)
-        return _as_dict(item)
+    try:
+        with get_session() as session:
+            item = model(**values)
+            session.add(item)
+            session.flush()
+            session.refresh(item)
+            return _as_dict(item)
+    except IntegrityError as exc:
+        logger.exception("Failed to create %s", model.__name__)
+        raise HTTPException(status_code=409, detail="Resource conflicts with an existing record") from exc
 
 
 def _update(model: Any, key: Any, values: dict[str, Any]) -> dict[str, Any]:
-    with get_session() as session:
-        item = session.get(model, key)
-        if item is None:
-            raise HTTPException(status_code=404, detail=f"{model.__name__} not found")
-        for field, value in values.items():
-            setattr(item, field, value)
-        session.flush()
-        session.refresh(item)
-        return _as_dict(item)
+    try:
+        with get_session() as session:
+            item = session.get(model, key)
+            if item is None:
+                raise HTTPException(status_code=404, detail=f"{model.__name__} not found")
+            for field, value in values.items():
+                setattr(item, field, value)
+            session.flush()
+            session.refresh(item)
+            return _as_dict(item)
+    except IntegrityError as exc:
+        logger.exception("Failed to update %s", model.__name__)
+        raise HTTPException(status_code=409, detail="Resource conflicts with an existing record") from exc
 
 
 def _delete(model: Any, key: Any) -> None:
@@ -106,11 +120,15 @@ def _delete(model: Any, key: Any) -> None:
 
 
 def _bulk_create(model: Any, values: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    with get_session() as session:
-        items = [model(**item_values) for item_values in values]
-        session.add_all(items)
-        session.flush()
-        return [_as_dict(item) for item in items]
+    try:
+        with get_session() as session:
+            items = [model(**item_values) for item_values in values]
+            session.add_all(items)
+            session.flush()
+            return [_as_dict(item) for item in items]
+    except IntegrityError as exc:
+        logger.exception("Failed to create %s records in bulk", model.__name__)
+        raise HTTPException(status_code=409, detail="Bulk request conflicts with existing records") from exc
 
 
 def _bulk_update(model: Any, key_field: str, values: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -166,14 +184,77 @@ def recreate_database_endpoint() -> dict[str, str]:
     return {"status": "recreated", "database": "postgres-db", "embedding_dimension": str(EMBEDDING_DIMENSION)}
 
 
+@app.post(
+    "/articles/import-temp",
+    status_code=200,
+    tags=["Articles - Temporary"],
+    summary="Import temporary article files",
+    description="Temporary, idempotent import of JSON articles from the application's _tmp directory.",
+)
+def import_temp_articles() -> dict[str, int | str]:
+    try:
+        source_articles = read_temp_articles()
+    except (OSError, ValueError) as exc:
+        logger.exception("Failed to read temporary article files")
+        raise HTTPException(status_code=500, detail="Failed to read temporary article files") from exc
+
+    imported = 0
+    skipped = 0
+    try:
+        with get_session() as session:
+            for source_article in source_articles:
+                payload = ArticlePayload.model_validate(source_article)
+                existing = None
+                if payload.article_id is not None:
+                    existing = session.get(DimArticle, payload.article_id)
+                if existing is None and payload.url:
+                    existing = session.scalar(select(DimArticle).where(DimArticle.url == payload.url))
+                if existing is not None:
+                    skipped += 1
+                    continue
+
+                article = DimArticle(**payload.model_dump(exclude_none=True))
+                session.add(article)
+                session.flush()
+                imported += 1
+    except IntegrityError as exc:
+        logger.exception("Failed to import temporary articles")
+        raise HTTPException(status_code=409, detail="Temporary article import conflicts with existing records") from exc
+    except ValidationError as exc:
+        logger.exception("Failed to import temporary articles")
+        raise HTTPException(status_code=422, detail="Temporary article data is invalid") from exc
+
+    return {"status": "completed", "imported": imported, "skipped": skipped}
+
+
 @app.post("/articles", status_code=201, response_model=None, tags=["Articles"], summary="Create an article")
 def create_article(payload: ArticlePayload) -> dict[str, Any]:
+    if payload.url:
+        with get_session() as session:
+            existing = session.scalar(select(DimArticle).where(DimArticle.url == payload.url))
+            if existing is not None:
+                return _as_dict(existing)
     return _create(DimArticle, payload.model_dump())
 
 
 @app.get("/articles", response_model=None, tags=["Articles"], summary="List articles")
 def list_articles(limit: int = Query(50, ge=1, le=500)) -> list[dict[str, Any]]:
     return _list(DimArticle, limit)
+
+
+@app.get("/articles/search", response_model=None, tags=["Articles"], summary="Search articles")
+def search_articles(
+    query: str = Query(min_length=1),
+    limit: int = Query(50, ge=1, le=500),
+) -> list[dict[str, Any]]:
+    pattern = f"%{query.strip()}%"
+    with get_session() as session:
+        statement = (
+            select(DimArticle)
+            .where(or_(DimArticle.article_title.ilike(pattern), DimArticle.article_content.ilike(pattern)))
+            .limit(limit)
+        )
+        return [_as_dict(item) for item in session.scalars(statement).all()]
 
 
 @app.get("/articles/{article_id}", response_model=None, tags=["Articles"], summary="Get an article")
@@ -183,7 +264,7 @@ def get_article(article_id: UUID) -> dict[str, Any]:
 
 @app.put("/articles/{article_id}", response_model=None, tags=["Articles"], summary="Replace an article")
 def update_article(article_id: UUID, payload: ArticleUpdate) -> dict[str, Any]:
-    return _update(DimArticle, article_id, payload.model_dump(exclude_unset=True))
+    return _update(DimArticle, article_id, payload.model_dump(exclude_unset=True, exclude={"article_id"}))
 
 
 @app.delete("/articles/bulk", tags=["Articles - Bulk"], summary="Delete articles in bulk")
@@ -198,7 +279,25 @@ def delete_article(article_id: UUID) -> None:
 
 @app.post("/articles/bulk", status_code=201, response_model=None, tags=["Articles - Bulk"], summary="Create articles in bulk")
 def create_articles_bulk(payload: list[ArticlePayload]) -> list[dict[str, Any]]:
-    return _bulk_create(DimArticle, [item.model_dump() for item in payload])
+    results: list[dict[str, Any]] = []
+    try:
+        with get_session() as session:
+            for item in payload:
+                values = item.model_dump(exclude_none=True)
+                existing = None
+                if item.article_id is not None:
+                    existing = session.get(DimArticle, item.article_id)
+                if existing is None and item.url:
+                    existing = session.scalar(select(DimArticle).where(DimArticle.url == item.url))
+                if existing is None:
+                    existing = DimArticle(**values)
+                    session.add(existing)
+                    session.flush()
+                results.append(_as_dict(existing))
+        return results
+    except IntegrityError as exc:
+        logger.exception("Failed to create articles in bulk")
+        raise HTTPException(status_code=409, detail="Bulk request conflicts with existing records") from exc
 
 
 @app.patch("/articles/bulk", response_model=None, tags=["Articles - Bulk"], summary="Update articles in bulk")
@@ -238,7 +337,23 @@ def delete_person(person_uuid: UUID) -> None:
 
 @app.post("/people/bulk", status_code=201, response_model=None, tags=["People - Bulk"], summary="Create people in bulk")
 def create_people_bulk(payload: list[PersonPayload]) -> list[dict[str, Any]]:
-    return _bulk_create(DimPerson, [item.model_dump() for item in payload])
+    results: list[dict[str, Any]] = []
+    try:
+        with get_session() as session:
+            for item in payload:
+                values = item.model_dump(exclude_none=True)
+                existing = session.scalar(
+                    select(DimPerson).where(func.lower(DimPerson.name) == item.name.strip().casefold())
+                )
+                if existing is None:
+                    existing = DimPerson(**values)
+                    session.add(existing)
+                    session.flush()
+                results.append(_as_dict(existing))
+        return results
+    except IntegrityError as exc:
+        logger.exception("Failed to create people in bulk")
+        raise HTTPException(status_code=409, detail="Bulk request conflicts with existing records") from exc
 
 
 @app.patch("/people/bulk", response_model=None, tags=["People - Bulk"], summary="Update people in bulk")
@@ -255,6 +370,21 @@ def create_citation(payload: CitationPayload) -> dict[str, Any]:
 @app.get("/citations", response_model=None, tags=["Citations"], summary="List citations")
 def list_citations(limit: int = Query(50, ge=1, le=500)) -> list[dict[str, Any]]:
     return _list(DimCitation, limit)
+
+
+@app.get("/citations/search", response_model=None, tags=["Citations"], summary="Search citations")
+def search_citations(
+    query: str = Query(min_length=1),
+    limit: int = Query(50, ge=1, le=500),
+) -> list[dict[str, Any]]:
+    pattern = f"%{query.strip()}%"
+    with get_session() as session:
+        statement = (
+            select(DimCitation)
+            .where(or_(DimCitation.exact_quote.ilike(pattern), DimCitation.summarized_quote.ilike(pattern)))
+            .limit(limit)
+        )
+        return [_as_dict(item) for item in session.scalars(statement).all()]
 
 
 @app.get("/citations/{citation_uuid}", response_model=None, tags=["Citations"], summary="Get a citation")
@@ -328,7 +458,22 @@ def delete_topic(topic_uuid: UUID) -> None:
 def create_topics_bulk(payload: list[TopicPayload]) -> list[dict[str, Any]]:
     for item in payload:
         _validate_vector(item.topic_description_vector)
-    return _bulk_create(DimTopic, [item.model_dump() for item in payload])
+    results: list[dict[str, Any]] = []
+    try:
+        with get_session() as session:
+            for item in payload:
+                existing = session.scalar(
+                    select(DimTopic).where(func.lower(DimTopic.topic_name) == item.topic_name.strip().casefold())
+                )
+                if existing is None:
+                    existing = DimTopic(**item.model_dump(exclude_none=True))
+                    session.add(existing)
+                    session.flush()
+                results.append(_as_dict(existing))
+        return results
+    except IntegrityError as exc:
+        logger.exception("Failed to create topics in bulk")
+        raise HTTPException(status_code=409, detail="Bulk request conflicts with existing records") from exc
 
 
 @app.patch("/topics/bulk", response_model=None, tags=["Topics - Bulk"], summary="Update topics in bulk")
@@ -346,6 +491,42 @@ def create_attitude(payload: AttitudePayload) -> dict[str, Any]:
 @app.get("/attitudes", response_model=None, tags=["Attitudes"], summary="List attitudes")
 def list_attitudes(limit: int = Query(50, ge=1, le=500)) -> list[dict[str, Any]]:
     return _list(FctAttitude, limit)
+
+
+@app.get("/attitudes/history", response_model=None, tags=["Attitudes"], summary="Find historical attitudes")
+def history_attitudes(
+    person_uuid: UUID,
+    topic_uuid: UUID,
+    before: datetime | None = None,
+    window_days: int = Query(365, ge=1, le=3650),
+    exclude_citation_uuid: UUID | None = None,
+) -> list[dict[str, Any]]:
+    cutoff = (before or datetime.now(timezone.utc)) - timedelta(days=window_days)
+    with get_session() as session:
+        statement = (
+            select(FctAttitude, DimCitation, DimArticle)
+            .join(DimCitation, FctAttitude.citation_uuid == DimCitation.citation_uuid)
+            .join(DimArticle, DimCitation.origin_article_id == DimArticle.article_id)
+            .where(
+                FctAttitude.topic_uuid == topic_uuid,
+                DimCitation.person_uuid == person_uuid,
+                DimArticle.published_at.is_not(None),
+                DimArticle.published_at >= cutoff,
+                DimArticle.published_at <= (before or datetime.now(timezone.utc)),
+            )
+            .order_by(DimArticle.published_at.desc())
+        )
+        if exclude_citation_uuid is not None:
+            statement = statement.where(FctAttitude.citation_uuid != exclude_citation_uuid)
+        return [
+            {
+                **_as_dict(attitude),
+                "exact_quote": citation.exact_quote,
+                "summarized_quote": citation.summarized_quote,
+                "published_at": article.published_at,
+            }
+            for attitude, citation, article in session.execute(statement).all()
+        ]
 
 
 @app.get("/attitudes/{topic_uuid}/{citation_uuid}", response_model=None, tags=["Attitudes"], summary="Get an attitude")
@@ -388,6 +569,30 @@ def update_attitudes_bulk(payload: list[AttitudeBulkUpdate]) -> list[dict[str, A
             result.append(item)
         session.flush()
         return [_as_dict(item) for item in result]
+
+
+@app.post("/inconsistencies", status_code=201, response_model=None, tags=["Inconsistencies"], summary="Create an inconsistency assessment")
+def create_inconsistency(payload: InconsistencyPayload) -> dict[str, Any]:
+    values = payload.model_dump(exclude_none=True)
+    with get_session() as session:
+        existing = session.scalar(
+            select(FctInconsistency).where(
+                FctInconsistency.topic_uuid == payload.topic_uuid,
+                FctInconsistency.citation_a_uuid == payload.citation_a_uuid,
+                FctInconsistency.citation_b_uuid == payload.citation_b_uuid,
+            )
+        )
+        if existing is not None:
+            return _as_dict(existing)
+        item = FctInconsistency(**values)
+        session.add(item)
+        session.flush()
+        return _as_dict(item)
+
+
+@app.get("/inconsistencies", response_model=None, tags=["Inconsistencies"], summary="List inconsistency assessments")
+def list_inconsistencies(limit: int = Query(50, ge=1, le=500)) -> list[dict[str, Any]]:
+    return _list(FctInconsistency, limit)
 
 
 @app.post("/topics/search", response_model=None, tags=["Topics"], summary="Search topics by embedding")
