@@ -6,6 +6,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import FastAPI, HTTPException, Query, status
+from pydantic import ValidationError
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 
@@ -23,6 +24,7 @@ from app.database import (
     recreate_database,
 )
 from app.database.DBConnector import EMBEDDING_DIMENSION
+from app.fileread import read_temp_articles
 from app.schemas import (
     ArticleBulkUpdate,
     ArticlePayload,
@@ -180,6 +182,49 @@ def create_database_endpoint() -> dict[str, str]:
 def recreate_database_endpoint() -> dict[str, str]:
     recreate_database()
     return {"status": "recreated", "database": "postgres-db", "embedding_dimension": str(EMBEDDING_DIMENSION)}
+
+
+@app.post(
+    "/articles/import-temp",
+    status_code=200,
+    tags=["Articles - Temporary"],
+    summary="Import temporary article files",
+    description="Temporary, idempotent import of JSON articles from the application's _tmp directory.",
+)
+def import_temp_articles() -> dict[str, int | str]:
+    try:
+        source_articles = read_temp_articles()
+    except (OSError, ValueError) as exc:
+        logger.exception("Failed to read temporary article files")
+        raise HTTPException(status_code=500, detail="Failed to read temporary article files") from exc
+
+    imported = 0
+    skipped = 0
+    try:
+        with get_session() as session:
+            for source_article in source_articles:
+                payload = ArticlePayload.model_validate(source_article)
+                existing = None
+                if payload.article_id is not None:
+                    existing = session.get(DimArticle, payload.article_id)
+                if existing is None and payload.url:
+                    existing = session.scalar(select(DimArticle).where(DimArticle.url == payload.url))
+                if existing is not None:
+                    skipped += 1
+                    continue
+
+                article = DimArticle(**payload.model_dump(exclude_none=True))
+                session.add(article)
+                session.flush()
+                imported += 1
+    except IntegrityError as exc:
+        logger.exception("Failed to import temporary articles")
+        raise HTTPException(status_code=409, detail="Temporary article import conflicts with existing records") from exc
+    except ValidationError as exc:
+        logger.exception("Failed to import temporary articles")
+        raise HTTPException(status_code=422, detail="Temporary article data is invalid") from exc
+
+    return {"status": "completed", "imported": imported, "skipped": skipped}
 
 
 @app.post("/articles", status_code=201, response_model=None, tags=["Articles"], summary="Create an article")

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import time
 import os
 from datetime import datetime
 from uuid import UUID
@@ -11,6 +12,35 @@ from . import LLM, models
 
 logger = logging.getLogger(__name__)
 STORAGE_URL = os.getenv("STORAGE_URL", "http://data-storage:8000").rstrip("/")
+
+
+def _remove_empty_citations(
+    payload: dict[str, object],
+) -> tuple[dict[str, object], int, int]:
+    """Remove unsupported citations and normalize bounded confidence values."""
+    removed = 0
+    normalized = 0
+    cleaned = dict(payload)
+    speakers = []
+    for speaker in payload.get("speakers") or []:
+        cleaned_speaker = dict(speaker)
+        citations = []
+        for citation in speaker.get("citations") or []:
+            if not str(citation.get("exact_quote") or "").strip():
+                removed += 1
+                continue
+            cleaned_citation = dict(citation)
+            for field in ("confidence_level", "extraction_confidence"):
+                value = cleaned_citation.get(field)
+                if isinstance(value, (int, float)) and not 0 <= value <= 1:
+                    cleaned_citation[field] = min(1.0, max(0.0, value))
+                    normalized += 1
+            citations.append(cleaned_citation)
+        cleaned_speaker["citations"] = citations
+        speakers.append(cleaned_speaker)
+    cleaned["speakers"] = speakers
+    return cleaned, removed, normalized
+
 
 # Persistence belongs to the analysis workflow so extraction and citation analysis
 # can be executed independently while still sharing the same storage behavior.
@@ -28,13 +58,40 @@ def extract_citations(article: models.Article) -> models.CitationExtractionResul
     if not article:
         raise ValueError("article is required")
 
-    response = LLM.extract_citations(
-        article_title=article.article_title or "",
-        article_content=article.article_content or "",
-    )
-    result = models.CitationExtractionResult.model_validate(response.model_dump())
-    logger.info("Extracted %d speakers", len(result.speakers))
-    return result
+    started = time.perf_counter()
+    try:
+        response = LLM.extract_citations(
+            article_title=article.article_title or "",
+            article_content=article.article_content or "",
+        )
+        extraction_payload, removed_citations, normalized_confidences = (
+            _remove_empty_citations(
+                response.model_dump()
+            )
+        )
+        if removed_citations:
+            logger.warning(
+                "analysis_stage=extract_citations removed_empty_citations=%d",
+                removed_citations,
+            )
+        if normalized_confidences:
+            logger.warning(
+                "analysis_stage=extract_citations normalized_confidences=%d",
+                normalized_confidences,
+            )
+        result = models.CitationExtractionResult.model_validate(extraction_payload)
+        logger.info(
+            "analysis_stage=extract_citations status=completed speakers=%d duration=%s",
+            len(result.speakers),
+            f"{time.perf_counter() - started:.3f}s",
+        )
+        return result
+    except Exception:
+        logger.exception(
+            "analysis_stage=extract_citations status=failed duration=%s",
+            f"{time.perf_counter() - started:.3f}s",
+        )
+        raise
 
 
 
@@ -48,12 +105,38 @@ def analyze_speaker_sentiment(speaker: dict):
     Returns:
         dict: A dictionary containing the sentiment analysis results.
     """
-    return LLM.sentiment_analysis(speaker=speaker)
+    started = time.perf_counter()
+    try:
+        result = LLM.sentiment_analysis(speaker=speaker)
+        logger.info(
+            "analysis_stage=sentiment_analysis status=completed duration=%s",
+            f"{time.perf_counter() - started:.3f}s",
+        )
+        return result
+    except Exception:
+        logger.exception(
+            "analysis_stage=sentiment_analysis status=failed duration=%s",
+            f"{time.perf_counter() - started:.3f}s",
+        )
+        raise
 
 
 def analyze_speaker_topics(speaker: models.SpeakerExtraction):
     """Evaluate topics and stance for all citations attributed to one speaker."""
-    return LLM.sentiment_analysis(speaker.model_dump())
+    started = time.perf_counter()
+    try:
+        result = LLM.sentiment_analysis(speaker.model_dump())
+        logger.info(
+            "analysis_stage=topic_and_stance status=completed duration=%s",
+            f"{time.perf_counter() - started:.3f}s",
+        )
+        return result
+    except Exception:
+        logger.exception(
+            "analysis_stage=topic_and_stance status=failed duration=%s",
+            f"{time.perf_counter() - started:.3f}s",
+        )
+        raise
 
 
 def persist_extraction(article_id: UUID, result: models.CitationExtractionResult) -> None:
@@ -157,6 +240,10 @@ def persist_citation_analysis(
     }
 
     for speaker in result.speakers:
+        logger.info(
+            "analysis_stage=topic_and_stance status=started speaker=%s",
+            speaker.speaker_name,
+        )
         evaluation = analyze_speaker_topics(speaker)
         topics = [
             {
@@ -258,6 +345,12 @@ def persist_inconsistencies(
             "",
         )
         for historical in history_response.json():
+            logger.info(
+                "analysis_stage=inconsistency_comparison status=started "
+                "person_uuid=%s topic_uuid=%s",
+                person_uuid,
+                topic_uuid,
+            )
             comparison = LLM.compare_attitudes(
                 topic_name=topic_name,
                 earlier=historical.get("exact_quote") or historical.get("summarized_quote") or "",

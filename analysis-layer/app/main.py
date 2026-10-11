@@ -14,7 +14,7 @@ from app.analysis import (
 app = FastAPI(
     title="NewsAnalysis-AnalysisLayer",
     description="Full API for NewsAnalysis data analysis",
-    version="0.0.2",
+    version="0.1.0",
 )
 
 logger = logging.getLogger("data-analysis")
@@ -105,5 +105,4 @@ def _run_persistence(callback, *args) -> None:
 
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run(app, host="0.0.0.0", port=7000)

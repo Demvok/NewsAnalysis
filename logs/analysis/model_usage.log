@@ -1,0 +1,19 @@
+2026-10-11 15:20:08 - HTTP Request: POST http://host.docker.internal:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2026-10-11 15:20:45 - HTTP Request: POST http://host.docker.internal:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2026-10-11 15:20:45 - analysis_stage=extract_citations status=completed speakers=2 duration=71.566s
+2026-10-11 15:20:45 - HTTP Request: POST http://data-storage:8000/people/bulk "HTTP/1.1 201 Created"
+2026-10-11 15:20:45 - HTTP Request: POST http://data-storage:8000/citations/bulk "HTTP/1.1 201 Created"
+2026-10-11 15:20:45 - analysis_stage=topic_and_stance status=started speaker=CNN Source / Informed Interlocutor
+2026-10-11 15:21:33 - HTTP Request: POST http://host.docker.internal:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2026-10-11 15:22:31 - HTTP Request: POST http://host.docker.internal:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2026-10-11 15:22:31 - analysis_stage=topic_and_stance status=completed duration=105.226s
+2026-10-11 15:22:31 - HTTP Request: POST http://data-storage:8000/topics/bulk "HTTP/1.1 201 Created"
+2026-10-11 15:22:31 - HTTP Request: POST http://data-storage:8000/attitudes/bulk "HTTP/1.1 201 Created"
+2026-10-11 15:22:31 - HTTP Request: GET http://data-storage:8000/attitudes/history?person_uuid=f8b7d578-1d92-494d-af08-3638291d8b50&topic_uuid=40fd8ea7-238f-45a1-b174-bef3a05f6ad3&before=2026-10-05T01%3A26%3A01%2B00%3A00&window_days=365&exclude_citation_uuid=62378655-0ed0-4d9f-a6e7-55a747eb8a80 "HTTP/1.1 200 OK"
+2026-10-11 15:22:31 - HTTP Request: GET http://data-storage:8000/attitudes/history?person_uuid=f8b7d578-1d92-494d-af08-3638291d8b50&topic_uuid=0292c361-3b93-4116-9879-b6be7aa6020f&before=2026-10-05T01%3A26%3A01%2B00%3A00&window_days=365&exclude_citation_uuid=62378655-0ed0-4d9f-a6e7-55a747eb8a80 "HTTP/1.1 200 OK"
+2026-10-11 15:22:31 - HTTP Request: GET http://data-storage:8000/attitudes/history?person_uuid=f8b7d578-1d92-494d-af08-3638291d8b50&topic_uuid=3653f9c9-f5f6-408e-a590-03941f8213b6&before=2026-10-05T01%3A26%3A01%2B00%3A00&window_days=365&exclude_citation_uuid=78acc67e-2888-4628-9255-64ce05ef7c03 "HTTP/1.1 200 OK"
+2026-10-11 15:22:31 - HTTP Request: GET http://data-storage:8000/attitudes/history?person_uuid=f8b7d578-1d92-494d-af08-3638291d8b50&topic_uuid=75371cc7-629d-4bd2-b761-1b7cf41423e9&before=2026-10-05T01%3A26%3A01%2B00%3A00&window_days=365&exclude_citation_uuid=78acc67e-2888-4628-9255-64ce05ef7c03 "HTTP/1.1 200 OK"
+2026-10-11 15:22:31 - analysis_stage=topic_and_stance status=started speaker=Zelenskyy
+2026-10-11 15:22:50 - HTTP Request: POST http://host.docker.internal:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2026-10-11 15:23:26 - HTTP Request: POST http://host.docker.internal:1234/v1/chat/completions "HTTP/1.1 200 OK"
+2026-10-11 15:23:26 - analysis_stage=topic_and_stance status=completed duration=54.666s

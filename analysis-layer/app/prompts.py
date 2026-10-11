@@ -57,7 +57,14 @@ class CitationType(str, Enum):
     MENTION = "mention"
 
 class CitationExtractionCitation(BaseModel):
-    exact_quote: str = Field(..., description="The exact quote from the speaker in the article")
+    exact_quote: str = Field(
+        ...,
+        min_length=1,
+        description=(
+            "The exact non-empty quote from the speaker in the article. "
+            "If the article does not provide source wording, do not create a citation."
+        ),
+    )
     context: str = Field(..., description="The context of the quote in the article")
     citation_type: CitationType =  Field(description=(
         """Classify how a person's statement or opinion is presented in the article. 
@@ -81,8 +88,18 @@ class CitationExtractionCitation(BaseModel):
         Do not use this type if the text provides evidence of the person's expressed opinion."""
     ))
     summarized_quote: str = Field(..., description="A summarized version of the quote")
-    confidence_level: float = Field(..., description="Confidence that the quote accurately represents the speaker's stance, from 0 to 1")
-    extraction_confidence: float = Field(..., description="Confidence in the extraction process, from 0 to 1")
+    confidence_level: float = Field(
+        ...,
+        ge=0,
+        le=1,
+        description="Confidence that the quote accurately represents the speaker's stance, from 0 to 1",
+    )
+    extraction_confidence: float = Field(
+        ...,
+        ge=0,
+        le=1,
+        description="Confidence in the extraction process, from 0 to 1",
+    )
 
 class ExtractedSpeaker(BaseModel):
     speaker_name: str = Field(..., description="The name of the speaker")
