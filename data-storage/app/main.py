@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-import logging
 import json
 import os
+import time
+from uuid import uuid4
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID
 
-from fastapi import FastAPI, HTTPException, Query, status
+from fastapi import FastAPI, HTTPException, Query, Request, Response, status
 from openai import OpenAI
 from pydantic import ValidationError
 from sqlalchemy import delete, func, or_, select
@@ -52,8 +53,9 @@ from app.schemas import (
     TopicUpdate,
     parse_datetime,
 )
+from app.logger import get_logger
 
-logger = logging.getLogger("data-storage")
+logger = get_logger("main", "data_storage")
 app = FastAPI(title="NewsAnalysis-DataStorage", version="0.2.0")
 _embedding_client = OpenAI(
     base_url=os.getenv("EMBEDDING_URL", "http://host.docker.internal:1234/v1"),
@@ -65,9 +67,50 @@ if not -1 <= _default_min_cosine_similarity <= 1:
     raise ValueError("EMBEDDING_MIN_COSINE_SIMILARITY must be between -1 and 1")
 
 
+@app.middleware("http")
+async def log_api_request(request: Request, call_next) -> Response:
+    request_id = request.headers.get("x-request-id", str(uuid4()))
+    started = time.perf_counter()
+    logger.info(
+        "api_request status=started request_id=%s method=%s path=%s query=%s",
+        request_id,
+        request.method,
+        request.url.path,
+        request.url.query or "-",
+    )
+    try:
+        response = await call_next(request)
+    except Exception:
+        logger.exception(
+            "api_request status=failed request_id=%s method=%s path=%s duration=%.3fs",
+            request_id,
+            request.method,
+            request.url.path,
+            time.perf_counter() - started,
+        )
+        raise
+    duration = time.perf_counter() - started
+    level = logger.info if response.status_code < 400 else logger.warning
+    level(
+        "api_request status=completed request_id=%s method=%s path=%s "
+        "status_code=%d response_bytes=%s duration=%.3fs",
+        request_id,
+        request.method,
+        request.url.path,
+        response.status_code,
+        response.headers.get("content-length", "unknown"),
+        duration,
+    )
+    response.headers["x-request-id"] = request_id
+    return response
+
+
 @app.on_event("startup")
 def initialize_database() -> None:
+    logger.info("database_startup status=started")
+    started = time.perf_counter()
     create_database()
+    logger.info("database_startup status=completed duration=%.3fs", time.perf_counter() - started)
 
 
 def _validate_vector(values: list[float] | None) -> None:
@@ -144,33 +187,43 @@ def _as_dict(item: Any) -> dict[str, Any]:
 
 
 def _get(model: Any, key: Any) -> dict[str, Any]:
+    started = time.perf_counter()
     with get_session() as session:
         item = session.get(model, key)
         if item is None:
             raise HTTPException(status_code=404, detail=f"{model.__name__} not found")
         session.expunge(item)
-        return _as_dict(item)
+        result = _as_dict(item)
+    logger.debug("db_read operation=get model=%s found=true duration=%.3fs", model.__name__, time.perf_counter() - started)
+    return result
 
 
 def _list(model: Any, limit: int) -> list[dict[str, Any]]:
+    started = time.perf_counter()
     with get_session() as session:
-        return [_as_dict(item) for item in session.scalars(select(model).limit(limit)).all()]
+        result = [_as_dict(item) for item in session.scalars(select(model).limit(limit)).all()]
+    logger.debug("db_read operation=list model=%s limit=%d rows=%d duration=%.3fs", model.__name__, limit, len(result), time.perf_counter() - started)
+    return result
 
 
 def _create(model: Any, values: dict[str, Any]) -> dict[str, Any]:
+    started = time.perf_counter()
     try:
         with get_session() as session:
             item = model(**values)
             session.add(item)
             session.flush()
             session.refresh(item)
-            return _as_dict(item)
+            result = _as_dict(item)
+        logger.info("db_write operation=create model=%s status=completed duration=%.3fs", model.__name__, time.perf_counter() - started)
+        return result
     except IntegrityError as exc:
         logger.exception("Failed to create %s", model.__name__)
         raise HTTPException(status_code=409, detail="Resource conflicts with an existing record") from exc
 
 
 def _update(model: Any, key: Any, values: dict[str, Any]) -> dict[str, Any]:
+    started = time.perf_counter()
     try:
         with get_session() as session:
             item = session.get(model, key)
@@ -180,32 +233,40 @@ def _update(model: Any, key: Any, values: dict[str, Any]) -> dict[str, Any]:
                 setattr(item, field, value)
             session.flush()
             session.refresh(item)
-            return _as_dict(item)
+            result = _as_dict(item)
+        logger.info("db_write operation=update model=%s status=completed fields=%d duration=%.3fs", model.__name__, len(values), time.perf_counter() - started)
+        return result
     except IntegrityError as exc:
         logger.exception("Failed to update %s", model.__name__)
         raise HTTPException(status_code=409, detail="Resource conflicts with an existing record") from exc
 
 
 def _delete(model: Any, key: Any) -> None:
+    started = time.perf_counter()
     with get_session() as session:
         item = session.get(model, key)
         if item is not None:
             session.delete(item)
+    logger.info("db_write operation=delete model=%s status=completed duration=%.3fs", model.__name__, time.perf_counter() - started)
 
 
 def _bulk_create(model: Any, values: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    started = time.perf_counter()
     try:
         with get_session() as session:
             items = [model(**item_values) for item_values in values]
             session.add_all(items)
             session.flush()
-            return [_as_dict(item) for item in items]
+            result = [_as_dict(item) for item in items]
+        logger.info("db_write operation=bulk_create model=%s rows=%d duration=%.3fs", model.__name__, len(result), time.perf_counter() - started)
+        return result
     except IntegrityError as exc:
         logger.exception("Failed to create %s records in bulk", model.__name__)
         raise HTTPException(status_code=409, detail="Bulk request conflicts with existing records") from exc
 
 
 def _bulk_update(model: Any, key_field: str, values: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    started = time.perf_counter()
     with get_session() as session:
         result = []
         for item_values in values:
@@ -217,13 +278,18 @@ def _bulk_update(model: Any, key_field: str, values: list[dict[str, Any]]) -> li
                 setattr(item, field, value)
             result.append(item)
         session.flush()
-        return [_as_dict(item) for item in result]
+        response = [_as_dict(item) for item in result]
+    logger.info("db_write operation=bulk_update model=%s rows=%d duration=%.3fs", model.__name__, len(response), time.perf_counter() - started)
+    return response
 
 
 def _bulk_delete(model: Any, key_field: str, keys: list[Any]) -> dict[str, int]:
+    started = time.perf_counter()
     with get_session() as session:
         result = session.execute(delete(model).where(getattr(model, key_field).in_(keys)))
-        return {"deleted": result.rowcount or 0}
+        response = {"deleted": result.rowcount or 0}
+    logger.info("db_write operation=bulk_delete model=%s requested=%d deleted=%d duration=%.3fs", model.__name__, len(keys), response["deleted"], time.perf_counter() - started)
+    return response
 
 
 def _bulk_delete_attitudes(keys: list[AttitudeKey]) -> dict[str, int]:

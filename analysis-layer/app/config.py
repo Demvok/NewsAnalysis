@@ -2,9 +2,6 @@ MAX_RETRIES = 3
 
 MARK_PROCESSED = True # If True, mark the chunk as processed in the database
 
-CONSOLE_LOG = True # If True, log to console
-LOGGING_LEVEL = 'INFO' # Logging level for the logger. Options are: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'
-
 EVENTS_HOTNESS_THRESHOLD = 0.8  # Threshold for selecting events based on hotness score
 OPINION_HOTNESS_THRESHOLD = 0.7  # Threshold for selecting opinions based on hotness score
 

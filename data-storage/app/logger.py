@@ -1,73 +1,92 @@
-import logging, time, sys, os
-from config import LOGGING_LEVEL, CONSOLE_LOG
+"""Application logging configuration for the data-storage service."""
 
-if LOGGING_LEVEL == "DEBUG":
-    LEVEL = logging.DEBUG
-elif LOGGING_LEVEL == "INFO":
-    LEVEL = logging.INFO
-elif LOGGING_LEVEL == "WARNING":
-    LEVEL = logging.WARNING
-elif LOGGING_LEVEL == "ERROR":
-    LEVEL = logging.ERROR
-elif LOGGING_LEVEL == "CRITICAL":
-    LEVEL = logging.CRITICAL
-else:
-    raise ValueError(f"Unknown logging level: {LOGGING_LEVEL}")
+from __future__ import annotations
 
-SAVE_TO = './logs/'
-if not os.path.exists(SAVE_TO):
-    os.makedirs(SAVE_TO)
+import logging
+import os
+import re
+import sys
+import time
+from pathlib import Path
 
-def timeUsed(start_time, end_time) -> str:
-    duration = end_time - start_time
-    return f"{duration:.3f}s"
 
-class CustomFormatter(logging.Formatter):
-    def format(self, record):
-        # Set default value for execution_time if not provided
-        if not hasattr(record, 'execution_time'):
-            record.execution_time = 'N/A'
-        return super().format(record)
+_CONFIGURED_SERVICES: set[str] = set()
+_DEFAULT_FORMAT = "%(asctime)s %(levelname)s [%(name)s] %(message)s"
+_DATE_FORMAT = "%Y-%m-%dT%H:%M:%S%z"
 
-# Remove all existing handlers to avoid conflicts
-for handler in logging.root.handlers[:]:
-    logging.root.removeHandler(handler)
 
-def setup_logger(name: str, log_file: str) -> logging.Logger:
-    """
-    Sets up a logger with individual file logging and console log.
-    
-    :param name: Name of the logger.
-    :param log_file: Path to the log file for this logger.
-    :return: Configured Logger object.
-    """
-    name = name.ljust(25, ' ')
-    # FORCE RESET: Remove any existing logger with this name
-    if name in logging.Logger.manager.loggerDict:
-        del logging.Logger.manager.loggerDict[name]
-    
-    # Create a fresh logger instance
-    logger = logging.getLogger(name)
-    logger.propagate = False
-    logger.setLevel(LOGGING_LEVEL)
-    
-    # Remove any existing handlers
-    for handler in logger.handlers[:]:
-        logger.removeHandler(handler)
-    
-    # File handler for individual file logging
-    file_path = os.path.join(SAVE_TO, log_file)
-    file_handler = logging.FileHandler(file_path)
-    formatter = CustomFormatter('%(asctime)s - %(name)s - %(levelname)s - %(execution_time)s - %(message)s')
-    formatter.converter = lambda *args: time.localtime(*args)
-    formatter.default_time_format = '%Y-%m-%d %H:%M:%S'
-    formatter.default_msec_format = ''
+def _environment_key(value: str) -> str:
+    return re.sub(r"[^A-Za-z0-9]+", "_", value).strip("_").upper()
+
+
+def _level(value: str, setting_name: str) -> int:
+    normalized = value.strip().upper()
+    level = getattr(logging, normalized, None)
+    if not isinstance(level, int):
+        raise ValueError(
+            f"{setting_name} must be one of DEBUG, INFO, WARNING, ERROR, or CRITICAL; "
+            f"got {value!r}"
+        )
+    return level
+
+
+def _configured_level(name: str, fallback: str) -> int:
+    setting_name = f"LOG_LEVEL_{_environment_key(name)}"
+    return _level(os.getenv(setting_name, fallback), setting_name)
+
+
+def configure_logging(service_name: str) -> logging.Logger:
+    """Configure console and file logging once for a service."""
+    service_name = _environment_key(service_name).lower()
+    service_logger_name = f"newsanalysis.{service_name}"
+    service_logger = logging.getLogger(service_logger_name)
+
+    if service_name in _CONFIGURED_SERVICES:
+        return service_logger
+
+    default_level = os.getenv("LOG_LEVEL", "INFO")
+    service_level = _configured_level(service_name, default_level)
+    log_directory = Path(os.getenv("LOG_DIR", "/app/logs"))
+    log_directory.mkdir(parents=True, exist_ok=True)
+
+    formatter = logging.Formatter(_DEFAULT_FORMAT, datefmt=_DATE_FORMAT)
+    formatter.converter = time.gmtime
+
+    file_handler = logging.FileHandler(
+        log_directory / f"{service_name}.log",
+        encoding="utf-8",
+    )
+    file_handler.setLevel(logging.NOTSET)
     file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
-    
-    # Add console handler
-    if not CONSOLE_LOG:
-        console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setFormatter(formatter)
-        logger.addHandler(console_handler)
+
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(logging.NOTSET)
+    console_handler.setFormatter(formatter)
+
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.NOTSET)
+    for handler in root_logger.handlers[:]:
+        if getattr(handler, "_newsanalysis_handler", False):
+            root_logger.removeHandler(handler)
+            handler.close()
+    for handler in (file_handler, console_handler):
+        handler._newsanalysis_handler = True
+        root_logger.addHandler(handler)
+
+    service_logger.setLevel(service_level)
+    service_logger.propagate = True
+    _CONFIGURED_SERVICES.add(service_name)
+    return service_logger
+
+
+def get_logger(module_name: str, service_name: str) -> logging.Logger:
+    """Return a module logger with an optional ``LOG_LEVEL_<MODULE>`` override."""
+    service_name = _environment_key(service_name).lower()
+    configure_logging(service_name)
+    logger = logging.getLogger(f"newsanalysis.{service_name}.{module_name}")
+    service_default = os.getenv(
+        f"LOG_LEVEL_{_environment_key(service_name)}",
+        os.getenv("LOG_LEVEL", "INFO"),
+    )
+    logger.setLevel(_configured_level(module_name, service_default))
     return logger

@@ -1,7 +1,7 @@
-import logging
-
 import httpx
-from fastapi import FastAPI, HTTPException
+import time
+from uuid import uuid4
+from fastapi import FastAPI, HTTPException, Request, Response
 
 from app import models
 from app.analysis import (
@@ -9,6 +9,7 @@ from app.analysis import (
     persist_citation_analysis,
     persist_extraction,
 )
+from app.logger import get_logger
 
 
 app = FastAPI(
@@ -17,7 +18,23 @@ app = FastAPI(
     version="0.1.0",
 )
 
-logger = logging.getLogger("data-analysis")
+logger = get_logger("main", "analysis")
+
+
+@app.middleware("http")
+async def log_api_request(request: Request, call_next) -> Response:
+    request_id = request.headers.get("x-request-id", str(uuid4()))
+    started = time.perf_counter()
+    logger.info("api_request status=started request_id=%s method=%s path=%s", request_id, request.method, request.url.path)
+    try:
+        response = await call_next(request)
+    except Exception:
+        logger.exception("api_request status=failed request_id=%s method=%s path=%s duration=%.3fs", request_id, request.method, request.url.path, time.perf_counter() - started)
+        raise
+    level = logger.info if response.status_code < 400 else logger.warning
+    level("api_request status=completed request_id=%s method=%s path=%s status_code=%d duration=%.3fs", request_id, request.method, request.url.path, response.status_code, time.perf_counter() - started)
+    response.headers["x-request-id"] = request_id
+    return response
 
 
 @app.get("/health", summary="Health check")

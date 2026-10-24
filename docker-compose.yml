@@ -24,10 +24,14 @@ services:
       EMBEDDING_URL: ${EMBEDDING_URL:-http://host.docker.internal:1234/v1}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-embeddinggemma-300m}
       EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-fake_api_key}
+      LOG_DIR: /app/logs
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_LEVEL_DATA_STORAGE: ${LOG_LEVEL_DATA_STORAGE:-INFO}
+      LOG_LEVEL_MAIN: ${LOG_LEVEL_MAIN:-INFO}
     ports:
       - "8000:8000"
     volumes:
-      - ./logs/data-storage:/app/logs
+      - ${LOGS_DIR:-./logs}/data-storage:/app/logs
     depends_on:
       postgres:
         condition: service_healthy
@@ -41,13 +45,18 @@ services:
       DATABASE_URL: postgresql+psycopg://news:${POSTGRES_PASSWORD:-POSTGRES_PASSWORD}@postgres-db:5432/news
       STORAGE_URL: http://data-storage:8000
       LLM_URL: ${LLM_URL:-http://host.docker.internal:1234/v1}
+      LOG_DIR: /app/logs
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_LEVEL_ANALYSIS: ${LOG_LEVEL_ANALYSIS:-INFO}
+      LOG_LEVEL_LLM: ${LOG_LEVEL_LLM:-INFO}
+      LOG_LEVEL_MAIN: ${LOG_LEVEL_MAIN:-INFO}
     ports:
       - "7000:7000"
     depends_on:
       data-storage:
         condition: service_healthy
     volumes:
-      - ./logs/analysis:/app/logs
+      - ${LOGS_DIR:-./logs}/analysis:/app/logs
 
 volumes:
   postgres_data:

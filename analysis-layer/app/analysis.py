@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import time
 import os
 from datetime import datetime
@@ -8,9 +7,10 @@ from uuid import UUID
 
 import httpx
 from . import LLM, models
+from .logger import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger("analysis", "analysis")
 STORAGE_URL = os.getenv("STORAGE_URL", "http://data-storage:8000").rstrip("/")
 PERSON_MIN_SIMILARITY = float(os.getenv("PERSON_MIN_COSINE_SIMILARITY", "0.85"))
 TOPIC_MIN_SIMILARITY = float(os.getenv("TOPIC_MIN_COSINE_SIMILARITY", "0.85"))
@@ -66,6 +66,13 @@ def extract_citations(article: models.Article) -> models.CitationExtractionResul
         raise ValueError("article is required")
 
     started = time.perf_counter()
+    logger.info(
+        "article_processing status=started article_id=%s stage=citation_extraction "
+        "title_chars=%d content_chars=%d",
+        article.article_id,
+        len(article.article_title or ""),
+        len(article.article_content or ""),
+    )
     try:
         response = LLM.extract_citations(
             article_title=article.article_title or "",
@@ -91,6 +98,13 @@ def extract_citations(article: models.Article) -> models.CitationExtractionResul
             "analysis_stage=extract_citations status=completed speakers=%d duration=%s",
             len(result.speakers),
             f"{time.perf_counter() - started:.3f}s",
+        )
+        logger.info(
+            "article_processing status=progress article_id=%s stage=citation_extraction "
+            "speakers=%d citations=%d",
+            article.article_id,
+            len(result.speakers),
+            sum(len(speaker.citations) for speaker in result.speakers),
         )
         return result
     except Exception:
@@ -195,10 +209,20 @@ def persist_extraction(article_id: UUID, result: models.CitationExtractionResult
         for speaker in result.speakers
         if speaker.speaker_name.strip()
     ]
+    logger.info(
+        "article_processing status=started article_id=%s stage=person_and_citation_persistence "
+        "people=%d citations=%d",
+        article_id,
+        len(people),
+        sum(len(speaker.citations) for speaker in result.speakers),
+    )
     if not people:
+        logger.info("article_processing status=completed article_id=%s stage=person_and_citation_persistence people=0 citations=0", article_id)
         return
 
+    resolution_started = time.perf_counter()
     resolved_people = [(person, _resolve_person(person)) for person in people]
+    logger.info("analysis_stage=person_resolution status=completed article_id=%s people=%d duration=%.3fs", article_id, len(resolved_people), time.perf_counter() - resolution_started)
     person_ids = {
         source["name"].strip().casefold(): resolved["person_uuid"]
         for source, resolved in resolved_people
@@ -225,6 +249,14 @@ def persist_extraction(article_id: UUID, result: models.CitationExtractionResult
             timeout=30.0,
         )
         citations_response.raise_for_status()
+    logger.info(
+        "article_processing status=completed article_id=%s stage=person_and_citation_persistence "
+        "people=%d citations=%d duration=%.3fs",
+        article_id,
+        len(resolved_people),
+        len(citations),
+        time.perf_counter() - resolution_started,
+    )
 
 
 def persist_citation_analysis(
@@ -243,14 +275,27 @@ def persist_citation_analysis(
         for speaker in result.speakers
         if speaker.speaker_name.strip()
     ]
+    workflow_started = time.perf_counter()
+    total_citations = sum(len(speaker.citations) for speaker in result.speakers)
+    logger.info(
+        "article_processing status=started article_id=%s stage=citation_analysis "
+        "people=%d citations=%d window_days=%d",
+        article_id,
+        len(people),
+        total_citations,
+        window_days,
+    )
     if not people:
+        logger.info("article_processing status=completed article_id=%s stage=citation_analysis people=0 citations=0 duration=%.3fs", article_id, time.perf_counter() - workflow_started)
         return
 
+    person_started = time.perf_counter()
     resolved_people = [(person, _resolve_person(person)) for person in people]
     person_ids = {
         source["name"].strip().casefold(): resolved["person_uuid"]
         for source, resolved in resolved_people
     }
+    logger.info("analysis_stage=person_resolution status=completed article_id=%s people=%d duration=%.3fs", article_id, len(resolved_people), time.perf_counter() - person_started)
     citations = [
         {
             "origin_article_id": str(article_id),
@@ -267,6 +312,7 @@ def persist_citation_analysis(
         if speaker.speaker_name.strip().casefold() in person_ids
     ]
     if not citations:
+        logger.info("article_processing status=completed article_id=%s stage=citation_analysis people=%d citations=0 duration=%.3fs", article_id, len(people), time.perf_counter() - workflow_started)
         return
 
     citations_response = httpx.post(
@@ -287,10 +333,15 @@ def persist_citation_analysis(
         for citation in citations_response.json()
     }
 
-    for speaker in result.speakers:
+    for speaker_index, speaker in enumerate(result.speakers, start=1):
         logger.info(
-            "analysis_stage=topic_and_stance status=started speaker=%s",
+            "article_processing status=progress article_id=%s stage=topic_and_stance "
+            "speaker_index=%d speakers_total=%d speaker=%s citations=%d",
+            article_id,
+            speaker_index,
+            len(result.speakers),
             speaker.speaker_name,
+            len(speaker.citations),
         )
         evaluation = analyze_speaker_topics(speaker)
         topics = [
@@ -302,14 +353,24 @@ def persist_citation_analysis(
             for topic in citation.evaluated_topics
             if topic.topic_name.strip() and topic.stance_detected
         ]
+        logger.info(
+            "analysis_stage=topic_resolution status=started article_id=%s speaker=%s "
+            "topic_candidates=%d",
+            article_id,
+            speaker.speaker_name,
+            len(topics),
+        )
         if not topics:
+            logger.info("article_processing status=progress article_id=%s stage=topic_and_stance speaker_index=%d topics=0 attitudes=0", article_id, speaker_index)
             continue
 
+        topic_started = time.perf_counter()
         resolved_topics = [(topic, _resolve_topic(topic)) for topic in topics]
         topic_ids = {
             source["topic_name"].strip().casefold(): resolved["topic_uuid"]
             for source, resolved in resolved_topics
         }
+        logger.info("analysis_stage=topic_resolution status=completed article_id=%s speaker=%s topics=%d duration=%.3fs", article_id, speaker.speaker_name, len(resolved_topics), time.perf_counter() - topic_started)
         attitudes_by_key: dict[tuple[str, str], dict[str, object]] = {}
         for citation in evaluation.evaluated_citations:
             citation_uuid = citation_ids.get(citation.exact_quote)
@@ -328,6 +389,14 @@ def persist_citation_analysis(
                     "stance_summary": topic.topic_description,
                 }
         attitudes = list(attitudes_by_key.values())
+        logger.info(
+            "article_processing status=progress article_id=%s stage=attitude_persistence "
+            "speaker_index=%d topics=%d attitudes=%d",
+            article_id,
+            speaker_index,
+            len(resolved_topics),
+            len(attitudes),
+        )
         if not attitudes:
             continue
 
@@ -346,6 +415,14 @@ def persist_citation_analysis(
             before=before,
             window_days=window_days,
         )
+    logger.info(
+        "article_processing status=completed article_id=%s stage=citation_analysis "
+        "people=%d citations=%d duration=%.3fs",
+        article_id,
+        len(people),
+        len(citations),
+        time.perf_counter() - workflow_started,
+    )
 
 
 def persist_full(

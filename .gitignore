@@ -10,6 +10,7 @@ __pycache__/
 
 *.pyc
 *.sqlite3
+logs/*
 Viz/cnn_articles_api/frontend/widget-frontend/package-lock.json
 Viz/cnn_articles_api/frontend/widget-frontend/package.json
 Viz/cnn_articles_api/start.bat
