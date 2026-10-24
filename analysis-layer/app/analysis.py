@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import time
 import os
+import re
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from uuid import UUID
 
@@ -18,6 +20,117 @@ INCONSISTENCY_MIN_SIMILARITY = float(
     os.getenv("INCONSISTENCY_MIN_COSINE_SIMILARITY", "0.75")
 )
 INCONSISTENCY_TOP_K = int(os.getenv("INCONSISTENCY_TOP_K", "5"))
+MIN_ATTRIBUTION_CONFIDENCE = float(os.getenv("MIN_ATTRIBUTION_CONFIDENCE", "0.35"))
+MIN_EXTRACTION_CONFIDENCE = float(os.getenv("MIN_EXTRACTION_CONFIDENCE", "0.35"))
+LOW_INFLUENCE_THRESHOLD = float(os.getenv("LOW_INFLUENCE_THRESHOLD", "0.35"))
+ANALYZE_ORGANIZATIONS = os.getenv("ANALYZE_ORGANIZATIONS", "false").lower() in {
+    "1", "true", "yes", "on"
+}
+PARALLEL_SPEAKER_ANALYSIS = os.getenv("PARALLEL_SPEAKER_ANALYSIS", "false").lower() in {
+    "1", "true", "yes", "on"
+}
+PARALLEL_ANALYSIS_WORKERS = max(1, int(os.getenv("PARALLEL_ANALYSIS_WORKERS", "4")))
+
+_VAGUE_SPEAKER_RE = re.compile(
+    r"^(an?|some|other|those|people|experts?|industry sources?|"
+    r"developers?|others?|the crowd|sources?|officials?)\b",
+    re.IGNORECASE,
+)
+_ORGANIZATION_RE = re.compile(
+    r"\b(government|administration|company|corporation|inc\.?|llc|"
+    r"ministry|department|agency|organization|organisation|union|group)\b",
+    re.IGNORECASE,
+)
+_COLLECTIVE_RE = re.compile(
+    r"\b(the public|the people|people in|americans?|users?|consumers?|"
+    r"residents?|citizens?|workers?|scientists?|researchers?|developers?|"
+    r"voters?|the industry|the market|the crowd)\b",
+    re.IGNORECASE,
+)
+_PERSON_NAME_RE = re.compile(r"^[A-Z][a-z'-]+(?:\s+[A-Z][a-z'.'-]+)+$")
+
+
+def _speaker_kind(speaker: models.SpeakerExtraction) -> models.SpeakerKind:
+    name = speaker.speaker_name.strip()
+    role = speaker.speaker_role or ""
+    if speaker.speaker_kind != models.SpeakerKind.UNRESOLVED:
+        return speaker.speaker_kind
+    if _VAGUE_SPEAKER_RE.search(name) or name.casefold() in {
+        "others", "some people", "people in the us", "other developers"
+    }:
+        return models.SpeakerKind.ANONYMOUS_SOURCE
+    if _ORGANIZATION_RE.search(f"{name} {role}"):
+        return models.SpeakerKind.ORGANIZATION
+    if _COLLECTIVE_RE.search(name):
+        return models.SpeakerKind.GROUP
+    if _PERSON_NAME_RE.fullmatch(name):
+        return models.SpeakerKind.PERSON
+    return models.SpeakerKind.UNRESOLVED
+
+
+def _usable_citation(citation: models.CitationCandidate) -> bool:
+    has_source = any(
+        str(value or "").strip()
+        for value in (citation.exact_quote, citation.context, citation.summarized_quote)
+    )
+    return (
+        has_source
+        and citation.confidence_level >= MIN_ATTRIBUTION_CONFIDENCE
+        and citation.extraction_confidence >= MIN_EXTRACTION_CONFIDENCE
+    )
+
+
+def _prepare_speakers(
+    speakers: list[models.SpeakerExtraction],
+) -> list[models.SpeakerExtraction]:
+    """Classify speakers and group low-impact or uncertain sources."""
+    prepared: list[models.SpeakerExtraction] = []
+    vague_citations: list[models.CitationCandidate] = []
+    for speaker in speakers:
+        kind = _speaker_kind(speaker)
+        citations = [citation for citation in speaker.citations if _usable_citation(citation)]
+        if not citations:
+            continue
+        if (
+            kind in {
+                models.SpeakerKind.ANONYMOUS_SOURCE,
+                models.SpeakerKind.UNRESOLVED,
+                models.SpeakerKind.GROUP,
+            }
+            or speaker.uncertain
+            or speaker.influence_score < LOW_INFLUENCE_THRESHOLD
+        ):
+            vague_citations.extend(citations)
+            continue
+        prepared.append(
+            speaker.model_copy(update={"speaker_kind": kind, "citations": citations})
+        )
+    if vague_citations:
+        prepared.append(
+            models.SpeakerExtraction(
+                speaker_name="Vague and unresolved sources",
+                speaker_role="Anonymous, collective, or unresolved source",
+                speaker_kind=models.SpeakerKind.ANONYMOUS_SOURCE,
+                influence_score=min(LOW_INFLUENCE_THRESHOLD, 0.5),
+                citations=vague_citations,
+            )
+        )
+    return prepared
+
+
+def _analysis_speakers(
+    speakers: list[models.SpeakerExtraction],
+) -> list[models.SpeakerExtraction]:
+    """Return only sources allowed to enter person/topic/attitude analysis."""
+    return [
+        speaker
+        for speaker in speakers
+        if speaker.speaker_kind == models.SpeakerKind.PERSON
+        or (
+            speaker.speaker_kind == models.SpeakerKind.ORGANIZATION
+            and ANALYZE_ORGANIZATIONS
+        )
+    ]
 
 
 def _remove_empty_citations(
@@ -106,6 +219,7 @@ def extract_citations(article: models.Article) -> models.CitationExtractionResul
             len(result.speakers),
             sum(len(speaker.citations) for speaker in result.speakers),
         )
+        LLM.log_usage_summary(f"article_id={article.article_id} stage=citation_extraction")
         return result
     except Exception:
         logger.exception(
@@ -200,13 +314,15 @@ def _resolve_topic(topic: dict[str, object]) -> dict[str, object]:
 
 def persist_extraction(article_id: UUID, result: models.CitationExtractionResult) -> None:
     """Persist extracted people and citations without running citation analysis."""
+    speakers = _prepare_speakers(result.speakers)
+    analysis_speakers = _analysis_speakers(speakers)
     people = [
         {
             "name": speaker.speaker_name.strip(),
             "affiliation": speaker.speaker_role or None,
             "aliases": speaker.aliases,
         }
-        for speaker in result.speakers
+        for speaker in analysis_speakers
         if speaker.speaker_name.strip()
     ]
     logger.info(
@@ -214,12 +330,8 @@ def persist_extraction(article_id: UUID, result: models.CitationExtractionResult
         "people=%d citations=%d",
         article_id,
         len(people),
-        sum(len(speaker.citations) for speaker in result.speakers),
+        sum(len(speaker.citations) for speaker in speakers),
     )
-    if not people:
-        logger.info("article_processing status=completed article_id=%s stage=person_and_citation_persistence people=0 citations=0", article_id)
-        return
-
     resolution_started = time.perf_counter()
     resolved_people = [(person, _resolve_person(person)) for person in people]
     logger.info("analysis_stage=person_resolution status=completed article_id=%s people=%d duration=%.3fs", article_id, len(resolved_people), time.perf_counter() - resolution_started)
@@ -230,7 +342,7 @@ def persist_extraction(article_id: UUID, result: models.CitationExtractionResult
     citations = [
         {
             "origin_article_id": str(article_id),
-            "person_uuid": person_ids[speaker.speaker_name.strip().casefold()],
+            "person_uuid": person_ids.get(speaker.speaker_name.strip().casefold()),
             "exact_quote": citation.exact_quote,
             "context": citation.context,
             "citation_type": citation.citation_type.value,
@@ -238,9 +350,8 @@ def persist_extraction(article_id: UUID, result: models.CitationExtractionResult
             "confidence_level": citation.confidence_level,
             "extraction_confidence": citation.extraction_confidence,
         }
-        for speaker in result.speakers
+        for speaker in analysis_speakers
         for citation in speaker.citations
-        if speaker.speaker_name.strip().casefold() in person_ids
     ]
     if citations:
         citations_response = httpx.post(
@@ -266,17 +377,19 @@ def persist_citation_analysis(
     window_days: int,
 ) -> None:
     """Analyze and persist topics, attitudes, and historical inconsistencies."""
+    speakers = _prepare_speakers(result.speakers)
+    analysis_speakers = _analysis_speakers(speakers)
     people = [
         {
             "name": speaker.speaker_name.strip(),
             "affiliation": speaker.speaker_role or None,
             "aliases": speaker.aliases,
         }
-        for speaker in result.speakers
+        for speaker in analysis_speakers
         if speaker.speaker_name.strip()
     ]
     workflow_started = time.perf_counter()
-    total_citations = sum(len(speaker.citations) for speaker in result.speakers)
+    total_citations = sum(len(speaker.citations) for speaker in speakers)
     logger.info(
         "article_processing status=started article_id=%s stage=citation_analysis "
         "people=%d citations=%d window_days=%d",
@@ -285,10 +398,6 @@ def persist_citation_analysis(
         total_citations,
         window_days,
     )
-    if not people:
-        logger.info("article_processing status=completed article_id=%s stage=citation_analysis people=0 citations=0 duration=%.3fs", article_id, time.perf_counter() - workflow_started)
-        return
-
     person_started = time.perf_counter()
     resolved_people = [(person, _resolve_person(person)) for person in people]
     person_ids = {
@@ -299,7 +408,7 @@ def persist_citation_analysis(
     citations = [
         {
             "origin_article_id": str(article_id),
-            "person_uuid": person_ids[speaker.speaker_name.strip().casefold()],
+            "person_uuid": person_ids.get(speaker.speaker_name.strip().casefold()),
             "exact_quote": citation.exact_quote,
             "context": citation.context,
             "citation_type": citation.citation_type.value,
@@ -307,9 +416,8 @@ def persist_citation_analysis(
             "confidence_level": citation.confidence_level,
             "extraction_confidence": citation.extraction_confidence,
         }
-        for speaker in result.speakers
+        for speaker in speakers
         for citation in speaker.citations
-        if speaker.speaker_name.strip().casefold() in person_ids
     ]
     if not citations:
         logger.info("article_processing status=completed article_id=%s stage=citation_analysis people=%d citations=0 duration=%.3fs", article_id, len(people), time.perf_counter() - workflow_started)
@@ -322,9 +430,9 @@ def persist_citation_analysis(
     )
     citations_response.raise_for_status()
     citation_ids = {
-        citation["exact_quote"]: citation["citation_uuid"]
+        (str(citation.get("person_uuid")), citation["exact_quote"]): citation["citation_uuid"]
         for citation in citations_response.json()
-        if citation.get("exact_quote")
+        if citation.get("exact_quote") and citation.get("person_uuid")
     }
     current_citations = {
         citation["citation_uuid"]: citation.get("summarized_quote")
@@ -333,17 +441,28 @@ def persist_citation_analysis(
         for citation in citations_response.json()
     }
 
-    for speaker_index, speaker in enumerate(result.speakers, start=1):
+    analysis_inputs = [
+        speaker for speaker in analysis_speakers
+        if speaker.citations
+    ]
+    if PARALLEL_SPEAKER_ANALYSIS and len(analysis_inputs) > 1:
+        with ThreadPoolExecutor(max_workers=PARALLEL_ANALYSIS_WORKERS) as executor:
+            evaluations = list(executor.map(analyze_speaker_topics, analysis_inputs))
+    else:
+        evaluations = [analyze_speaker_topics(speaker) for speaker in analysis_inputs]
+
+    for speaker_index, (speaker, evaluation) in enumerate(
+        zip(analysis_inputs, evaluations), start=1
+    ):
         logger.info(
             "article_processing status=progress article_id=%s stage=topic_and_stance "
             "speaker_index=%d speakers_total=%d speaker=%s citations=%d",
             article_id,
             speaker_index,
-            len(result.speakers),
+            len(analysis_inputs),
             speaker.speaker_name,
             len(speaker.citations),
         )
-        evaluation = analyze_speaker_topics(speaker)
         topics = [
             {
                 "topic_name": topic.topic_name.strip(),
@@ -351,8 +470,17 @@ def persist_citation_analysis(
             }
             for citation in evaluation.evaluated_citations
             for topic in citation.evaluated_topics
-            if topic.topic_name.strip() and topic.stance_detected
+            if (
+                topic.topic_name.strip()
+                and topic.stance_detected
+                and topic.stance is not None
+                and citation.citation_type != models.CitationType.MENTION
+            )
         ]
+        unique_topics: dict[str, dict[str, object]] = {}
+        for topic in topics:
+            unique_topics.setdefault(topic["topic_name"].casefold(), topic)
+        topics = list(unique_topics.values())
         logger.info(
             "analysis_stage=topic_resolution status=started article_id=%s speaker=%s "
             "topic_candidates=%d",
@@ -370,10 +498,19 @@ def persist_citation_analysis(
             source["topic_name"].strip().casefold(): resolved["topic_uuid"]
             for source, resolved in resolved_topics
         }
+        canonical_topic_descriptions = {
+            source["topic_name"].strip().casefold(): (
+                resolved.get("topic_description")
+                or source["topic_description"]
+            )
+            for source, resolved in resolved_topics
+        }
         logger.info("analysis_stage=topic_resolution status=completed article_id=%s speaker=%s topics=%d duration=%.3fs", article_id, speaker.speaker_name, len(resolved_topics), time.perf_counter() - topic_started)
         attitudes_by_key: dict[tuple[str, str], dict[str, object]] = {}
         for citation in evaluation.evaluated_citations:
-            citation_uuid = citation_ids.get(citation.exact_quote)
+            citation_uuid = citation_ids.get(
+                (str(person_ids[speaker.speaker_name.strip().casefold()]), citation.exact_quote)
+            )
             if citation_uuid is None:
                 continue
             for topic in citation.evaluated_topics:
@@ -386,7 +523,10 @@ def persist_citation_analysis(
                     "citation_uuid": citation_uuid,
                     "stance": str(topic.stance) if topic.stance is not None else None,
                     "relevancy_score": topic.relevancy_score,
-                    "stance_summary": topic.topic_description,
+                    "stance_summary": canonical_topic_descriptions.get(
+                        topic.topic_name.strip().casefold(),
+                        topic.topic_description,
+                    ),
                 }
         attitudes = list(attitudes_by_key.values())
         logger.info(
@@ -408,6 +548,7 @@ def persist_citation_analysis(
         attitudes_response.raise_for_status()
         persist_inconsistencies(
             person_uuid=person_ids[speaker.speaker_name.strip().casefold()],
+            speaker_kind=speaker.speaker_kind,
             current_citations=current_citations,
             topic_ids=topic_ids,
             topics=topics,
@@ -423,6 +564,7 @@ def persist_citation_analysis(
         len(citations),
         time.perf_counter() - workflow_started,
     )
+    LLM.log_usage_summary(f"article_id={article_id} stage=citation_analysis")
 
 
 def persist_full(
@@ -437,6 +579,7 @@ def persist_full(
 
 def persist_inconsistencies(
     person_uuid: str,
+    speaker_kind: models.SpeakerKind,
     current_citations: dict[str, str],
     topic_ids: dict[str, str],
     topics: list[dict[str, object]],
@@ -444,6 +587,12 @@ def persist_inconsistencies(
     before: datetime | None,
     window_days: int,
 ) -> None:
+    if speaker_kind in {
+        models.SpeakerKind.ANONYMOUS_SOURCE,
+        models.SpeakerKind.UNRESOLVED,
+        models.SpeakerKind.GROUP,
+    }:
+        return
     topic_names = {
         topic["topic_name"].strip().casefold(): topic["topic_name"]
         for topic in topics
@@ -458,11 +607,14 @@ def persist_inconsistencies(
         if not topic_name:
             continue
         current_quote = current_citations.get(citation_uuid, "")
+        if not current_quote.strip() or attitude.get("stance") is None:
+            continue
         search_response = httpx.post(
             f"{STORAGE_URL}/citations/search/text",
             json={"text": current_quote},
             params={
                 "person_uuid": person_uuid,
+                "topic_uuid": topic_uuid,
                 "before": before.isoformat() if before else None,
                 "window_days": window_days,
                 "exclude_citation_uuid": citation_uuid,
@@ -473,6 +625,20 @@ def persist_inconsistencies(
         )
         search_response.raise_for_status()
         for historical in search_response.json():
+            historical_quote = (
+                historical.get("exact_quote")
+                or historical.get("summarized_quote")
+                or ""
+            ).strip()
+            if (
+                not historical_quote
+                or historical.get("citation_uuid") == citation_uuid
+                or historical_quote.casefold() == current_quote.casefold()
+                or historical.get("citation_type") == models.CitationType.MENTION.value
+                or historical.get("cosine_similarity", 0) < INCONSISTENCY_MIN_SIMILARITY
+                or historical.get("stance") is None
+            ):
+                continue
             logger.info(
                 "analysis_stage=inconsistency_comparison status=started "
                 "person_uuid=%s topic_uuid=%s",
@@ -481,12 +647,13 @@ def persist_inconsistencies(
             )
             comparison = LLM.compare_attitudes(
                 topic_name=topic_name,
-                earlier=historical.get("exact_quote") or historical.get("summarized_quote") or "",
+                earlier=historical_quote,
                 earlier_stance=historical.get("stance"),
                 newer=current_quote,
                 newer_stance=str(attitude.get("stance"))
                 if attitude.get("stance") is not None
                 else None,
+                speaker=person_uuid,
             )
             response = httpx.post(
                 f"{STORAGE_URL}/inconsistencies",

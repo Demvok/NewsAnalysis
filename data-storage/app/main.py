@@ -11,7 +11,7 @@ from uuid import UUID
 from fastapi import FastAPI, HTTPException, Query, Request, Response, status
 from openai import OpenAI
 from pydantic import ValidationError
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import delete, exists, func, or_, select
 from sqlalchemy.exc import IntegrityError
 
 from app.database import (
@@ -1144,7 +1144,9 @@ def search_citations_by_vector(
         )
         if topic_uuid is not None:
             stance_query = stance_query.where(FctAttitude.topic_uuid == topic_uuid)
-        stance = stance_query.limit(1).scalar_subquery().label("stance")
+        stance = (
+            stance_query.correlate(DimCitation).limit(1).scalar_subquery().label("stance")
+        )
         statement = (
             select(DimCitation, distance, similarity, stance)
             .join(DimArticle, DimCitation.origin_article_id == DimArticle.article_id)
@@ -1154,14 +1156,21 @@ def search_citations_by_vector(
             .where(DimArticle.published_at >= cutoff)
             .where(DimArticle.published_at <= effective_before)
             .order_by(DimCitation.summarized_quote_vector.cosine_distance(embedding))
-            .limit(limit)
         )
         if person_uuid is not None:
             statement = statement.where(DimCitation.person_uuid == person_uuid)
         if topic_uuid is not None:
-            statement = statement.where(FctAttitude.topic_uuid == topic_uuid)
+            statement = statement.where(
+                exists(
+                    select(1).where(
+                        FctAttitude.citation_uuid == DimCitation.citation_uuid,
+                        FctAttitude.topic_uuid == topic_uuid,
+                    )
+                )
+            )
         if exclude_citation_uuid is not None:
             statement = statement.where(DimCitation.citation_uuid != exclude_citation_uuid)
+        statement = statement.limit(limit)
         return [
             {
                 **_as_dict(citation),

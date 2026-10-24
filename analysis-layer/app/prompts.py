@@ -29,7 +29,15 @@ CITATION_EXTRACTION_PROMPT = ModelCompatibleChatPromptTemplate.from_messages([
         Do not invent speakers, quotes, or unsupported details. A mere mention is
         not a citation unless the article attributes a position or statement to the
         person. Use citation_type exactly as defined by the output schema.
-        confidence_level and extraction_confidence are numbers from 0 to 1.
+        Classify each speaker as PERSON, ORGANIZATION, GROUP, ANONYMOUS_SOURCE, or
+        UNRESOLVED. Use ANONYMOUS_SOURCE
+        for anonymous descriptors such as "experts", "some people", "industry
+        sources", "others", or "those behind AI data centres".
+        Also score influence_score from 0 to 1: how much this speaker's evidence
+        affects the article's main story, not how credible the speaker is. A low
+        score means the evidence should be preserved but processed as lower priority.
+        Set uncertain and explain uncertainty_reason when attribution or evidence is
+        ambiguous. confidence_level and extraction_confidence are numbers from 0 to 1.
         Return the complete structured result, including an empty speakers list when
         no attributable statements exist.
         """
@@ -111,6 +119,20 @@ class ExtractedSpeaker(BaseModel):
     speaker_name: str = Field(..., description="The name of the speaker")
     speaker_role: str = Field(..., description="The role or affiliation of the speaker if he represents an organization")
     aliases: list[str] = Field(..., description="A list of aliases used for the speaker in the article")
+    speaker_kind: str = Field(
+        default="UNRESOLVED",
+        description=(
+            "One of PERSON, ORGANIZATION, GROUP, ANONYMOUS_SOURCE, UNRESOLVED."
+        ),
+    )
+    influence_score: float = Field(
+        default=1,
+        ge=0,
+        le=1,
+        description="Impact of this speaker's evidence on the article's main story.",
+    )
+    uncertain: bool = False
+    uncertainty_reason: str = ""
     citations: list[CitationExtractionCitation] = Field(..., description="Citations attributed to the speaker")
 
 class CitationExtractionOutput(BaseModel):
@@ -158,6 +180,53 @@ CITATION_EXTRACTION_REFINING_PROMPT = ModelCompatibleChatPromptTemplate.from_mes
 
 # === Citation Evaluation Prompt ===
 
+COMBINED_CITATION_ANALYSIS_PROMPT = ModelCompatibleChatPromptTemplate.from_messages([
+    (
+        "system",
+        """
+        Analyze all citations for this speaker in one pass. For every citation,
+        identify only topics that are actually supported by an attributable position,
+        define each topic as a reusable proposition, and assign the speaker's stance
+        from -10 (strongly against) to +10 (strongly supports). Do not infer a
+        position from a bare mention. Preserve citation fields exactly.
+
+        This is a batch-analysis identity, not necessarily a real-world identity.
+        For PERSON, all citations in this batch belong to the same person.
+        For ANONYMOUS_SOURCE or UNRESOLVED, the citations may come from many
+        different unnamed sources: analyze each citation independently and never
+        merge them into one person's position. The resulting attitudes are
+        citation-level general-source observations, not a person profile.
+
+        The speaker kind controls effort. For ANONYMOUS_SOURCE or UNRESOLVED,
+        do basic topic/stance extraction only, avoid elaborate interpretation, and
+        never produce material for historical inconsistency tracking. Mentions and
+        citations without usable source text must have no evaluated topics. For
+        PERSON speakers belong to one batch identity. Organizations are only valid
+        here when explicitly enabled by the workflow; GROUP and non-person sources
+        must not be treated as canonical people.
+
+        topic_name must be concise and canonical. topic_description must be a
+        proposition that can be meaningfully supported or opposed, including
+        important scope, actor, object, or condition. Determine polarity from the
+        proposition itself: stance > 0 means the speaker supports that proposition,
+        stance < 0 means the speaker opposes it, and stance = 0 means neutral or
+        indeterminate. Do not reverse polarity because the quote uses a negative
+        verb; define the proposition first, then judge for/against it.
+        relevancy_score is 0..1. stance_detected is false and stance is null when
+        evidence is inadequate. Return one result for every input citation.
+        """
+    ),
+    (
+        "human",
+        """
+        Speaker: {speaker_name}
+        Role: {speaker_role}
+        Speaker kind: {speaker_kind}
+        Citations: {citations}
+        """
+    ),
+])
+
 TOPIC_EXTRACTION_PROMPT = ModelCompatibleChatPromptTemplate.from_messages([
     (
         "system",
@@ -187,9 +256,6 @@ TOPIC_EXTRACTION_PROMPT = ModelCompatibleChatPromptTemplate.from_messages([
 
             Role:
             {speaker_role}
-
-            Aliases:
-            {aliases}
 
             Citations:
             {citations}
@@ -233,11 +299,8 @@ CITATION_EVALUATION_PROMPT = ModelCompatibleChatPromptTemplate.from_messages([
             Role:
             {speaker_role}
 
-            Aliases:
-            {aliases}
-
-            Citations:
-            {analysed_citations}
+            Evaluated citations:
+            {evaluated_citations}
         """
     )
 ])
@@ -257,6 +320,18 @@ class CitationEvaluationOutput(BaseModel):
     speaker_role: str = Field(..., description="The role or affiliation of the speaker if he represents an organization")
     aliases: list[str] = Field(..., description="A list of aliases used for the speaker in the article")
     evaluated_citations: list[EvaluatedCitation] = Field(..., description="Citations attributed to the speaker with their topic evaluations and stances")
+
+
+class CombinedEvaluatedCitation(CitationExtractionCitation):
+    evaluated_topics: list[CitationEvaluatedTopic] = Field(
+        ..., description="Topics and stances supported by this citation"
+    )
+
+
+class CombinedCitationAnalysisOutput(BaseModel):
+    speaker_name: str
+    speaker_role: str
+    evaluated_citations: list[CombinedEvaluatedCitation]
 
 
 class InconsistencyComparison(BaseModel):
