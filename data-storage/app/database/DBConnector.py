@@ -123,6 +123,10 @@ class FctInconsistency(Base):
     __table_args__ = (
         UniqueConstraint("topic_uuid", "citation_a_uuid", "citation_b_uuid", name="uq_inconsistency_evidence_pair"),
         CheckConstraint(
+            "citation_a_uuid <> citation_b_uuid",
+            name="ck_inconsistency_distinct_citations",
+        ),
+        CheckConstraint(
             "classification IN ('CONSISTENT', 'POSITION_CHANGE', 'CONTRADICTION', 'INSUFFICIENT_EVIDENCE')",
             name="ck_inconsistency_classification",
         ),
@@ -169,6 +173,13 @@ Index(
     postgresql_using="hnsw",
     postgresql_ops={"topic_description_vector": "vector_cosine_ops"},
 )
+Index(
+    "uq_inconsistency_unordered_evidence_pair",
+    FctInconsistency.topic_uuid,
+    text("LEAST(citation_a_uuid, citation_b_uuid)"),
+    text("GREATEST(citation_a_uuid, citation_b_uuid)"),
+    unique=True,
+)
 
 
 engine = create_engine(database_url(), pool_pre_ping=True, pool_recycle=1800)
@@ -179,6 +190,30 @@ def create_database() -> None:
     with engine.begin() as connection:
         connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
     Base.metadata.create_all(bind=engine)
+    with engine.begin() as connection:
+        connection.execute(text("""
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1
+                    FROM pg_constraint
+                    WHERE conname = 'ck_inconsistency_distinct_citations'
+                ) THEN
+                    ALTER TABLE "fctInconsistency"
+                    ADD CONSTRAINT ck_inconsistency_distinct_citations
+                    CHECK (citation_a_uuid <> citation_b_uuid);
+                END IF;
+            END
+            $$;
+        """))
+        connection.execute(text("""
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_inconsistency_unordered_evidence_pair
+            ON "fctInconsistency" (
+                topic_uuid,
+                LEAST(citation_a_uuid, citation_b_uuid),
+                GREATEST(citation_a_uuid, citation_b_uuid)
+            );
+        """))
 
 
 def recreate_database() -> None:

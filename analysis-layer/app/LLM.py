@@ -87,7 +87,13 @@ class _LLMUsageLogger(BaseCallbackHandler):
 # === Basics ===
 
 
-def llm_invoke(*args, usage_type="unspecified", temperature=None, **kwargs):
+def llm_invoke(
+    *args,
+    usage_type="unspecified",
+    temperature=None,
+    thinking="off",
+    **kwargs,
+):
     """
     Invoke the language model with logging of token usage and purpose.
     
@@ -96,6 +102,7 @@ def llm_invoke(*args, usage_type="unspecified", temperature=None, **kwargs):
         usage_type: String describing what the LLM is being used for (e.g. "event_scoring", "sentiment_analysis")
         temperature: The temperature to use for the model   
         model: The model to use ('main' for llm_main, 'text' for llm_text)
+        thinking: Whether the provider should use its reasoning mode ("on" or "off").
         **kwargs: Keyword arguments to pass to the model's invoke method
     
     Returns:
@@ -106,6 +113,9 @@ def llm_invoke(*args, usage_type="unspecified", temperature=None, **kwargs):
         configurable = dict(config.get("configurable", {}))
         configurable["temperature"] = temperature
         config["configurable"] = configurable
+    extra_body = dict(kwargs.get("extra_body") or {})
+    extra_body["thinking"] = thinking
+    kwargs["extra_body"] = extra_body
 
     config["callbacks"] = [
         *config.get("callbacks", []),
@@ -121,12 +131,13 @@ def llm_invoke(*args, usage_type="unspecified", temperature=None, **kwargs):
 _USAGE_LOGGER = _LLMUsageLogger()
 
 
-def _structured_output(output_model, usage_type):
+def _structured_output(output_model, usage_type, thinking="off"):
     """Create a structured-output model whose underlying call is usage-logged."""
-    return llm_main.with_config(
+    structured_model = llm_main.with_config(
         callbacks=[_USAGE_LOGGER],
         metadata={"usage_type": usage_type},
     ).with_structured_output(output_model)
+    return structured_model.bind(extra_body={"thinking": thinking})
 
 
 # === Extraction ===
@@ -143,6 +154,7 @@ def extract_citations(article_title, article_content):
     extraction_chain = prompts.CITATION_EXTRACTION_PROMPT | _structured_output(
         prompts.CitationExtractionOutput,
         "citation_extraction",
+        thinking="off",
     )
 
 
@@ -152,6 +164,7 @@ def extract_citations(article_title, article_content):
         | _structured_output(
             prompts.CitationExtractionOutput,
             "citation_refinement",
+            thinking="on",
         )
     )
 
@@ -174,9 +187,17 @@ def sentiment_analysis(speaker: prompts.ExtractedSpeaker):
     """
     sentiment_chain = (
         prompts.TOPIC_EXTRACTION_PROMPT
-        | _structured_output(prompts.TopicExtractionOutput, "topic_extraction")
+        | _structured_output(
+            prompts.TopicExtractionOutput,
+            "topic_extraction",
+            thinking="off",
+        )
         | prompts.CITATION_EVALUATION_PROMPT
-        | _structured_output(prompts.CitationEvaluationOutput, "citation_evaluation")
+        | _structured_output(
+            prompts.CitationEvaluationOutput,
+            "citation_evaluation",
+            thinking="on",
+        )
     )
 
     response = sentiment_chain.invoke({
@@ -199,6 +220,7 @@ def compare_attitudes(
     chain = prompts.INCONSISTENCY_COMPARISON_PROMPT | _structured_output(
         prompts.InconsistencyComparison,
         "inconsistency_comparison",
+        thinking="on",
     )
     return chain.invoke({
         "topic_name": topic_name,

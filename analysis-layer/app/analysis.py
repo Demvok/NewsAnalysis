@@ -12,6 +12,12 @@ from . import LLM, models
 
 logger = logging.getLogger(__name__)
 STORAGE_URL = os.getenv("STORAGE_URL", "http://data-storage:8000").rstrip("/")
+PERSON_MIN_SIMILARITY = float(os.getenv("PERSON_MIN_COSINE_SIMILARITY", "0.85"))
+TOPIC_MIN_SIMILARITY = float(os.getenv("TOPIC_MIN_COSINE_SIMILARITY", "0.85"))
+INCONSISTENCY_MIN_SIMILARITY = float(
+    os.getenv("INCONSISTENCY_MIN_COSINE_SIMILARITY", "0.75")
+)
+INCONSISTENCY_TOP_K = int(os.getenv("INCONSISTENCY_TOP_K", "5"))
 
 
 def _remove_empty_citations(
@@ -140,6 +146,44 @@ def analyze_speaker_topics(speaker: models.SpeakerExtraction):
         raise
 
 
+def _resolve_person(person: dict[str, object]) -> dict[str, object]:
+    search_text = "\n".join(
+        [str(person["name"]), *(str(alias) for alias in person.get("aliases", []) or [])]
+    )
+    response = httpx.post(
+        f"{STORAGE_URL}/people/search",
+        json={"text": search_text},
+        params={"limit": 1, "min_similarity": PERSON_MIN_SIMILARITY},
+        timeout=30.0,
+    )
+    response.raise_for_status()
+    matches = response.json()
+    if matches:
+        return matches[0]
+
+    response = httpx.post(f"{STORAGE_URL}/people", json=person, timeout=30.0)
+    response.raise_for_status()
+    return response.json()
+
+
+def _resolve_topic(topic: dict[str, object]) -> dict[str, object]:
+    description = str(topic.get("topic_description") or topic["topic_name"])
+    response = httpx.post(
+        f"{STORAGE_URL}/topics/search/text",
+        json={"text": description},
+        params={"limit": 1, "min_similarity": TOPIC_MIN_SIMILARITY},
+        timeout=30.0,
+    )
+    response.raise_for_status()
+    matches = response.json()
+    if matches:
+        return matches[0]
+
+    response = httpx.post(f"{STORAGE_URL}/topics", json=topic, timeout=30.0)
+    response.raise_for_status()
+    return response.json()
+
+
 def persist_extraction(article_id: UUID, result: models.CitationExtractionResult) -> None:
     """Persist extracted people and citations without running citation analysis."""
     people = [
@@ -154,12 +198,10 @@ def persist_extraction(article_id: UUID, result: models.CitationExtractionResult
     if not people:
         return
 
-    people_response = httpx.post(f"{STORAGE_URL}/people/bulk", json=people, timeout=30.0)
-    people_response.raise_for_status()
-    persisted_people = people_response.json()
+    resolved_people = [(person, _resolve_person(person)) for person in people]
     person_ids = {
-        person["name"].strip().casefold(): person["person_uuid"]
-        for person in persisted_people
+        source["name"].strip().casefold(): resolved["person_uuid"]
+        for source, resolved in resolved_people
     }
     citations = [
         {
@@ -204,11 +246,10 @@ def persist_citation_analysis(
     if not people:
         return
 
-    people_response = httpx.post(f"{STORAGE_URL}/people/bulk", json=people, timeout=30.0)
-    people_response.raise_for_status()
+    resolved_people = [(person, _resolve_person(person)) for person in people]
     person_ids = {
-        person["name"].strip().casefold(): person["person_uuid"]
-        for person in people_response.json()
+        source["name"].strip().casefold(): resolved["person_uuid"]
+        for source, resolved in resolved_people
     }
     citations = [
         {
@@ -239,6 +280,12 @@ def persist_citation_analysis(
         for citation in citations_response.json()
         if citation.get("exact_quote")
     }
+    current_citations = {
+        citation["citation_uuid"]: citation.get("summarized_quote")
+        or citation.get("exact_quote")
+        or ""
+        for citation in citations_response.json()
+    }
 
     for speaker in result.speakers:
         logger.info(
@@ -258,11 +305,10 @@ def persist_citation_analysis(
         if not topics:
             continue
 
-        topics_response = httpx.post(f"{STORAGE_URL}/topics/bulk", json=topics, timeout=30.0)
-        topics_response.raise_for_status()
+        resolved_topics = [(topic, _resolve_topic(topic)) for topic in topics]
         topic_ids = {
-            topic["topic_name"].strip().casefold(): topic["topic_uuid"]
-            for topic in topics_response.json()
+            source["topic_name"].strip().casefold(): resolved["topic_uuid"]
+            for source, resolved in resolved_topics
         }
         attitudes_by_key: dict[tuple[str, str], dict[str, object]] = {}
         for citation in evaluation.evaluated_citations:
@@ -293,7 +339,7 @@ def persist_citation_analysis(
         attitudes_response.raise_for_status()
         persist_inconsistencies(
             person_uuid=person_ids[speaker.speaker_name.strip().casefold()],
-            current_citations=citation_ids,
+            current_citations=current_citations,
             topic_ids=topic_ids,
             topics=topics,
             attitudes=attitudes,
@@ -334,23 +380,22 @@ def persist_inconsistencies(
         citation_uuid = str(attitude["citation_uuid"])
         if not topic_name:
             continue
-        history_response = httpx.get(
-            f"{STORAGE_URL}/attitudes/history",
+        current_quote = current_citations.get(citation_uuid, "")
+        search_response = httpx.post(
+            f"{STORAGE_URL}/citations/search/text",
+            json={"text": current_quote},
             params={
                 "person_uuid": person_uuid,
-                "topic_uuid": topic_uuid,
                 "before": before.isoformat() if before else None,
                 "window_days": window_days,
                 "exclude_citation_uuid": citation_uuid,
+                "limit": INCONSISTENCY_TOP_K,
+                "min_similarity": INCONSISTENCY_MIN_SIMILARITY,
             },
             timeout=30.0,
         )
-        history_response.raise_for_status()
-        current_quote = next(
-            (quote for quote, value in current_citations.items() if value == citation_uuid),
-            "",
-        )
-        for historical in history_response.json():
+        search_response.raise_for_status()
+        for historical in search_response.json():
             logger.info(
                 "analysis_stage=inconsistency_comparison status=started "
                 "person_uuid=%s topic_uuid=%s",
