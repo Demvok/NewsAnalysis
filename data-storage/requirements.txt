@@ -4,3 +4,4 @@ psycopg[binary]
 sqlalchemy
 pgvector
 pandas
+openai

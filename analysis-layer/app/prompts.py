@@ -1,5 +1,5 @@
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 import json
 from enum import Enum
 
@@ -32,6 +32,8 @@ CITATION_EXTRACTION_PROMPT = ModelCompatibleChatPromptTemplate.from_messages([
         - summarize the citation;
         - identify the speaker correctly;
         - include aliases used to refer to the same person.
+        - return confidence_level and extraction_confidence on a 0 to 1 scale;
+          do not use a 0 to 5 or percentage scale.
 
         Do not invent quotes, speakers, or information that is not supported by the article.
         """
@@ -100,6 +102,14 @@ class CitationExtractionCitation(BaseModel):
         le=1,
         description="Confidence in the extraction process, from 0 to 1",
     )
+
+    @field_validator("confidence_level", "extraction_confidence", mode="before")
+    @classmethod
+    def normalize_confidence(cls, value: object) -> object:
+        """Accept legacy 0-5 model output and store the canonical 0-1 value."""
+        if isinstance(value, (int, float)) and 1 < value <= 5:
+            return value / 5
+        return value
 
 class ExtractedSpeaker(BaseModel):
     speaker_name: str = Field(..., description="The name of the speaker")
@@ -285,6 +295,13 @@ class InconsistencyComparison(BaseModel):
     severity: str | None = None
     confidence: float = Field(ge=0, le=1)
     comment: str
+
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def normalize_confidence(cls, value: object) -> object:
+        if isinstance(value, (int, float)) and 1 < value <= 5:
+            return value / 5
+        return value
 
 
 INCONSISTENCY_COMPARISON_PROMPT = ModelCompatibleChatPromptTemplate.from_messages([
