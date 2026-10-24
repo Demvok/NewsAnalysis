@@ -6,7 +6,7 @@ from typing import Iterator
 from uuid import UUID, uuid4
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Boolean, CheckConstraint, DateTime, Float, ForeignKey, JSON, String, Text, UniqueConstraint, create_engine, text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, Float, ForeignKey, Index, JSON, String, Text, UniqueConstraint, create_engine, text
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 
@@ -53,6 +53,7 @@ class DimPerson(Base):
     image_url: Mapped[str | None] = mapped_column(Text)
     affiliation: Mapped[object | None] = mapped_column(JSON)
     aliases: Mapped[object | None] = mapped_column(JSON)
+    aliases_vector: Mapped[list[float] | None] = mapped_column(Vector(EMBEDDING_DIMENSION))
     status: Mapped[str | None] = mapped_column(String(32))
     created_at: Mapped[object | None] = mapped_column(DateTime(timezone=True))
     modified_at: Mapped[object | None] = mapped_column(DateTime(timezone=True))
@@ -148,6 +149,26 @@ class FctInconsistency(Base):
     confidence: Mapped[float | None] = mapped_column(Float)
     inconsistency_comment: Mapped[str | None] = mapped_column(Text)
     detected_at: Mapped[object | None] = mapped_column(DateTime(timezone=True))
+
+
+Index(
+    "ix_dim_person_aliases_vector",
+    DimPerson.aliases_vector,
+    postgresql_using="hnsw",
+    postgresql_ops={"aliases_vector": "vector_cosine_ops"},
+)
+Index(
+    "ix_dim_citation_summarized_quote_vector",
+    DimCitation.summarized_quote_vector,
+    postgresql_using="hnsw",
+    postgresql_ops={"summarized_quote_vector": "vector_cosine_ops"},
+)
+Index(
+    "ix_dim_topic_description_vector",
+    DimTopic.topic_description_vector,
+    postgresql_using="hnsw",
+    postgresql_ops={"topic_description_vector": "vector_cosine_ops"},
+)
 
 
 engine = create_engine(database_url(), pool_pre_ping=True, pool_recycle=1800)

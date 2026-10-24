@@ -33,7 +33,8 @@ def _remove_empty_citations(
             for field in ("confidence_level", "extraction_confidence"):
                 value = cleaned_citation.get(field)
                 if isinstance(value, (int, float)) and not 0 <= value <= 1:
-                    cleaned_citation[field] = min(1.0, max(0.0, value))
+                    if value <= 5:
+                        cleaned_citation[field] = value / 5
                     normalized += 1
             citations.append(cleaned_citation)
         cleaned_speaker["citations"] = citations
@@ -263,19 +264,24 @@ def persist_citation_analysis(
             topic["topic_name"].strip().casefold(): topic["topic_uuid"]
             for topic in topics_response.json()
         }
-        attitudes = [
-            {
-                "topic_uuid": topic_ids[topic.topic_name.strip().casefold()],
-                "citation_uuid": citation_ids[citation.exact_quote],
-                "stance": str(topic.stance) if topic.stance is not None else None,
-                "relevancy_score": topic.relevancy_score,
-                "stance_summary": topic.topic_description,
-            }
-            for citation in evaluation.evaluated_citations
-            if citation.exact_quote in citation_ids
-            for topic in citation.evaluated_topics
-            if topic.topic_name.strip().casefold() in topic_ids
-        ]
+        attitudes_by_key: dict[tuple[str, str], dict[str, object]] = {}
+        for citation in evaluation.evaluated_citations:
+            citation_uuid = citation_ids.get(citation.exact_quote)
+            if citation_uuid is None:
+                continue
+            for topic in citation.evaluated_topics:
+                topic_uuid = topic_ids.get(topic.topic_name.strip().casefold())
+                if topic_uuid is None:
+                    continue
+                key = (str(topic_uuid), str(citation_uuid))
+                attitudes_by_key[key] = {
+                    "topic_uuid": topic_uuid,
+                    "citation_uuid": citation_uuid,
+                    "stance": str(topic.stance) if topic.stance is not None else None,
+                    "relevancy_score": topic.relevancy_score,
+                    "stance_summary": topic.topic_description,
+                }
+        attitudes = list(attitudes_by_key.values())
         if not attitudes:
             continue
 

@@ -1,11 +1,27 @@
 from __future__ import annotations
 
 from datetime import datetime
+import re
 from typing import Any, Literal
 from uuid import UUID
 
 from enum import Enum
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+def parse_datetime(value: object) -> object:
+    """Accept ISO timestamps and common feeds' spaced numeric offsets."""
+    if not isinstance(value, str):
+        return value
+    normalized = value.strip()
+    if normalized.endswith(("Z", "z")):
+        normalized = normalized[:-1] + "+00:00"
+    normalized = re.sub(r"\s+([+-]\d{2})(\d{2})$", r"\1:\2", normalized)
+    normalized = re.sub(r"\s+([+-]\d{2}:\d{2})$", r"\1", normalized)
+    try:
+        return datetime.fromisoformat(normalized)
+    except ValueError:
+        return value
 
 
 class ORMModel(BaseModel):
@@ -36,6 +52,11 @@ class ArticlePayload(BaseModel):
     tags: Any = None
     description: str | None = None
 
+    @field_validator("published_at", "parsed_at", "modified_at", mode="before")
+    @classmethod
+    def normalize_datetimes(cls, value: object) -> object:
+        return parse_datetime(value)
+
     @field_validator("url")
     @classmethod
     def normalize_url(cls, value: str | None) -> str | None:
@@ -52,23 +73,35 @@ class PersonPayload(BaseModel):
     created_at: datetime | None = None
     modified_at: datetime | None = None
 
+    @field_validator("created_at", "modified_at", mode="before")
+    @classmethod
+    def normalize_datetimes(cls, value: object) -> object:
+        return parse_datetime(value)
+
 
 class CitationPayload(BaseModel):
+    citation_uuid: UUID | None = None
     origin_article_id: UUID
     person_uuid: UUID | None = None
     exact_quote: str | None = None
     context: str | None = None
     citation_type: CitationType | None = None
     summarized_quote: str | None = None
-    summarized_quote_vector: list[float] | None = None
     confidence_level: float | None = Field(default=None, ge=0, le=1)
     extraction_confidence: float | None = Field(default=None, ge=0, le=1)
 
+    @field_validator("confidence_level", "extraction_confidence", mode="before")
+    @classmethod
+    def normalize_confidence(cls, value: object) -> object:
+        if isinstance(value, (int, float)) and 1 < value <= 5:
+            return value / 5
+        return value
+
 
 class TopicPayload(BaseModel):
+    topic_uuid: UUID | None = None
     topic_name: str = Field(min_length=1, max_length=512)
     topic_description: str | None = None
-    topic_description_vector: list[float] | None = None
     general_topic_field: str | None = None
 
 
@@ -96,6 +129,11 @@ class InconsistencyPayload(BaseModel):
     inconsistency_comment: str | None = None
     detected_at: datetime | None = None
 
+    @field_validator("detected_at", mode="before")
+    @classmethod
+    def normalize_datetime(cls, value: object) -> object:
+        return parse_datetime(value)
+
 
 class ArticleUpdate(ArticlePayload):
     pass
@@ -110,6 +148,19 @@ class PersonUpdate(BaseModel):
     created_at: datetime | None = None
     modified_at: datetime | None = None
 
+    @field_validator("created_at", "modified_at", mode="before")
+    @classmethod
+    def normalize_datetimes(cls, value: object) -> object:
+        return parse_datetime(value)
+
+
+class EmbeddingRequest(BaseModel):
+    text: str = Field(min_length=1)
+
+
+class EmbeddingBatchRequest(BaseModel):
+    texts: list[str] = Field(min_length=1, max_length=100)
+
 
 class CitationUpdate(BaseModel):
     person_uuid: UUID | None = None
@@ -117,15 +168,20 @@ class CitationUpdate(BaseModel):
     context: str | None = None
     citation_type: CitationType | None = None
     summarized_quote: str | None = None
-    summarized_quote_vector: list[float] | None = None
     confidence_level: float | None = Field(default=None, ge=0, le=1)
     extraction_confidence: float | None = Field(default=None, ge=0, le=1)
+
+    @field_validator("confidence_level", "extraction_confidence", mode="before")
+    @classmethod
+    def normalize_confidence(cls, value: object) -> object:
+        if isinstance(value, (int, float)) and 1 < value <= 5:
+            return value / 5
+        return value
 
 
 class TopicUpdate(BaseModel):
     topic_name: str | None = None
     topic_description: str | None = None
-    topic_description_vector: list[float] | None = None
     general_topic_field: str | None = None
 
 

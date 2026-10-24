@@ -21,8 +21,13 @@ services:
     container_name: data-storage
     environment:
       DATABASE_URL: postgresql+psycopg://news:${POSTGRES_PASSWORD:-POSTGRES_PASSWORD}@postgres-db:5432/news
+      EMBEDDING_URL: ${EMBEDDING_URL:-http://host.docker.internal:1234/v1}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-embeddinggemma-300m}
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-fake_api_key}
     ports:
       - "8000:8000"
+    volumes:
+      - ./logs/data-storage:/app/logs
     depends_on:
       postgres:
         condition: service_healthy

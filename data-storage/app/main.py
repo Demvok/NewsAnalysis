@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import logging
+import json
+import os
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID
 
 from fastapi import FastAPI, HTTPException, Query, status
+from openai import OpenAI
 from pydantic import ValidationError
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
@@ -39,16 +42,24 @@ from app.schemas import (
     CitationBulkUpdate,
     CitationPayload,
     CitationUpdate,
+    EmbeddingBatchRequest,
+    EmbeddingRequest,
     PersonBulkUpdate,
     PersonPayload,
     PersonUpdate,
     TopicBulkUpdate,
     TopicPayload,
     TopicUpdate,
+    parse_datetime,
 )
 
 logger = logging.getLogger("data-storage")
 app = FastAPI(title="NewsAnalysis-DataStorage", version="0.2.0")
+_embedding_client = OpenAI(
+    base_url=os.getenv("EMBEDDING_URL", "http://host.docker.internal:1234/v1"),
+    api_key=os.getenv("EMBEDDING_API_KEY", "fake_api_key"),
+)
+_embedding_model_name = os.getenv("EMBEDDING_MODEL", "text-embedding-embeddinggemma-300m")
 
 
 @app.on_event("startup")
@@ -62,6 +73,67 @@ def _validate_vector(values: list[float] | None) -> None:
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Embedding must contain exactly {EMBEDDING_DIMENSION} values",
         )
+
+
+def _affiliation_text(affiliation: Any) -> str:
+    if affiliation is None:
+        return ""
+    if isinstance(affiliation, str):
+        return affiliation.strip()
+    return json.dumps(affiliation, ensure_ascii=True, sort_keys=True)
+
+
+def _normalize_aliases(aliases: Any, affiliation: Any) -> list[dict[str, Any]]:
+    if aliases is None:
+        raw_aliases: list[Any] = []
+    elif isinstance(aliases, list):
+        raw_aliases = aliases
+    else:
+        raise HTTPException(status_code=422, detail="aliases must be a list")
+
+    affiliation_value = affiliation
+    normalized: list[dict[str, Any]] = []
+    for item in raw_aliases:
+        if isinstance(item, str):
+            alias = item.strip()
+        elif isinstance(item, dict):
+            alias = str(item.get("alias", item.get("name", ""))).strip()
+        else:
+            raise HTTPException(status_code=422, detail="Each alias must be a string or object")
+        if not alias:
+            continue
+        normalized.append({"alias": alias, "affiliation": affiliation_value})
+    affiliation_alias = _affiliation_text(affiliation)
+    if affiliation_alias and not any(item["alias"] == affiliation_alias for item in normalized):
+        normalized.append({"alias": affiliation_alias, "affiliation": affiliation_value})
+    return normalized
+
+
+def _person_values(values: dict[str, Any]) -> dict[str, Any]:
+    values = dict(values)
+    values["aliases"] = _normalize_aliases(values.get("aliases"), values.get("affiliation"))
+    alias_text = _person_embedding_text(values["aliases"], values.get("affiliation"))
+    values["aliases_vector"] = (
+        _embed_texts([alias_text])[0] if alias_text else None
+    )
+    return values
+
+
+def _person_embedding_text(aliases: list[dict[str, Any]], affiliation: Any) -> str:
+    alias_text = "\n".join(alias["alias"] for alias in aliases)
+    return f"{alias_text}\n{_affiliation_text(affiliation)}".strip()
+
+
+def _with_generated_vector(
+    values: dict[str, Any],
+    text_field: str,
+    vector_field: str,
+) -> dict[str, Any]:
+    values = dict(values)
+    if text_field in values:
+        text = values[text_field]
+        values[vector_field] = _embed_texts([text])[0] if text and text.strip() else None
+    return values
 
 
 def _as_dict(item: Any) -> dict[str, Any]:
@@ -114,9 +186,8 @@ def _update(model: Any, key: Any, values: dict[str, Any]) -> dict[str, Any]:
 def _delete(model: Any, key: Any) -> None:
     with get_session() as session:
         item = session.get(model, key)
-        if item is None:
-            raise HTTPException(status_code=404, detail=f"{model.__name__} not found")
-        session.delete(item)
+        if item is not None:
+            session.delete(item)
 
 
 def _bulk_create(model: Any, values: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -229,12 +300,20 @@ def import_temp_articles() -> dict[str, int | str]:
 
 @app.post("/articles", status_code=201, response_model=None, tags=["Articles"], summary="Create an article")
 def create_article(payload: ArticlePayload) -> dict[str, Any]:
-    if payload.url:
-        with get_session() as session:
-            existing = session.scalar(select(DimArticle).where(DimArticle.url == payload.url))
-            if existing is not None:
-                return _as_dict(existing)
-    return _create(DimArticle, payload.model_dump())
+    values = payload.model_dump(exclude_none=True)
+    with get_session() as session:
+        article = session.get(DimArticle, payload.article_id) if payload.article_id else None
+        if article is None and payload.url:
+            article = session.scalar(select(DimArticle).where(DimArticle.url == payload.url))
+        if article is None:
+            article = DimArticle(**values)
+            session.add(article)
+        else:
+            for field, value in values.items():
+                if field != "article_id":
+                    setattr(article, field, value)
+        session.flush()
+        return _as_dict(article)
 
 
 @app.get("/articles", response_model=None, tags=["Articles"], summary="List articles")
@@ -307,12 +386,54 @@ def update_articles_bulk(payload: list[ArticleBulkUpdate]) -> list[dict[str, Any
 
 @app.post("/people", status_code=201, response_model=None, tags=["People"], summary="Create a person")
 def create_person(payload: PersonPayload) -> dict[str, Any]:
-    return _create(DimPerson, payload.model_dump())
+    values = _person_values(payload.model_dump(exclude_none=True))
+    with get_session() as session:
+        person = session.get(DimPerson, payload.person_uuid) if payload.person_uuid else None
+        if person is None:
+            person = session.scalar(
+                select(DimPerson).where(func.lower(DimPerson.name) == payload.name.strip().casefold())
+            )
+        if person is None:
+            person = DimPerson(**values)
+            session.add(person)
+        else:
+            for field, value in values.items():
+                if field != "person_uuid":
+                    setattr(person, field, value)
+        session.flush()
+        return _as_dict(person)
 
 
 @app.get("/people", response_model=None, tags=["People"], summary="List people")
 def list_people(limit: int = Query(50, ge=1, le=500)) -> list[dict[str, Any]]:
     return _list(DimPerson, limit)
+
+
+@app.get("/people/{person_uuid}/aliases", response_model=None, tags=["People"], summary="List person aliases")
+def list_person_aliases(person_uuid: UUID) -> list[dict[str, Any]]:
+    with get_session() as session:
+        person = session.get(DimPerson, person_uuid)
+        if person is None:
+            raise HTTPException(status_code=404, detail="DimPerson not found")
+        return person.aliases or []
+
+
+@app.post(
+    "/people/{person_uuid}/aliases/reembed",
+    response_model=None,
+    tags=["Vectors"],
+    summary="Regenerate embeddings for a person's aliases",
+)
+def reembed_person_aliases(person_uuid: UUID) -> list[dict[str, Any]]:
+    with get_session() as session:
+        person = session.get(DimPerson, person_uuid)
+        if person is None:
+            raise HTTPException(status_code=404, detail="DimPerson not found")
+        values = _person_values({"aliases": person.aliases, "affiliation": person.affiliation})
+        person.aliases = values["aliases"]
+        person.aliases_vector = values["aliases_vector"]
+        session.flush()
+        return [_as_dict(person)]
 
 
 @app.get("/people/{person_uuid}", response_model=None, tags=["People"], summary="Get a person")
@@ -322,7 +443,19 @@ def get_person(person_uuid: UUID) -> dict[str, Any]:
 
 @app.put("/people/{person_uuid}", response_model=None, tags=["People"], summary="Replace a person")
 def update_person(person_uuid: UUID, payload: PersonUpdate) -> dict[str, Any]:
-    return _update(DimPerson, person_uuid, payload.model_dump(exclude_unset=True))
+    values = payload.model_dump(exclude_unset=True)
+    with get_session() as session:
+        person = session.get(DimPerson, person_uuid)
+        if person is None:
+            raise HTTPException(status_code=404, detail="DimPerson not found")
+        for field, value in values.items():
+            setattr(person, field, value)
+        refreshed = _person_values({"aliases": person.aliases, "affiliation": person.affiliation})
+        person.aliases = refreshed["aliases"]
+        person.aliases_vector = refreshed["aliases_vector"]
+        session.flush()
+        session.refresh(person)
+        return _as_dict(person)
 
 
 @app.delete("/people/bulk", tags=["People - Bulk"], summary="Delete people in bulk")
@@ -342,6 +475,8 @@ def create_people_bulk(payload: list[PersonPayload]) -> list[dict[str, Any]]:
         with get_session() as session:
             for item in payload:
                 values = item.model_dump(exclude_none=True)
+                has_person_details = "affiliation" in values or "aliases" in values
+                values = _person_values(values)
                 existing = session.scalar(
                     select(DimPerson).where(func.lower(DimPerson.name) == item.name.strip().casefold())
                 )
@@ -349,6 +484,17 @@ def create_people_bulk(payload: list[PersonPayload]) -> list[dict[str, Any]]:
                     existing = DimPerson(**values)
                     session.add(existing)
                     session.flush()
+                elif has_person_details:
+                    existing.affiliation = values.get("affiliation", existing.affiliation)
+                if existing is not None:
+                    refreshed = _person_values(
+                        {
+                            "aliases": values.get("aliases", existing.aliases) if has_person_details else existing.aliases,
+                            "affiliation": existing.affiliation,
+                        }
+                    )
+                    existing.aliases = refreshed["aliases"]
+                    existing.aliases_vector = refreshed["aliases_vector"]
                 results.append(_as_dict(existing))
         return results
     except IntegrityError as exc:
@@ -358,13 +504,54 @@ def create_people_bulk(payload: list[PersonPayload]) -> list[dict[str, Any]]:
 
 @app.patch("/people/bulk", response_model=None, tags=["People - Bulk"], summary="Update people in bulk")
 def update_people_bulk(payload: list[PersonBulkUpdate]) -> list[dict[str, Any]]:
-    return _bulk_update(DimPerson, "person_uuid", [item.model_dump(exclude_unset=True) for item in payload])
+    results: list[dict[str, Any]] = []
+    try:
+        with get_session() as session:
+            for item in payload:
+                values = item.model_dump(exclude_unset=True)
+                person_uuid = values.pop("person_uuid")
+                person = session.get(DimPerson, person_uuid)
+                if person is None:
+                    raise HTTPException(status_code=404, detail=f"DimPerson {person_uuid} not found")
+                for field, value in values.items():
+                    setattr(person, field, value)
+                refreshed = _person_values({"aliases": person.aliases, "affiliation": person.affiliation})
+                person.aliases = refreshed["aliases"]
+                person.aliases_vector = refreshed["aliases_vector"]
+                results.append(person)
+            session.flush()
+            return [_as_dict(item) for item in results]
+    except IntegrityError as exc:
+        logger.exception("Failed to update people in bulk")
+        raise HTTPException(status_code=409, detail="Bulk request conflicts with existing records") from exc
 
 
 @app.post("/citations", status_code=201, response_model=None, tags=["Citations"], summary="Create a citation")
 def create_citation(payload: CitationPayload) -> dict[str, Any]:
-    _validate_vector(payload.summarized_quote_vector)
-    return _create(DimCitation, payload.model_dump())
+    values = _with_generated_vector(
+        payload.model_dump(exclude_none=True),
+        "summarized_quote",
+        "summarized_quote_vector",
+    )
+    with get_session() as session:
+        citation = session.get(DimCitation, payload.citation_uuid) if payload.citation_uuid else None
+        if citation is None:
+            citation = session.scalar(
+                select(DimCitation).where(
+                    DimCitation.origin_article_id == payload.origin_article_id,
+                    DimCitation.person_uuid == payload.person_uuid,
+                    DimCitation.exact_quote == payload.exact_quote,
+                )
+            )
+        if citation is None:
+            citation = DimCitation(**values)
+            session.add(citation)
+        else:
+            for field, value in values.items():
+                if field not in {"citation_uuid", "origin_article_id", "person_uuid", "exact_quote"}:
+                    setattr(citation, field, value)
+        session.flush()
+        return _as_dict(citation)
 
 
 @app.get("/citations", response_model=None, tags=["Citations"], summary="List citations")
@@ -394,8 +581,12 @@ def get_citation(citation_uuid: UUID) -> dict[str, Any]:
 
 @app.put("/citations/{citation_uuid}", response_model=None, tags=["Citations"], summary="Replace a citation")
 def update_citation(citation_uuid: UUID, payload: CitationUpdate) -> dict[str, Any]:
-    _validate_vector(payload.summarized_quote_vector)
-    return _update(DimCitation, citation_uuid, payload.model_dump(exclude_unset=True))
+    values = _with_generated_vector(
+        payload.model_dump(exclude_unset=True),
+        "summarized_quote",
+        "summarized_quote_vector",
+    )
+    return _update(DimCitation, citation_uuid, values)
 
 
 @app.delete("/citations/bulk", tags=["Citations - Bulk"], summary="Delete citations in bulk")
@@ -410,22 +601,80 @@ def delete_citation(citation_uuid: UUID) -> None:
 
 @app.post("/citations/bulk", status_code=201, response_model=None, tags=["Citations - Bulk"], summary="Create citations in bulk")
 def create_citations_bulk(payload: list[CitationPayload]) -> list[dict[str, Any]]:
-    for item in payload:
-        _validate_vector(item.summarized_quote_vector)
-    return _bulk_create(DimCitation, [item.model_dump() for item in payload])
+    results: list[dict[str, Any]] = []
+    try:
+        with get_session() as session:
+            for item in payload:
+                values = _with_generated_vector(
+                    item.model_dump(exclude_none=True),
+                    "summarized_quote",
+                    "summarized_quote_vector",
+                )
+                existing = session.scalar(
+                    select(DimCitation).where(
+                        DimCitation.origin_article_id == item.origin_article_id,
+                        DimCitation.person_uuid == item.person_uuid,
+                        DimCitation.exact_quote == item.exact_quote,
+                    )
+                )
+                if existing is None:
+                    existing = DimCitation(**values)
+                    session.add(existing)
+                else:
+                    for field, value in values.items():
+                        if field not in {"origin_article_id", "person_uuid", "exact_quote"}:
+                            setattr(existing, field, value)
+                session.flush()
+                results.append(_as_dict(existing))
+        return results
+    except IntegrityError as exc:
+        logger.exception("Failed to upsert citations in bulk")
+        raise HTTPException(
+            status_code=409,
+            detail="Citation references an unknown article or person",
+        ) from exc
 
 
 @app.patch("/citations/bulk", response_model=None, tags=["Citations - Bulk"], summary="Update citations in bulk")
 def update_citations_bulk(payload: list[CitationBulkUpdate]) -> list[dict[str, Any]]:
-    for item in payload:
-        _validate_vector(item.summarized_quote_vector)
-    return _bulk_update(DimCitation, "citation_uuid", [item.model_dump(exclude_unset=True) for item in payload])
+    results: list[dict[str, Any]] = []
+    with get_session() as session:
+        for item in payload:
+            values = item.model_dump(exclude_unset=True)
+            citation_uuid = values.pop("citation_uuid")
+            citation = session.get(DimCitation, citation_uuid)
+            if citation is None:
+                raise HTTPException(status_code=404, detail=f"DimCitation {citation_uuid} not found")
+            values = _with_generated_vector(values, "summarized_quote", "summarized_quote_vector")
+            for field, value in values.items():
+                setattr(citation, field, value)
+            results.append(citation)
+        session.flush()
+        return [_as_dict(item) for item in results]
 
 
 @app.post("/topics", status_code=201, response_model=None, tags=["Topics"], summary="Create a topic")
 def create_topic(payload: TopicPayload) -> dict[str, Any]:
-    _validate_vector(payload.topic_description_vector)
-    return _create(DimTopic, payload.model_dump())
+    values = _with_generated_vector(
+        payload.model_dump(exclude_none=True),
+        "topic_description",
+        "topic_description_vector",
+    )
+    with get_session() as session:
+        topic = session.get(DimTopic, payload.topic_uuid) if payload.topic_uuid else None
+        if topic is None:
+            topic = session.scalar(
+                select(DimTopic).where(func.lower(DimTopic.topic_name) == payload.topic_name.strip().casefold())
+            )
+        if topic is None:
+            topic = DimTopic(**values)
+            session.add(topic)
+        else:
+            for field, value in values.items():
+                if field != "topic_uuid":
+                    setattr(topic, field, value)
+        session.flush()
+        return _as_dict(topic)
 
 
 @app.get("/topics", response_model=None, tags=["Topics"], summary="List topics")
@@ -440,8 +689,12 @@ def get_topic(topic_uuid: UUID) -> dict[str, Any]:
 
 @app.put("/topics/{topic_uuid}", response_model=None, tags=["Topics"], summary="Replace a topic")
 def update_topic(topic_uuid: UUID, payload: TopicUpdate) -> dict[str, Any]:
-    _validate_vector(payload.topic_description_vector)
-    return _update(DimTopic, topic_uuid, payload.model_dump(exclude_unset=True))
+    values = _with_generated_vector(
+        payload.model_dump(exclude_unset=True),
+        "topic_description",
+        "topic_description_vector",
+    )
+    return _update(DimTopic, topic_uuid, values)
 
 
 @app.delete("/topics/bulk", tags=["Topics - Bulk"], summary="Delete topics in bulk")
@@ -456,8 +709,6 @@ def delete_topic(topic_uuid: UUID) -> None:
 
 @app.post("/topics/bulk", status_code=201, response_model=None, tags=["Topics - Bulk"], summary="Create topics in bulk")
 def create_topics_bulk(payload: list[TopicPayload]) -> list[dict[str, Any]]:
-    for item in payload:
-        _validate_vector(item.topic_description_vector)
     results: list[dict[str, Any]] = []
     try:
         with get_session() as session:
@@ -466,9 +717,24 @@ def create_topics_bulk(payload: list[TopicPayload]) -> list[dict[str, Any]]:
                     select(DimTopic).where(func.lower(DimTopic.topic_name) == item.topic_name.strip().casefold())
                 )
                 if existing is None:
-                    existing = DimTopic(**item.model_dump(exclude_none=True))
+                    existing = DimTopic(
+                        **_with_generated_vector(
+                            item.model_dump(exclude_none=True),
+                            "topic_description",
+                            "topic_description_vector",
+                        )
+                    )
                     session.add(existing)
                     session.flush()
+                else:
+                    values = _with_generated_vector(
+                        item.model_dump(exclude_none=True),
+                        "topic_description",
+                        "topic_description_vector",
+                    )
+                    for field, value in values.items():
+                        if field != "topic_uuid":
+                            setattr(existing, field, value)
                 results.append(_as_dict(existing))
         return results
     except IntegrityError as exc:
@@ -478,14 +744,36 @@ def create_topics_bulk(payload: list[TopicPayload]) -> list[dict[str, Any]]:
 
 @app.patch("/topics/bulk", response_model=None, tags=["Topics - Bulk"], summary="Update topics in bulk")
 def update_topics_bulk(payload: list[TopicBulkUpdate]) -> list[dict[str, Any]]:
-    for item in payload:
-        _validate_vector(item.topic_description_vector)
-    return _bulk_update(DimTopic, "topic_uuid", [item.model_dump(exclude_unset=True) for item in payload])
+    results: list[dict[str, Any]] = []
+    with get_session() as session:
+        for item in payload:
+            values = item.model_dump(exclude_unset=True)
+            topic_uuid = values.pop("topic_uuid")
+            topic = session.get(DimTopic, topic_uuid)
+            if topic is None:
+                raise HTTPException(status_code=404, detail=f"DimTopic {topic_uuid} not found")
+            values = _with_generated_vector(values, "topic_description", "topic_description_vector")
+            for field, value in values.items():
+                setattr(topic, field, value)
+            results.append(topic)
+        session.flush()
+        return [_as_dict(item) for item in results]
 
 
 @app.post("/attitudes", status_code=201, response_model=None, tags=["Attitudes"], summary="Create an attitude")
 def create_attitude(payload: AttitudePayload) -> dict[str, Any]:
-    return _create(FctAttitude, payload.model_dump())
+    values = payload.model_dump(exclude_none=True)
+    with get_session() as session:
+        item = session.get(FctAttitude, (payload.topic_uuid, payload.citation_uuid))
+        if item is None:
+            item = FctAttitude(**values)
+            session.add(item)
+        else:
+            for field, value in values.items():
+                if field not in {"topic_uuid", "citation_uuid"}:
+                    setattr(item, field, value)
+        session.flush()
+        return _as_dict(item)
 
 
 @app.get("/attitudes", response_model=None, tags=["Attitudes"], summary="List attitudes")
@@ -497,11 +785,15 @@ def list_attitudes(limit: int = Query(50, ge=1, le=500)) -> list[dict[str, Any]]
 def history_attitudes(
     person_uuid: UUID,
     topic_uuid: UUID,
-    before: datetime | None = None,
+    before: str | None = None,
     window_days: int = Query(365, ge=1, le=3650),
     exclude_citation_uuid: UUID | None = None,
 ) -> list[dict[str, Any]]:
-    cutoff = (before or datetime.now(timezone.utc)) - timedelta(days=window_days)
+    parsed_before = parse_datetime(before) if before else None
+    if parsed_before is not None and not isinstance(parsed_before, datetime):
+        raise HTTPException(status_code=422, detail="before must be a valid datetime")
+    effective_before = parsed_before or datetime.now(timezone.utc)
+    cutoff = effective_before - timedelta(days=window_days)
     with get_session() as session:
         statement = (
             select(FctAttitude, DimCitation, DimArticle)
@@ -512,7 +804,7 @@ def history_attitudes(
                 DimCitation.person_uuid == person_uuid,
                 DimArticle.published_at.is_not(None),
                 DimArticle.published_at >= cutoff,
-                DimArticle.published_at <= (before or datetime.now(timezone.utc)),
+                DimArticle.published_at <= effective_before,
             )
             .order_by(DimArticle.published_at.desc())
         )
@@ -551,7 +843,30 @@ def delete_attitude(topic_uuid: UUID, citation_uuid: UUID) -> None:
 
 @app.post("/attitudes/bulk", status_code=201, response_model=None, tags=["Attitudes - Bulk"], summary="Create attitudes in bulk")
 def create_attitudes_bulk(payload: list[AttitudePayload]) -> list[dict[str, Any]]:
-    return _bulk_create(FctAttitude, [item.model_dump() for item in payload])
+    results: list[dict[str, Any]] = []
+    try:
+        with get_session() as session:
+            payload_by_key = {
+                (item.topic_uuid, item.citation_uuid): item
+                for item in payload
+            }
+            for payload_item in payload_by_key.values():
+                values = payload_item.model_dump()
+                key = (payload_item.topic_uuid, payload_item.citation_uuid)
+                item = session.get(FctAttitude, key)
+                if item is None:
+                    item = FctAttitude(**values)
+                    session.add(item)
+                else:
+                    for field, value in values.items():
+                        if field not in {"topic_uuid", "citation_uuid"}:
+                            setattr(item, field, value)
+                session.flush()
+                results.append(_as_dict(item))
+        return results
+    except IntegrityError as exc:
+        logger.exception("Failed to upsert attitudes in bulk")
+        raise HTTPException(status_code=409, detail="Attitude references an unknown topic or citation") from exc
 
 
 @app.patch("/attitudes/bulk", response_model=None, tags=["Attitudes - Bulk"], summary="Update attitudes in bulk")
@@ -595,6 +910,151 @@ def list_inconsistencies(limit: int = Query(50, ge=1, le=500)) -> list[dict[str,
     return _list(FctInconsistency, limit)
 
 
+def _embed_texts(texts: list[str]) -> list[list[float]]:
+    try:
+        response = _embedding_client.embeddings.create(
+            model=_embedding_model_name,
+            input=texts,
+        )
+    except Exception as exc:
+        logger.exception("Failed to generate embeddings")
+        raise HTTPException(status_code=503, detail="Embedding service unavailable") from exc
+    embeddings = [item.embedding for item in sorted(response.data, key=lambda item: item.index)]
+    for embedding in embeddings:
+        _validate_vector(embedding)
+    return embeddings
+
+
+@app.post("/vectors/embed", response_model=None, tags=["Vectors"], summary="Embed text")
+def embed_text(payload: EmbeddingRequest) -> dict[str, Any]:
+    return {
+        "model": _embedding_model_name,
+        "dimension": EMBEDDING_DIMENSION,
+        "embedding": _embed_texts([payload.text])[0],
+    }
+
+
+@app.post("/vectors/embed-batch", response_model=None, tags=["Vectors"], summary="Embed multiple texts")
+def embed_text_batch(payload: EmbeddingBatchRequest) -> dict[str, Any]:
+    embeddings = _embed_texts(payload.texts)
+    return {
+        "model": _embedding_model_name,
+        "dimension": EMBEDDING_DIMENSION,
+        "embeddings": embeddings,
+    }
+
+
+@app.post("/aliases/search", response_model=None, tags=["Vectors"], summary="Search person aliases by text")
+def search_aliases(
+    payload: EmbeddingRequest,
+    person_uuid: UUID | None = None,
+    limit: int = Query(10, ge=1, le=100),
+) -> list[dict[str, Any]]:
+    embedding = _embed_texts([payload.text])[0]
+    return _search_aliases_by_embedding(embedding, person_uuid, limit)
+
+
+@app.post("/aliases/search/vector", response_model=None, tags=["Vectors"], summary="Search person aliases by embedding")
+def search_aliases_by_vector(
+    embedding: list[float],
+    person_uuid: UUID | None = None,
+    limit: int = Query(10, ge=1, le=100),
+) -> list[dict[str, Any]]:
+    _validate_vector(embedding)
+    return _search_aliases_by_embedding(embedding, person_uuid, limit)
+
+
+def _search_aliases_by_embedding(
+    embedding: list[float], person_uuid: UUID | None, limit: int
+) -> list[dict[str, Any]]:
+    with get_session() as session:
+        distance = DimPerson.aliases_vector.cosine_distance(embedding).label("distance")
+        statement = (
+            select(DimPerson, distance)
+            .where(DimPerson.aliases_vector.is_not(None))
+            .order_by(DimPerson.aliases_vector.cosine_distance(embedding))
+            .limit(limit)
+        )
+        if person_uuid is not None:
+            statement = statement.where(DimPerson.person_uuid == person_uuid)
+        return [
+            {
+                **_as_dict(person),
+                "distance": float(distance_value),
+            }
+            for person, distance_value in session.execute(statement).all()
+        ]
+
+
+@app.post("/people/search", response_model=None, tags=["Vectors"], summary="Search people by alias text")
+def search_people(payload: EmbeddingRequest, limit: int = Query(10, ge=1, le=100)) -> list[dict[str, Any]]:
+    return _search_aliases_by_embedding(_embed_texts([payload.text])[0], None, limit)
+
+
+@app.post(
+    "/people/search/vector",
+    response_model=None,
+    tags=["Vectors"],
+    summary="Search people by alias embedding",
+)
+def search_people_by_vector(embedding: list[float], limit: int = Query(10, ge=1, le=100)) -> list[dict[str, Any]]:
+    _validate_vector(embedding)
+    return _search_aliases_by_embedding(embedding, None, limit)
+
+
+@app.post("/vectors/reembed-all", response_model=None, tags=["Vectors"], summary="Re-embed all vector fields")
+def reembed_all_vectors() -> dict[str, int]:
+    with get_session() as session:
+        people = session.scalars(select(DimPerson)).all()
+        citations = session.scalars(select(DimCitation)).all()
+        topics = session.scalars(select(DimTopic)).all()
+        texts: list[str] = []
+        targets: list[tuple[Any, str]] = []
+        for person in people:
+            person.aliases = _normalize_aliases(person.aliases, person.affiliation)
+            aliases = person.aliases
+            alias_text = _person_embedding_text(aliases, person.affiliation)
+            if alias_text:
+                texts.append(alias_text)
+                targets.append((person, "aliases_vector"))
+        for citation in citations:
+            if citation.summarized_quote:
+                texts.append(citation.summarized_quote)
+                targets.append((citation, "summarized_quote_vector"))
+        for topic in topics:
+            if topic.topic_description:
+                texts.append(topic.topic_description)
+                targets.append((topic, "topic_description_vector"))
+        embeddings = _embed_texts(texts) if texts else []
+        for (target, field), embedding in zip(targets, embeddings):
+            setattr(target, field, embedding)
+        session.flush()
+        return {
+            "people": len(people),
+            "people_embedded": sum(field == "aliases_vector" for _, field in targets),
+            "citations": len(citations),
+            "citations_embedded": sum(field == "summarized_quote_vector" for _, field in targets),
+            "topics": len(topics),
+            "topics_embedded": sum(field == "topic_description_vector" for _, field in targets),
+        }
+
+
+@app.post("/vectors/reindex-all", response_model=None, tags=["Vectors"], summary="Rebuild all vector fields")
+def reindex_all_vectors() -> dict[str, int]:
+    index_names = {
+        "ix_dim_person_aliases_vector",
+        "ix_dim_citation_summarized_quote_vector",
+        "ix_dim_topic_description_vector",
+    }
+    created = 0
+    for table in (DimPerson.__table__, DimCitation.__table__, DimTopic.__table__):
+        for index in table.indexes:
+            if index.name in index_names:
+                index.create(bind=engine, checkfirst=True)
+                created += 1
+    return {"indexes_ensured": created}
+
+
 @app.post("/topics/search", response_model=None, tags=["Topics"], summary="Search topics by embedding")
 def search_topics(embedding: list[float], limit: int = Query(10, ge=1, le=100)) -> list[dict[str, Any]]:
     _validate_vector(embedding)
@@ -606,3 +1066,34 @@ def search_topics(embedding: list[float], limit: int = Query(10, ge=1, le=100)) 
             .limit(limit)
         )
         return [_as_dict(item) for item in session.scalars(statement).all()]
+
+
+@app.post("/topics/search/text", response_model=None, tags=["Vectors"], summary="Search topics by text")
+def search_topics_by_text(payload: EmbeddingRequest, limit: int = Query(10, ge=1, le=100)) -> list[dict[str, Any]]:
+    return search_topics(_embed_texts([payload.text])[0], limit)
+
+
+@app.post("/citations/search/vector", response_model=None, tags=["Vectors"], summary="Search citations by embedding")
+def search_citations_by_vector(
+    embedding: list[float], limit: int = Query(10, ge=1, le=100)
+) -> list[dict[str, Any]]:
+    _validate_vector(embedding)
+    with get_session() as session:
+        distance = DimCitation.summarized_quote_vector.cosine_distance(embedding).label("distance")
+        statement = (
+            select(DimCitation, distance)
+            .where(DimCitation.summarized_quote_vector.is_not(None))
+            .order_by(DimCitation.summarized_quote_vector.cosine_distance(embedding))
+            .limit(limit)
+        )
+        return [
+            {**_as_dict(citation), "distance": float(distance_value)}
+            for citation, distance_value in session.execute(statement).all()
+        ]
+
+
+@app.post("/citations/search/text", response_model=None, tags=["Vectors"], summary="Search citations by text")
+def search_citations_by_text(
+    payload: EmbeddingRequest, limit: int = Query(10, ge=1, le=100)
+) -> list[dict[str, Any]]:
+    return search_citations_by_vector(_embed_texts([payload.text])[0], limit)

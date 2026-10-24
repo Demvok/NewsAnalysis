@@ -1,11 +1,26 @@
 from __future__ import annotations
 
 from datetime import datetime
+import re
 from enum import Enum
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+def parse_datetime(value: object) -> object:
+    if not isinstance(value, str):
+        return value
+    normalized = value.strip()
+    if normalized.endswith(("Z", "z")):
+        normalized = normalized[:-1] + "+00:00"
+    normalized = re.sub(r"\s+([+-]\d{2})(\d{2})$", r"\1:\2", normalized)
+    normalized = re.sub(r"\s+([+-]\d{2}:\d{2})$", r"\1", normalized)
+    try:
+        return datetime.fromisoformat(normalized)
+    except ValueError:
+        return value
 
 
 class Article(BaseModel):
@@ -25,6 +40,11 @@ class Article(BaseModel):
     tags: Any = None
     description: str | None = None
 
+    @field_validator("published_at", "parsed_at", "modified_at", mode="before")
+    @classmethod
+    def normalize_datetimes(cls, value: object) -> object:
+        return parse_datetime(value)
+
 
 class CitationType(str, Enum):
     DIRECT = "direct"
@@ -42,6 +62,13 @@ class CitationCandidate(BaseModel):
     summarized_quote: str
     confidence_level: float = Field(ge=0, le=1)
     extraction_confidence: float = Field(ge=0, le=1)
+
+    @field_validator("confidence_level", "extraction_confidence", mode="before")
+    @classmethod
+    def normalize_confidence(cls, value: object) -> object:
+        if isinstance(value, (int, float)) and 1 < value <= 5:
+            return value / 5
+        return value
 
 
 class SpeakerExtraction(BaseModel):
@@ -64,12 +91,22 @@ class AnalysisRequest(BaseModel):
     published_at: datetime | None = None
     inconsistency_window_days: int = Field(default=365, ge=1, le=3650)
 
+    @field_validator("published_at", mode="before")
+    @classmethod
+    def normalize_datetime(cls, value: object) -> object:
+        return parse_datetime(value)
+
 
 class CitationAnalysisRequest(BaseModel):
     article_id: UUID
     extraction: CitationExtractionResult
     published_at: datetime | None = None
     inconsistency_window_days: int = Field(default=365, ge=1, le=3650)
+
+    @field_validator("published_at", mode="before")
+    @classmethod
+    def normalize_datetime(cls, value: object) -> object:
+        return parse_datetime(value)
 
 
 class TopicAttitude(BaseModel):
