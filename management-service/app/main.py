@@ -9,13 +9,18 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from fastapi import FastAPI, Header, HTTPException, Query, Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse, Response
 
 from .clients import ServiceClient
 from .config import Settings
 from .database import ManagementDatabase
 from .models import (
     EventRequest,
+    EvaluationCreateRequest,
+    ExperimentComparisonRequest,
+    ExperimentCreateRequest,
+    ExperimentResponse,
+    ExperimentStatus,
     JobCreateRequest,
     JobResponse,
     JobStatus,
@@ -25,6 +30,122 @@ from .models import (
     StageResponse,
     SystemHealthResponse,
 )
+
+
+def _experiment_metrics(connection, experiment_id: str) -> dict[str, Any]:
+    jobs = connection.execute(
+        """SELECT j.* FROM jobs j JOIN experiment_jobs ej ON ej.job_id=j.job_id
+           WHERE ej.experiment_id=?""", (experiment_id,)
+    ).fetchall()
+    job_ids = [row["job_id"] for row in jobs]
+    metrics: dict[str, Any] = {
+        "article_count": len(jobs),
+        "completed_articles": sum(row["status"] == "COMPLETED" for row in jobs),
+        "failed_articles": sum(row["status"] == "FAILED" for row in jobs),
+        "retry_count": sum(row["retry_count"] for row in jobs),
+        "processing_time_ms_per_article": None,
+        "llm_calls_per_article": None,
+        "input_tokens_per_article": None,
+        "output_tokens_per_article": None,
+        "latency_ms": {"average": None, "p95": None},
+        "throughput_tokens_per_second": None,
+        "failure_rate": None,
+        "retry_rate": None,
+        "stages": [],
+        "analysis_counts": {
+            "speakers": 0,
+            "citations_extracted": 0,
+            "topics_resolved": 0,
+            "attitudes_persisted": 0,
+            "inconsistency_comparisons": 0,
+            "low_confidence_results": None,
+        },
+        "quality": None,
+    }
+    evaluation = connection.execute(
+        "SELECT * FROM experiment_evaluations WHERE experiment_id=?", (experiment_id,)
+    ).fetchone()
+    if evaluation:
+        tp, fp, fn = evaluation["true_positives"], evaluation["false_positives"], evaluation["false_negatives"]
+        precision = tp / (tp + fp) if tp + fp else None
+        recall = tp / (tp + fn) if tp + fn else None
+        metrics["quality"] = {
+            "evaluated_items": evaluation["evaluated_items"],
+            "precision": precision,
+            "recall": recall,
+            "f1": (2 * precision * recall / (precision + recall)) if precision is not None and recall is not None and precision + recall else None,
+            "source": "manual_ground_truth_evaluation",
+        }
+    if not job_ids:
+        return metrics
+    placeholders = ",".join("?" for _ in job_ids)
+    telemetry = connection.execute(
+        f"SELECT * FROM telemetry_events WHERE job_id IN ({placeholders})",
+        job_ids,
+    ).fetchall()
+    llm = [row for row in telemetry if row["event_type"] == "llm_call"]
+    for row in telemetry:
+        if row["event_type"] != "pipeline_stage" or row["status"] != "completed":
+            continue
+        attributes = json.loads(row["attributes_json"] or "{}")
+        counts = metrics["analysis_counts"]
+        counts["speakers"] += attributes.get("speaker_count", 0) or 0
+        counts["citations_extracted"] += attributes.get("citation_count", 0) or 0
+        counts["topics_resolved"] += attributes.get("topic_count", 0) or 0
+        counts["attitudes_persisted"] += attributes.get("attitude_count", 0) or 0
+        counts["inconsistency_comparisons"] += attributes.get("comparison_count", 0) or 0
+    durations = [row["duration_ms"] for row in llm if row["duration_ms"] is not None]
+    processing = [
+        (datetime.fromisoformat(row["completed_at"]) - datetime.fromisoformat(row["started_at"])).total_seconds() * 1000
+        for row in jobs if row["started_at"] and row["completed_at"]
+    ]
+    measured_input = sum(row["input_tokens"] or 0 for row in llm)
+    measured_output = sum(row["output_tokens"] or 0 for row in llm)
+    throughputs = [row["throughput_tokens_per_second"] for row in llm if row["throughput_tokens_per_second"] is not None]
+    metrics.update({
+        "processing_time_ms_per_article": sum(processing) / len(processing) if processing else None,
+        "llm_calls_per_article": len(llm) / len(jobs),
+        "input_tokens_per_article": measured_input / len(jobs) if any(row["input_tokens"] is not None for row in llm) else None,
+        "output_tokens_per_article": measured_output / len(jobs) if any(row["output_tokens"] is not None for row in llm) else None,
+        "latency_ms": {
+            "average": sum(durations) / len(durations) if durations else None,
+            "p95": sorted(durations)[min(len(durations) - 1, int((len(durations) - 1) * 0.95))] if durations else None,
+        },
+        "throughput_tokens_per_second": sum(throughputs) / len(throughputs) if throughputs else None,
+        "failure_rate": sum(row["status"] == "FAILED" for row in jobs) / len(jobs),
+        "retry_rate": sum(row["retry_count"] > 0 for row in jobs) / len(jobs),
+    })
+    stage_rows = connection.execute(
+        f"""SELECT stage, COUNT(*) AS count, AVG(duration_ms) AS average_duration_ms,
+                   SUM(duration_ms) AS total_duration_ms
+            FROM telemetry_events WHERE event_type='pipeline_stage' AND status='completed'
+            AND job_id IN ({placeholders}) GROUP BY stage ORDER BY total_duration_ms DESC""",
+        job_ids,
+    ).fetchall()
+    metrics["stages"] = [dict(row) for row in stage_rows]
+    return metrics
+
+
+def experiment_response(connection, row) -> ExperimentResponse:
+    job_rows = connection.execute(
+        "SELECT job_id FROM experiment_jobs WHERE experiment_id=? ORDER BY rowid",
+        (row["experiment_id"],),
+    ).fetchall()
+    return ExperimentResponse(
+        experiment_id=row["experiment_id"],
+        description=row["description"],
+        dataset_name=row["dataset_name"],
+        article_ids=json.loads(row["article_ids_json"]),
+        model_config_snapshot=json.loads(row["model_config_json"]),
+        prompt_versions=json.loads(row["prompt_versions_json"]),
+        pipeline_parameters=json.loads(row["pipeline_parameters_json"]),
+        status=row["status"],
+        created_at=parse_datetime(row["created_at"]),
+        started_at=parse_datetime(row["started_at"]),
+        completed_at=parse_datetime(row["completed_at"]),
+        job_ids=[item["job_id"] for item in job_rows],
+        metrics=_experiment_metrics(connection, row["experiment_id"]),
+    )
 from .orchestration import JobCoordinator
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s [%(name)s] %(message)s")
@@ -176,10 +297,189 @@ def update_settings(request: RuntimeSettingsUpdate) -> RuntimeSettingsResponse:
     return get_settings()
 
 
+def _safe_snapshot(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            key: _safe_snapshot(item)
+            for key, item in value.items()
+            if not any(term in key.casefold() for term in ("secret", "password", "api_key", "apikey", "credential"))
+        }
+    if isinstance(value, list):
+        return [_safe_snapshot(item) for item in value]
+    return value
+
+
+def _refresh_experiment_status(connection, experiment_id: str) -> None:
+    rows = connection.execute(
+        """SELECT j.status FROM jobs j JOIN experiment_jobs ej ON ej.job_id=j.job_id
+           WHERE ej.experiment_id=?""", (experiment_id,)
+    ).fetchall()
+    if not rows or any(row["status"] in {"PENDING", "RUNNING", "RETRYING"} for row in rows):
+        return
+    status = "FAILED" if any(row["status"] == "FAILED" for row in rows) else "COMPLETED"
+    connection.execute(
+        "UPDATE experiments SET status=?, completed_at=COALESCE(completed_at,?) WHERE experiment_id=?",
+        (status, datetime.now(timezone.utc).isoformat(), experiment_id),
+    )
+
+
+@app.post("/api/experiments", response_model=ExperimentResponse, status_code=201, tags=["Experiments"])
+def create_experiment(request: ExperimentCreateRequest) -> ExperimentResponse:
+    experiment_id = str(uuid4())
+    created = datetime.now(timezone.utc).isoformat()
+    with database.lock, database.connection() as connection:
+        connection.execute(
+            """INSERT INTO experiments
+               (experiment_id,description,dataset_name,article_ids_json,model_config_json,
+                prompt_versions_json,pipeline_parameters_json,status,created_at)
+               VALUES (?,?,?,?,?,?,?,?,?)""",
+            (
+                experiment_id, request.description, request.dataset_name,
+                json.dumps([str(item) for item in request.article_ids]),
+                json.dumps(_safe_snapshot(request.model_config_snapshot)),
+                json.dumps(_safe_snapshot(request.prompt_versions)),
+                json.dumps(_safe_snapshot(request.pipeline_parameters)),
+                ExperimentStatus.CREATED.value, created,
+            ),
+        )
+        row = connection.execute("SELECT * FROM experiments WHERE experiment_id=?", (experiment_id,)).fetchone()
+        return experiment_response(connection, row)
+
+
+@app.get("/api/experiments", response_model=list[ExperimentResponse], tags=["Experiments"])
+def list_experiments(limit: int = Query(50, ge=1, le=200)) -> list[ExperimentResponse]:
+    with database.lock, database.connection() as connection:
+        rows = connection.execute("SELECT * FROM experiments ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
+        for row in rows:
+            _refresh_experiment_status(connection, row["experiment_id"])
+        return [experiment_response(connection, connection.execute(
+            "SELECT * FROM experiments WHERE experiment_id=?", (row["experiment_id"],)
+        ).fetchone()) for row in rows]
+
+
+@app.get("/api/experiments/{experiment_id}", response_model=ExperimentResponse, tags=["Experiments"])
+def get_experiment(experiment_id: UUID) -> ExperimentResponse:
+    with database.lock, database.connection() as connection:
+        _refresh_experiment_status(connection, str(experiment_id))
+        row = connection.execute("SELECT * FROM experiments WHERE experiment_id=?", (str(experiment_id),)).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Experiment not found")
+        return experiment_response(connection, row)
+
+
+@app.post("/api/experiments/{experiment_id}/start", response_model=ExperimentResponse, status_code=202, tags=["Experiments"])
+def start_experiment(experiment_id: UUID) -> ExperimentResponse:
+    experiment_key = str(experiment_id)
+    with database.lock, database.connection() as connection:
+        row = connection.execute("SELECT * FROM experiments WHERE experiment_id=?", (experiment_key,)).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Experiment not found")
+        if row["status"] not in {"CREATED", "FAILED"}:
+            raise HTTPException(status_code=409, detail="Experiment has already started")
+        config = json.loads(row["pipeline_parameters_json"])
+        article_ids = json.loads(row["article_ids_json"])
+        connection.execute(
+            "UPDATE experiments SET status=?, started_at=?, completed_at=NULL WHERE experiment_id=?",
+            (ExperimentStatus.RUNNING.value, datetime.now(timezone.utc).isoformat(), experiment_key),
+        )
+    for article_id in article_ids:
+        try:
+            request = JobCreateRequest(
+                article_id=article_id,
+                inconsistency_window_days=config.get("inconsistency_window_days", 365),
+            )
+            job = coordinator.create(request, f"experiment:{experiment_key}:article:{article_id}")
+            with database.lock, database.connection() as connection:
+                connection.execute(
+                    "INSERT OR IGNORE INTO experiment_jobs(experiment_id,job_id,article_id) VALUES(?,?,?)",
+                    (experiment_key, job["job_id"], article_id),
+                )
+                metadata = dict(job.get("metadata") or {})
+                metadata.update({"experiment_id": experiment_key, "experiment_description": row["description"]})
+                connection.execute("UPDATE jobs SET metadata_json=? WHERE job_id=?", (json.dumps(metadata), job["job_id"]))
+        except Exception:
+            logger.exception("experiment_job_create_failed experiment_id=%s article_id=%s", experiment_key, article_id)
+            with database.lock, database.connection() as connection:
+                connection.execute("UPDATE experiments SET status=? WHERE experiment_id=?", (ExperimentStatus.FAILED.value, experiment_key))
+    return get_experiment(experiment_id)
+
+
+@app.post("/api/experiments/compare", tags=["Experiments"])
+def compare_experiments(request: ExperimentComparisonRequest) -> dict[str, Any]:
+    with database.lock, database.connection() as connection:
+        result = []
+        for experiment_id in request.experiment_ids:
+            row = connection.execute("SELECT * FROM experiments WHERE experiment_id=?", (str(experiment_id),)).fetchone()
+            if row is None:
+                raise HTTPException(status_code=404, detail=f"Experiment not found: {experiment_id}")
+            _refresh_experiment_status(connection, str(experiment_id))
+            refreshed = connection.execute("SELECT * FROM experiments WHERE experiment_id=?", (str(experiment_id),)).fetchone()
+            item = experiment_response(connection, refreshed).model_dump(mode="json")
+            result.append({
+                "experiment_id": item["experiment_id"],
+                "description": item["description"],
+                "status": item["status"],
+                "metrics": item["metrics"],
+            })
+        return {"experiments": result, "quality_metrics_note": "Quality metrics are included only when ground-truth evaluation data exists."}
+
+
+@app.post("/api/experiments/{experiment_id}/evaluation", response_model=ExperimentResponse, tags=["Experiments"])
+def add_evaluation(experiment_id: UUID, request: EvaluationCreateRequest) -> ExperimentResponse:
+    if request.experiment_id != experiment_id:
+        raise HTTPException(status_code=400, detail="Path and body experiment IDs differ")
+    with database.lock, database.connection() as connection:
+        if connection.execute("SELECT 1 FROM experiments WHERE experiment_id=?", (str(experiment_id),)).fetchone() is None:
+            raise HTTPException(status_code=404, detail="Experiment not found")
+        connection.execute(
+            """INSERT INTO experiment_evaluations
+               (evaluation_id,experiment_id,evaluated_items,true_positives,false_positives,false_negatives,created_at)
+               VALUES(?,?,?,?,?,?,?)
+               ON CONFLICT(experiment_id) DO UPDATE SET
+               evaluated_items=excluded.evaluated_items,true_positives=excluded.true_positives,
+               false_positives=excluded.false_positives,false_negatives=excluded.false_negatives,
+               created_at=excluded.created_at""",
+            (str(uuid4()), str(experiment_id), request.evaluated_items, request.true_positives,
+             request.false_positives, request.false_negatives, datetime.now(timezone.utc).isoformat()),
+        )
+        row = connection.execute("SELECT * FROM experiments WHERE experiment_id=?", (str(experiment_id),)).fetchone()
+        return experiment_response(connection, row)
+
+
+@app.get("/api/experiments/{experiment_id}/export", tags=["Experiments"])
+def export_experiment(experiment_id: UUID, format: str = Query("json", pattern="^(json|csv)$")):
+    experiment = get_experiment(experiment_id).model_dump(mode="json")
+    if format == "json":
+        return experiment
+    metrics = experiment["metrics"]
+    fields = ["experiment_id", "description", "status", "article_count", "completed_articles",
+              "failed_articles", "processing_time_ms_per_article", "llm_calls_per_article",
+              "input_tokens_per_article", "output_tokens_per_article", "failure_rate", "retry_rate"]
+    values = [experiment["experiment_id"], experiment["description"], experiment["status"],
+              *[metrics.get(field) for field in fields[3:]]]
+    import csv
+    import io
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(fields)
+    writer.writerow(values)
+    return Response(content=buffer.getvalue(), media_type="text/csv",
+                    headers={"Content-Disposition": f'attachment; filename="experiment-{experiment_id}.csv"'})
+
+
 @app.post("/internal/events", status_code=202, tags=["Telemetry"])
 def receive_event(event: EventRequest) -> dict[str, str]:
     event_id = str(event.event_id or uuid4())
     with database.lock, database.connection() as connection:
+        retention_cutoff = datetime.now(timezone.utc).timestamp() - settings.telemetry_retention_days * 86400
+        connection.execute(
+            "DELETE FROM telemetry_events WHERE strftime('%s', timestamp) < ?",
+            (int(retention_cutoff),),
+        )
+        connection.execute(
+            "DELETE FROM events WHERE strftime('%s', timestamp) < ?",
+            (int(retention_cutoff),),
+        )
         connection.execute(
             "INSERT OR IGNORE INTO events VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
             (
@@ -241,6 +541,8 @@ def logs(
     contains: str | None = None,
     level: str | None = None,
     job_id: UUID | None = None,
+    article_id: UUID | None = None,
+    stage: str | None = None,
     trace_id: UUID | None = None,
     limit: int = Query(200, ge=1, le=1000),
 ) -> list[dict[str, Any]]:
@@ -252,6 +554,10 @@ def logs(
         query += " AND level=?"; params.append(level.upper())
     if job_id:
         query += " AND job_id=?"; params.append(str(job_id))
+    if article_id:
+        query += " AND article_id=?"; params.append(str(article_id))
+    if stage:
+        query += " AND stage=?"; params.append(stage)
     if trace_id:
         query += " AND trace_id=?"; params.append(str(trace_id))
     query += " ORDER BY sequence DESC LIMIT ?"; params.append(limit)
@@ -374,8 +680,11 @@ def grouped_errors(limit: int = Query(100, ge=1, le=500)) -> list[dict[str, Any]
 
 
 @app.get("/api/events/stream", tags=["Telemetry"])
-def event_stream(last_event_id: int | None = None):
-    start = last_event_id or 0
+def event_stream(
+    last_event_id: int | None = Query(default=None, ge=0),
+    last_event_header: int | None = Header(default=None, alias="Last-Event-ID", ge=0),
+):
+    start = last_event_id if last_event_id is not None else (last_event_header or 0)
     def generate():
         cursor = start
         deadline = time.monotonic() + 55

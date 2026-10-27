@@ -75,3 +75,85 @@ debug correlation; this is disabled by default and should be used only with
 short retention. The current LM Studio-compatible endpoint may omit usage
 metadata and normally does not provide streaming token callbacks, so token
 counts, TTFT, and throughput can legitimately be unavailable.
+
+## Phase 3 dashboard
+
+The React/Vite dashboard is available at `http://localhost:3000` when the
+Compose stack is running. It uses the management API as its only source of
+operational data and includes:
+
+- overview KPIs with historical aggregates and bounded live SVG charts;
+- job filtering, detail views, stage history, safe cancellation, and retry;
+- LLM call inspection sorted by slowest duration;
+- structured log search by severity, service, job, article, stage, trace, and
+  text;
+- service health and explicitly supported runtime configuration;
+- an Experiments placeholder that clearly reports the current backend's lack
+  of an experiment API.
+
+The dashboard consumes `/api/events/stream` through Server-Sent Events and
+reconnects with the last received event ID. Client-side live data is bounded
+to the most recent 60 events, while historical tables are bounded API
+requests; the browser never loads unrestricted log history. The backend
+remains authoritative for job state, metrics, validation, and action safety.
+
+## Phase 4 experiments
+
+Experiments extend the management-owned SQLite metadata store. An experiment
+contains an immutable article selection and configuration snapshot, including
+model configuration, prompt/template versions, and pipeline parameters. The
+`POST /api/experiments/{id}/start` operation creates ordinary management jobs
+through the existing coordinator and records the experiment-to-job
+relationship; it does not duplicate analysis logic.
+
+Available endpoints include:
+
+- `POST/GET /api/experiments`
+- `GET /api/experiments/{id}`
+- `POST /api/experiments/{id}/start`
+- `POST /api/experiments/compare`
+- `POST /api/experiments/{id}/evaluation`
+- `GET /api/experiments/{id}/export?format=json|csv`
+
+Experiment metrics are operational measurements derived from the associated
+jobs and structured telemetry: processing time, LLM calls and measured
+tokens per article, latency, throughput, failure/retry rates, and stage
+timings. Where stage telemetry contains the relevant counts, summaries also
+report speakers, extracted citations, resolved topics, persisted attitudes,
+and inconsistency comparisons. Missing provider or analysis measurements
+remain unavailable. A larger count of citations, topics, or contradictions
+is not treated as a quality score.
+
+Precision, recall, and F1 are only returned after explicit ground-truth
+evaluation data is submitted through the evaluation endpoint. Configuration
+snapshots remove sensitive keys such as API keys, passwords, credentials, and
+secrets before persistence. Existing experiment records are never overwritten
+when another experiment is created with different settings.
+
+## Production-readiness operations
+
+Start and inspect the stack with:
+
+```text
+docker compose up -d --build
+docker compose ps
+curl http://localhost:9000/health
+```
+
+The management database is stored in the `management_data` volume. Restarting
+the management container preserves jobs, stages, telemetry, and experiments.
+The service deliberately marks interrupted active jobs as
+`MANAGEMENT_RESTART` rather than replaying them, because replaying a
+synchronous analysis request could duplicate analytical side effects.
+
+For troubleshooting, inspect `docker compose logs management-service`,
+`docker compose logs analysis-layer`, and the dashboard Log Explorer. The
+dashboard and management API use the same-origin Compose proxy; the browser
+does not receive service credentials or unrestricted environment variables.
+
+The current deployment is intended for a trusted local network. The
+management API does not yet provide authentication or authorization, and the
+internal telemetry endpoint is reachable wherever port 9000 is exposed.
+Place it behind a trusted reverse proxy or network boundary before exposing it
+outside the local environment. Adding authentication is a follow-up security
+hardening step.

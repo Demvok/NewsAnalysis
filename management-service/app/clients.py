@@ -40,6 +40,8 @@ class ServiceClient:
         try:
             response = httpx.get(f"{url}/health", timeout=self.settings.request_timeout_seconds)
             details = response.json()
+            if not isinstance(details, dict):
+                raise ValueError("health response must be a JSON object")
             availability = "AVAILABLE" if response.is_success else "UNAVAILABLE"
             status = "HEALTHY" if response.is_success else "UNHEALTHY"
             if name == "data-storage" and details.get("db_status") != "ok":

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
@@ -17,6 +18,20 @@ logger = logging.getLogger("newsanalysis.management.orchestration")
 
 def timestamp() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def safe_error_summary(error: BaseException) -> str:
+    response = getattr(error, "response", None)
+    if response is not None and getattr(response, "status_code", None) is not None:
+        return f"Upstream service returned HTTP {response.status_code}"
+    if "Timeout" in type(error).__name__:
+        return "Upstream request timed out"
+    value = re.sub(
+        r"(?i)(password|api[_-]?key|token|secret|credential)=\S+",
+        r"\1=[REDACTED]",
+        str(error),
+    )
+    return value[:500]
 
 
 class JobCoordinator:
@@ -41,12 +56,28 @@ class JobCoordinator:
             job_id, correlation_id, trace_id = str(uuid4()), str(uuid4()), str(uuid4())
             created = timestamp()
             try:
+                columns = {
+                    row["name"]
+                    for row in connection.execute("PRAGMA table_info(jobs)").fetchall()
+                }
+                insert_columns = [
+                    "job_id", "job_type", "article_id", "status", "created_at",
+                    "correlation_id", "trace_id", "idempotency_key", "config_json",
+                    "metadata_json",
+                ]
+                values: list[Any] = [
+                    job_id, "article_analysis", str(request.article_id),
+                    initial_status.value, created, correlation_id, trace_id,
+                    idempotency_key, json.dumps(request.model_dump(mode="json")),
+                    json.dumps({"source": "management-api"}),
+                ]
+                if "requested_at" in columns:
+                    insert_columns.append("requested_at")
+                    values.append(created)
+                placeholders = ",".join("?" for _ in insert_columns)
                 connection.execute(
-                    "INSERT INTO jobs(job_id,job_type,article_id,status,created_at,correlation_id,trace_id,"
-                    "idempotency_key,config_json,metadata_json) VALUES(?,?,?,?,?,?,?,?,?,?)",
-                    (job_id, "article_analysis", str(request.article_id), initial_status.value,
-                     created, correlation_id, trace_id, idempotency_key,
-                     json.dumps(request.model_dump(mode="json")), json.dumps({"source": "management-api"})),
+                    f"INSERT INTO jobs({','.join(insert_columns)}) VALUES({placeholders})",
+                    values,
                 )
             except Exception:
                 if idempotency_key:
@@ -98,8 +129,9 @@ class JobCoordinator:
         except Exception as exc:
             logger.exception("job_failed job_id=%s error_type=%s", job_id, type(exc).__name__)
             if current_stage:
-                self._stage(job_id, current_stage, StageStatus.FAILED, error_code=type(exc).__name__, error_summary=str(exc)[:500])
-            self._finish(job_id, JobStatus.FAILED, type(exc).__name__, str(exc)[:500])
+                summary = safe_error_summary(exc)
+                self._stage(job_id, current_stage, StageStatus.FAILED, error_code=type(exc).__name__, error_summary=summary)
+                self._finish(job_id, JobStatus.FAILED, type(exc).__name__, summary)
 
     def cancel(self, job_id: str) -> dict[str, Any]:
         with self.database.lock, self.database.connection() as connection:
@@ -174,11 +206,6 @@ class JobCoordinator:
         started = timestamp()
         completed = timestamp() if status != StageStatus.RUNNING else None
         duration_ms = None
-        if completed:
-            duration_ms = max(
-                0,
-                int((datetime.fromisoformat(completed) - datetime.fromisoformat(started)).total_seconds() * 1000),
-            )
         with self.database.lock, self.database.connection() as connection:
             existing = connection.execute(
                 "SELECT stage_id FROM job_stages WHERE job_id=? AND stage=? AND status=? ORDER BY started_at DESC LIMIT 1",
@@ -186,10 +213,28 @@ class JobCoordinator:
             ).fetchone()
             if existing is None:
                 connection.execute(
-                    "INSERT INTO job_stages VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                    """INSERT INTO job_stages
+                       (stage_id,job_id,stage,status,attempt,started_at,completed_at,
+                        duration_ms,summary_json,error_code,error_summary)
+                       VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
                     (str(uuid4()), job_id, name, status.value, 1, started, completed, duration_ms, json.dumps(summary or {}), error_code, error_summary),
                 )
             else:
+                running = connection.execute(
+                    "SELECT started_at FROM job_stages WHERE stage_id=?",
+                    (existing["stage_id"],),
+                ).fetchone()
+                if completed and running and running["started_at"]:
+                    duration_ms = max(
+                        0,
+                        int(
+                            (
+                                datetime.fromisoformat(completed)
+                                - datetime.fromisoformat(running["started_at"])
+                            ).total_seconds()
+                            * 1000
+                        ),
+                    )
                 connection.execute(
                     "UPDATE job_stages SET status=?, completed_at=?, duration_ms=?, summary_json=? WHERE stage_id=?",
                     (status.value, completed, duration_ms, json.dumps(summary or {}), existing["stage_id"]),

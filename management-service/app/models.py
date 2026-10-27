@@ -132,3 +132,51 @@ class EventRequest(BaseModel):
     error_detail: str | None = Field(default=None, max_length=500)
     debug_content: dict[str, str | None] | None = None
     attributes: dict[str, Any] = Field(default_factory=dict)
+
+
+class ExperimentStatus(StrEnum):
+    CREATED = "CREATED"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+
+
+class ExperimentCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    description: str = Field(min_length=1, max_length=500)
+    article_ids: list[UUID] = Field(min_length=1, max_length=1000)
+    model_config_snapshot: dict[str, Any] = Field(default_factory=dict)
+    prompt_versions: dict[str, str] = Field(default_factory=dict)
+    pipeline_parameters: dict[str, Any] = Field(default_factory=dict)
+    dataset_name: str | None = Field(default=None, max_length=200)
+
+
+class ExperimentResponse(BaseModel):
+    experiment_id: UUID
+    description: str
+    dataset_name: str | None
+    article_ids: list[UUID]
+    model_config_snapshot: dict[str, Any]
+    prompt_versions: dict[str, str]
+    pipeline_parameters: dict[str, Any]
+    status: ExperimentStatus
+    created_at: datetime
+    started_at: datetime | None
+    completed_at: datetime | None
+    job_ids: list[UUID]
+    metrics: dict[str, Any] = Field(default_factory=dict)
+
+
+class ExperimentComparisonRequest(BaseModel):
+    experiment_ids: list[UUID] = Field(min_length=2, max_length=20)
+
+
+class EvaluationCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    experiment_id: UUID
+    evaluated_items: int = Field(gt=0)
+    true_positives: int = Field(ge=0)
+    false_positives: int = Field(ge=0)
+    false_negatives: int = Field(ge=0)

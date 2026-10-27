@@ -57,6 +57,7 @@ class ManagementPhase1Tests(unittest.TestCase):
         completed = self.coordinator.get(job["job_id"])
         self.assertEqual(completed["status"], JobStatus.COMPLETED.value)
         self.assertEqual(len(self.coordinator.stages(job["job_id"])), 2)
+        self.assertTrue(all(stage["duration_ms"] is not None for stage in self.coordinator.stages(job["job_id"])))
 
     def test_legacy_database_schema_is_migrated(self):
         legacy_directory = tempfile.TemporaryDirectory()
@@ -71,6 +72,12 @@ class ManagementPhase1Tests(unittest.TestCase):
                     status TEXT NOT NULL, requested_at TEXT NOT NULL, started_at TEXT,
                     completed_at TEXT, correlation_id TEXT NOT NULL, config_json TEXT NOT NULL,
                     error_code TEXT, error_message TEXT, cancel_requested INTEGER NOT NULL DEFAULT 0
+                );
+                CREATE TABLE job_stages (
+                    stage_id TEXT PRIMARY KEY, job_id TEXT NOT NULL, stage TEXT NOT NULL,
+                    status TEXT NOT NULL, attempt INTEGER NOT NULL, started_at TEXT NOT NULL,
+                    completed_at TEXT, duration_ms INTEGER, summary_json TEXT,
+                    error_code TEXT, error_message TEXT
                 );
                 INSERT INTO jobs VALUES (
                     'legacy-job', 'article_analysis',
@@ -91,6 +98,12 @@ class ManagementPhase1Tests(unittest.TestCase):
         self.assertEqual(row["error_code"], "MANAGEMENT_RESTART")
         self.assertEqual(row["created_at"], "2026-01-01T00:00:00+00:00")
         self.assertEqual(row["trace_id"], "legacy-correlation")
+        coordinator = JobCoordinator(migrated, FakeClient(), 1)
+        try:
+            created = coordinator.create(JobCreateRequest(article_id=uuid4()), "legacy-insert")
+            self.assertTrue(created["job_id"])
+        finally:
+            coordinator.executor.shutdown(wait=True)
         legacy_directory.cleanup()
 
 

@@ -74,9 +74,29 @@ class ManagementDatabase:
                 CREATE INDEX IF NOT EXISTS idx_telemetry_job ON telemetry_events(job_id);
                 CREATE INDEX IF NOT EXISTS idx_telemetry_trace ON telemetry_events(trace_id);
                 CREATE INDEX IF NOT EXISTS idx_telemetry_type ON telemetry_events(event_type);
+                CREATE TABLE IF NOT EXISTS experiments (
+                    experiment_id TEXT PRIMARY KEY, description TEXT NOT NULL,
+                    dataset_name TEXT, article_ids_json TEXT NOT NULL,
+                    model_config_json TEXT NOT NULL, prompt_versions_json TEXT NOT NULL,
+                    pipeline_parameters_json TEXT NOT NULL, status TEXT NOT NULL,
+                    created_at TEXT NOT NULL, started_at TEXT, completed_at TEXT
+                );
+                CREATE TABLE IF NOT EXISTS experiment_jobs (
+                    experiment_id TEXT NOT NULL, job_id TEXT NOT NULL,
+                    article_id TEXT NOT NULL, PRIMARY KEY (experiment_id, job_id),
+                    UNIQUE (experiment_id, article_id)
+                );
+                CREATE TABLE IF NOT EXISTS experiment_evaluations (
+                    evaluation_id TEXT PRIMARY KEY, experiment_id TEXT NOT NULL UNIQUE,
+                    evaluated_items INTEGER NOT NULL, true_positives INTEGER NOT NULL,
+                    false_positives INTEGER NOT NULL, false_negatives INTEGER NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_experiment_jobs_job ON experiment_jobs(job_id);
                 """
             )
             self._migrate_jobs(connection)
+            self._migrate_job_stages(connection)
             connection.execute(
                 "CREATE UNIQUE INDEX IF NOT EXISTS uq_jobs_idempotency "
                 "ON jobs(idempotency_key) WHERE idempotency_key IS NOT NULL"
@@ -126,6 +146,19 @@ class ManagementDatabase:
         if "error_message" in columns:
             connection.execute(
                 "UPDATE jobs SET error_summary=COALESCE(error_summary, error_message)"
+            )
+
+    @staticmethod
+    def _migrate_job_stages(connection: sqlite3.Connection) -> None:
+        columns = {
+            row["name"]
+            for row in connection.execute("PRAGMA table_info(job_stages)").fetchall()
+        }
+        if "error_summary" not in columns:
+            connection.execute("ALTER TABLE job_stages ADD COLUMN error_summary TEXT")
+        if "error_message" in columns:
+            connection.execute(
+                "UPDATE job_stages SET error_summary=COALESCE(error_summary, error_message)"
             )
 
     @staticmethod
