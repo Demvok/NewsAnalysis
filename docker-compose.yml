@@ -54,6 +54,7 @@ services:
       LOG_LEVEL_ANALYSIS: ${LOG_LEVEL_ANALYSIS:-INFO}
       LOG_LEVEL_LLM: ${LOG_LEVEL_LLM:-INFO}
       LOG_LEVEL_MAIN: ${LOG_LEVEL_MAIN:-INFO}
+      MANAGEMENT_EVENTS_URL: ${MANAGEMENT_EVENTS_URL:-http://management-service:9000/internal/events}
     ports:
       - "7000:7000"
     depends_on:
@@ -62,5 +63,37 @@ services:
     volumes:
       - ${LOGS_DIR:-./logs}/analysis:/app/logs
 
+  management-service:
+    build: ./management-service
+    container_name: management-service
+    environment:
+      ANALYSIS_URL: http://analysis-layer:7000
+      STORAGE_URL: http://data-storage:8000
+      MANAGEMENT_DATA_DIR: /app/data
+      MANAGEMENT_DATABASE_PATH: /app/data/management.db
+      MANAGEMENT_MAX_CONCURRENT_JOBS: ${MANAGEMENT_MAX_CONCURRENT_JOBS:-1}
+      ANALYSIS_LOG_DIR: /var/log/newsanalysis/analysis
+      STORAGE_LOG_DIR: /var/log/newsanalysis/data-storage
+    ports:
+      - "9000:9000"
+    volumes:
+      - management_data:/app/data
+      - ${LOGS_DIR:-./logs}/analysis:/var/log/newsanalysis/analysis:ro
+      - ${LOGS_DIR:-./logs}/data-storage:/var/log/newsanalysis/data-storage:ro
+    depends_on:
+      data-storage:
+        condition: service_healthy
+      analysis-layer:
+        condition: service_started
+
+  management-dashboard:
+    build: ./management-service/dashboard
+    container_name: management-dashboard
+    ports:
+      - "3000:80"
+    depends_on:
+      - management-service
+
 volumes:
   postgres_data:
+  management_data:

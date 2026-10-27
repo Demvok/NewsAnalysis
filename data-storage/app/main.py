@@ -54,6 +54,7 @@ from app.schemas import (
     parse_datetime,
 )
 from app.logger import get_logger
+from app.telemetry import emit_event
 
 logger = get_logger("main", "data_storage")
 app = FastAPI(title="NewsAnalysis-DataStorage", version="0.2.0")
@@ -70,10 +71,12 @@ if not -1 <= _default_min_cosine_similarity <= 1:
 @app.middleware("http")
 async def log_api_request(request: Request, call_next) -> Response:
     request_id = request.headers.get("x-request-id", str(uuid4()))
+    job_id = request.headers.get("x-job-id")
+    correlation_id = request.headers.get("x-correlation-id", request_id)
     started = time.perf_counter()
     logger.info(
-        "api_request status=started request_id=%s method=%s path=%s query=%s",
-        request_id,
+        "api_request status=started request_id=%s job_id=%s correlation_id=%s method=%s path=%s query=%s",
+        request_id, job_id or "-", correlation_id,
         request.method,
         request.url.path,
         request.url.query or "-",
@@ -82,8 +85,8 @@ async def log_api_request(request: Request, call_next) -> Response:
         response = await call_next(request)
     except Exception:
         logger.exception(
-            "api_request status=failed request_id=%s method=%s path=%s duration=%.3fs",
-            request_id,
+            "api_request status=failed request_id=%s job_id=%s correlation_id=%s method=%s path=%s duration=%.3fs",
+            request_id, job_id or "-", correlation_id,
             request.method,
             request.url.path,
             time.perf_counter() - started,
@@ -92,14 +95,22 @@ async def log_api_request(request: Request, call_next) -> Response:
     duration = time.perf_counter() - started
     level = logger.info if response.status_code < 400 else logger.warning
     level(
-        "api_request status=completed request_id=%s method=%s path=%s "
+        "api_request status=completed request_id=%s job_id=%s correlation_id=%s method=%s path=%s "
         "status_code=%d response_bytes=%s duration=%.3fs",
-        request_id,
+        request_id, job_id or "-", correlation_id,
         request.method,
         request.url.path,
         response.status_code,
         response.headers.get("content-length", "unknown"),
         duration,
+    )
+    emit_event(
+        "api_request_completed",
+        job_id=job_id,
+        correlation_id=correlation_id,
+        request_id=request_id,
+        duration_ms=int(duration * 1000),
+        attributes={"path": request.url.path, "status_code": response.status_code},
     )
     response.headers["x-request-id"] = request_id
     return response

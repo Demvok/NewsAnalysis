@@ -10,6 +10,7 @@ from app.analysis import (
     persist_extraction,
 )
 from app.logger import get_logger
+from app.telemetry import emit_event
 
 
 app = FastAPI(
@@ -24,15 +25,20 @@ logger = get_logger("main", "analysis")
 @app.middleware("http")
 async def log_api_request(request: Request, call_next) -> Response:
     request_id = request.headers.get("x-request-id", str(uuid4()))
+    job_id = request.headers.get("x-job-id")
+    correlation_id = request.headers.get("x-correlation-id", request_id)
     started = time.perf_counter()
-    logger.info("api_request status=started request_id=%s method=%s path=%s", request_id, request.method, request.url.path)
+    logger.info("api_request status=started request_id=%s job_id=%s correlation_id=%s method=%s path=%s", request_id, job_id or "-", correlation_id, request.method, request.url.path)
     try:
         response = await call_next(request)
     except Exception:
-        logger.exception("api_request status=failed request_id=%s method=%s path=%s duration=%.3fs", request_id, request.method, request.url.path, time.perf_counter() - started)
+        logger.exception("api_request status=failed request_id=%s job_id=%s correlation_id=%s method=%s path=%s duration=%.3fs", request_id, job_id or "-", correlation_id, request.method, request.url.path, time.perf_counter() - started)
+        emit_event("api_request_failed", job_id=job_id, correlation_id=correlation_id, request_id=request_id, attributes={"path": request.url.path})
         raise
     level = logger.info if response.status_code < 400 else logger.warning
-    level("api_request status=completed request_id=%s method=%s path=%s status_code=%d duration=%.3fs", request_id, request.method, request.url.path, response.status_code, time.perf_counter() - started)
+    duration = time.perf_counter() - started
+    level("api_request status=completed request_id=%s job_id=%s correlation_id=%s method=%s path=%s status_code=%d duration=%.3fs", request_id, job_id or "-", correlation_id, request.method, request.url.path, response.status_code, duration)
+    emit_event("api_request_completed", job_id=job_id, correlation_id=correlation_id, request_id=request_id, duration_ms=int(duration * 1000), attributes={"path": request.url.path, "status_code": response.status_code})
     response.headers["x-request-id"] = request_id
     return response
 

@@ -20,3 +20,7 @@ Viz/cnn_articles_api/start.sh
 Viz/cnn_articles_api/activate.txt
 
 /.pytest-cache__/
+management-service/test-data/
+management-service/dashboard/node_modules/
+management-service/dashboard/dist/
+package-lock.json

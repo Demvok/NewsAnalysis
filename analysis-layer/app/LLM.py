@@ -10,6 +10,7 @@ from langchain_core.runnables import ConfigurableField
 
 from . import prompts
 from .logger import get_logger
+from .telemetry import emit_event
 from dotenv import load_dotenv
 
 load_dotenv()  # Load environment variables from .env file
@@ -121,6 +122,19 @@ def _record_chain_metrics(
         provider_output_tokens if provider_output_tokens is not None else "-",
         "-",
         duration,
+    )
+    emit_event(
+        "llm_call_completed",
+        stage=stage,
+        duration_ms=int(duration * 1000),
+        attributes={
+            "input_chars": input_chars,
+            "output_chars": output_chars,
+            "estimated_input_tokens": _estimate_tokens(input_chars),
+            "estimated_output_tokens": _estimate_tokens(output_chars),
+            "provider_input_tokens": provider_input_tokens,
+            "provider_output_tokens": provider_output_tokens,
+        },
     )
 
 

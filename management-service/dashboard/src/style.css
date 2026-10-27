@@ -1,0 +1,15 @@
+:root { color-scheme: dark; font-family: system-ui, sans-serif; background: #101827; color: #e5e7eb; }
+body { margin: 0; } main { max-width: 1200px; margin: auto; padding: 2rem; }
+h1 { margin-top: 0; } h2 { margin-top: 0; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 1rem; }
+.card, .panel { background: #182235; border: 1px solid #2d3b52; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+.card h3 { margin: 0 0 .75rem; } .card p { color: #9ca3af; }
+.status { border-radius: 999px; padding: .2rem .55rem; font-size: .8rem; font-weight: 700; }
+.healthy, .succeeded, .completed { background: #14532d; color: #bbf7d0; }
+.running, .queued, .request_cancelled { background: #713f12; color: #fde68a; }
+.failed, .unavailable, .abandoned { background: #7f1d1d; color: #fecaca; }
+table { width: 100%; border-collapse: collapse; } th, td { padding: .65rem; border-bottom: 1px solid #2d3b52; text-align: left; }
+pre { overflow: auto; color: #a7f3d0; }
+.toolbar { display: flex; gap: .5rem; align-items: center; margin-bottom: 1rem; }
+input, button { border: 1px solid #40516b; border-radius: 4px; padding: .5rem; background: #111827; color: #e5e7eb; }
+button { cursor: pointer; background: #1d4ed8; border-color: #2563eb; }

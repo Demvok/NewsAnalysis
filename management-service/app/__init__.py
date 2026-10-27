@@ -1,0 +1,1 @@
+"""NewsAnalysis management service."""
