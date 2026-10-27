@@ -10,6 +10,7 @@ from uuid import UUID
 import httpx
 from . import LLM, models
 from .logger import get_logger
+from .telemetry import emit_event
 
 
 logger = get_logger("analysis", "analysis")
@@ -179,6 +180,13 @@ def extract_citations(article: models.Article) -> models.CitationExtractionResul
         raise ValueError("article is required")
 
     started = time.perf_counter()
+    emit_event(
+        "pipeline_stage",
+        operation="citation_extraction",
+        stage="citation_extraction",
+        event_status="started",
+        attributes={"article_id": str(article.article_id)},
+    )
     logger.info(
         "article_processing status=started article_id=%s stage=citation_extraction "
         "title_chars=%d content_chars=%d",
@@ -220,11 +228,31 @@ def extract_citations(article: models.Article) -> models.CitationExtractionResul
             sum(len(speaker.citations) for speaker in result.speakers),
         )
         LLM.log_usage_summary(f"article_id={article.article_id} stage=citation_extraction")
+        emit_event(
+            "pipeline_stage",
+            operation="citation_extraction",
+            stage="citation_extraction",
+            event_status="completed",
+            duration_ms=int((time.perf_counter() - started) * 1000),
+            attributes={
+                "article_id": str(article.article_id),
+                "speaker_count": len(result.speakers),
+                "citation_count": sum(len(item.citations) for item in result.speakers),
+            },
+        )
         return result
     except Exception:
         logger.exception(
             "analysis_stage=extract_citations status=failed duration=%s",
             f"{time.perf_counter() - started:.3f}s",
+        )
+        emit_event(
+            "pipeline_stage",
+            operation="citation_extraction",
+            stage="citation_extraction",
+            event_status="failed",
+            duration_ms=int((time.perf_counter() - started) * 1000),
+            error_category="analysis_error",
         )
         raise
 
@@ -333,8 +361,23 @@ def persist_extraction(article_id: UUID, result: models.CitationExtractionResult
         sum(len(speaker.citations) for speaker in speakers),
     )
     resolution_started = time.perf_counter()
+    emit_event(
+        "pipeline_stage",
+        operation="person_resolution",
+        stage="person_resolution",
+        event_status="started",
+        attributes={"article_id": str(article_id), "person_count": len(people)},
+    )
     resolved_people = [(person, _resolve_person(person)) for person in people]
     logger.info("analysis_stage=person_resolution status=completed article_id=%s people=%d duration=%.3fs", article_id, len(resolved_people), time.perf_counter() - resolution_started)
+    emit_event(
+        "pipeline_stage",
+        operation="person_resolution",
+        stage="person_resolution",
+        event_status="completed",
+        duration_ms=int((time.perf_counter() - resolution_started) * 1000),
+        attributes={"article_id": str(article_id), "person_count": len(resolved_people)},
+    )
     person_ids = {
         source["name"].strip().casefold(): resolved["person_uuid"]
         for source, resolved in resolved_people
@@ -399,12 +442,27 @@ def persist_citation_analysis(
         window_days,
     )
     person_started = time.perf_counter()
+    emit_event(
+        "pipeline_stage",
+        operation="person_resolution",
+        stage="person_resolution",
+        event_status="started",
+        attributes={"article_id": str(article_id), "person_count": len(people)},
+    )
     resolved_people = [(person, _resolve_person(person)) for person in people]
     person_ids = {
         source["name"].strip().casefold(): resolved["person_uuid"]
         for source, resolved in resolved_people
     }
     logger.info("analysis_stage=person_resolution status=completed article_id=%s people=%d duration=%.3fs", article_id, len(resolved_people), time.perf_counter() - person_started)
+    emit_event(
+        "pipeline_stage",
+        operation="person_resolution",
+        stage="person_resolution",
+        event_status="completed",
+        duration_ms=int((time.perf_counter() - person_started) * 1000),
+        attributes={"article_id": str(article_id), "person_count": len(resolved_people)},
+    )
     citations = [
         {
             "origin_article_id": str(article_id),
@@ -488,6 +546,13 @@ def persist_citation_analysis(
             speaker.speaker_name,
             len(topics),
         )
+        emit_event(
+            "pipeline_stage",
+            operation="topic_resolution",
+            stage="topic_resolution",
+            event_status="started",
+            attributes={"article_id": str(article_id), "topic_candidates": len(topics)},
+        )
         if not topics:
             logger.info("article_processing status=progress article_id=%s stage=topic_and_stance speaker_index=%d topics=0 attitudes=0", article_id, speaker_index)
             continue
@@ -506,6 +571,14 @@ def persist_citation_analysis(
             for source, resolved in resolved_topics
         }
         logger.info("analysis_stage=topic_resolution status=completed article_id=%s speaker=%s topics=%d duration=%.3fs", article_id, speaker.speaker_name, len(resolved_topics), time.perf_counter() - topic_started)
+        emit_event(
+            "pipeline_stage",
+            operation="topic_resolution",
+            stage="topic_resolution",
+            event_status="completed",
+            duration_ms=int((time.perf_counter() - topic_started) * 1000),
+            attributes={"article_id": str(article_id), "topic_count": len(resolved_topics)},
+        )
         attitudes_by_key: dict[tuple[str, str], dict[str, object]] = {}
         for citation in evaluation.evaluated_citations:
             citation_uuid = citation_ids.get(
@@ -540,12 +613,28 @@ def persist_citation_analysis(
         if not attitudes:
             continue
 
+        attitude_started = time.perf_counter()
+        emit_event(
+            "pipeline_stage",
+            operation="attitude_persistence",
+            stage="attitude_persistence",
+            event_status="started",
+            attributes={"article_id": str(article_id), "attitude_count": len(attitudes)},
+        )
         attitudes_response = httpx.post(
             f"{STORAGE_URL}/attitudes/bulk",
             json=attitudes,
             timeout=30.0,
         )
         attitudes_response.raise_for_status()
+        emit_event(
+            "pipeline_stage",
+            operation="attitude_persistence",
+            stage="attitude_persistence",
+            event_status="completed",
+            duration_ms=int((time.perf_counter() - attitude_started) * 1000),
+            attributes={"article_id": str(article_id), "attitude_count": len(attitudes)},
+        )
         persist_inconsistencies(
             person_uuid=person_ids[speaker.speaker_name.strip().casefold()],
             speaker_kind=speaker.speaker_kind,
@@ -597,6 +686,15 @@ def persist_inconsistencies(
         topic["topic_name"].strip().casefold(): topic["topic_name"]
         for topic in topics
     }
+    comparison_started = time.perf_counter()
+    emit_event(
+        "pipeline_stage",
+        operation="inconsistency_comparison",
+        stage="inconsistency_comparison",
+        event_status="started",
+        attributes={"person_uuid": person_uuid, "attitude_count": len(attitudes)},
+    )
+    comparisons = 0
     for attitude in attitudes:
         topic_uuid = str(attitude["topic_uuid"])
         topic_name = next(
@@ -624,6 +722,7 @@ def persist_inconsistencies(
             timeout=30.0,
         )
         search_response.raise_for_status()
+        comparisons += 1
         for historical in search_response.json():
             historical_quote = (
                 historical.get("exact_quote")
@@ -672,3 +771,11 @@ def persist_inconsistencies(
                 timeout=30.0,
             )
             response.raise_for_status()
+    emit_event(
+        "pipeline_stage",
+        operation="inconsistency_comparison",
+        stage="inconsistency_comparison",
+        event_status="completed",
+        duration_ms=int((time.perf_counter() - comparison_started) * 1000),
+        attributes={"person_uuid": person_uuid, "comparison_count": comparisons},
+    )

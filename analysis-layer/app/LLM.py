@@ -1,6 +1,7 @@
 import os
 import time
 import math
+from datetime import datetime, timezone
 from collections import defaultdict
 from typing import Any
 
@@ -10,7 +11,7 @@ from langchain_core.runnables import ConfigurableField
 
 from . import prompts
 from .logger import get_logger
-from .telemetry import emit_event
+from .telemetry import current_context, emit_event, sanitized_error
 from dotenv import load_dotenv
 
 load_dotenv()  # Load environment variables from .env file
@@ -18,7 +19,7 @@ load_dotenv()  # Load environment variables from .env file
 llm_main = ChatOpenAI(
     # base_url="http://host.docker.internal:1234/v1",
     base_url=os.getenv("LLM_URL"),
-    model='google/gemma-4-e4b',
+    model=os.getenv("LLM_MODEL", "google/gemma-4-e4b"),
     api_key="fake_api_key",
     temperature=0.5
 ).configurable_fields(
@@ -123,19 +124,8 @@ def _record_chain_metrics(
         "-",
         duration,
     )
-    emit_event(
-        "llm_call_completed",
-        stage=stage,
-        duration_ms=int(duration * 1000),
-        attributes={
-            "input_chars": input_chars,
-            "output_chars": output_chars,
-            "estimated_input_tokens": _estimate_tokens(input_chars),
-            "estimated_output_tokens": _estimate_tokens(output_chars),
-            "provider_input_tokens": provider_input_tokens,
-            "provider_output_tokens": provider_output_tokens,
-        },
-    )
+    # LangChain callbacks are the authoritative call-level instrumentation.
+    # This helper remains a process-local fallback for aggregate legacy logs.
 
 
 def _invoke_chain(chain: Any, payload: Any, *, stage: str, speaker: str | None = None, citation_count: int | None = None) -> Any:
@@ -167,6 +157,8 @@ class _LLMUsageLogger(BaseCallbackHandler):
             "started_at": time.perf_counter(),
             "input_chars": 0,
             "time_to_first_token": None,
+            "model": None,
+            "started_at_iso": datetime.now(timezone.utc).isoformat(),
         }
 
     @staticmethod
@@ -236,6 +228,7 @@ class _LLMUsageLogger(BaseCallbackHandler):
 
     def _log_started(self, run_id, input_chars: int, model: str) -> None:
         call = self._calls[run_id]
+        call["model"] = os.getenv("LLM_MODEL", model)
         call["input_chars"] = input_chars
         logger.info(
             "llm_call status=started stage=%s speaker=%s citation_count=%s run_id=%s "
@@ -287,6 +280,13 @@ class _LLMUsageLogger(BaseCallbackHandler):
         provider_input_tokens = usage_metadata.get("input_tokens", usage_metadata.get("prompt_tokens"))
         provider_output_tokens = usage_metadata.get("output_tokens", usage_metadata.get("completion_tokens"))
         time_to_first_token = call["time_to_first_token"]
+        response_metadata = getattr(response, "llm_output", {}) or {}
+        finish_reason = response_metadata.get("finish_reason")
+        if finish_reason is None:
+            generations = getattr(response, "generations", []) or []
+            if generations and generations[0]:
+                generation = generations[0][0]
+                finish_reason = getattr(generation, "generation_info", {}).get("finish_reason")
         self._record_metrics(
             stage=call["stage"],
             input_chars=call["input_chars"],
@@ -313,6 +313,40 @@ class _LLMUsageLogger(BaseCallbackHandler):
             provider_output_tokens if provider_output_tokens is not None else "-",
             f"{time_to_first_token:.3f}s" if time_to_first_token is not None else "-",
             duration,
+        )
+        generation_seconds = duration - time_to_first_token if time_to_first_token is not None else None
+        throughput = None
+        if (
+            provider_output_tokens is not None
+            and generation_seconds is not None
+            and generation_seconds > 0
+        ):
+            throughput = provider_output_tokens / generation_seconds
+        emit_event(
+            "llm_call",
+            operation="chat_completion",
+            span_id=str(run_id),
+            parent_span_id=current_context().get("trace_id"),
+            stage=call["stage"],
+            event_status="completed",
+            started_at=call["started_at_iso"],
+            completed_at=datetime.now(timezone.utc).isoformat(),
+            duration_ms=int(duration * 1000),
+            time_to_first_token_ms=int(time_to_first_token * 1000) if time_to_first_token is not None else None,
+            input_tokens=provider_input_tokens,
+            output_tokens=provider_output_tokens,
+            input_tokens_estimated=self._estimate_tokens(call["input_chars"]) if provider_input_tokens is None else None,
+            output_tokens_estimated=self._estimate_tokens(output_chars) if provider_output_tokens is None else None,
+            throughput_tokens_per_second=throughput,
+            model=call.get("model"),
+            provider=os.getenv("LLM_URL", "").split("/")[2] if "://" in os.getenv("LLM_URL", "") else "openai-compatible",
+            finish_reason=finish_reason,
+            attributes={
+                "speaker": call["speaker"],
+                "citation_count": call["citation_count"],
+                "token_source": "provider" if provider_input_tokens is not None or provider_output_tokens is not None else "unavailable",
+                "prompt_version": os.getenv("PROMPT_VERSION", "unversioned"),
+            },
         )
         logger.info(
             "analysis_kpi stage=%s calls=1 input_chars=%d estimated_input_tokens=%d "
@@ -347,6 +381,24 @@ class _LLMUsageLogger(BaseCallbackHandler):
             type(error).__name__,
             f"{call['time_to_first_token']:.3f}s" if call["time_to_first_token"] is not None else "-",
             time.perf_counter() - call["started_at"],
+        )
+        duration = time.perf_counter() - call["started_at"]
+        emit_event(
+            "llm_call",
+            operation="chat_completion",
+            span_id=str(run_id),
+            parent_span_id=current_context().get("trace_id"),
+            stage=call["stage"],
+            event_status="failed",
+            started_at=call.get("started_at_iso"),
+            completed_at=datetime.now(timezone.utc).isoformat(),
+            duration_ms=int(duration * 1000),
+            time_to_first_token_ms=int(call["time_to_first_token"] * 1000) if call.get("time_to_first_token") is not None else None,
+            model=call.get("model"),
+            provider=os.getenv("LLM_URL", "").split("/")[2] if "://" in os.getenv("LLM_URL", "") else "openai-compatible",
+            error_category=type(error).__name__,
+            error_detail=sanitized_error(error),
+            attributes={"speaker": call["speaker"], "citation_count": call["citation_count"]},
         )
 
 # === Basics ===
