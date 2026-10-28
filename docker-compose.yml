@@ -24,10 +24,15 @@ services:
       EMBEDDING_URL: ${EMBEDDING_URL:-http://host.docker.internal:1234/v1}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-embeddinggemma-300m}
       EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-fake_api_key}
+      LOG_DIR: /app/logs
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_LEVEL_DATA_STORAGE: ${LOG_LEVEL_DATA_STORAGE:-INFO}
+      LOG_LEVEL_MAIN: ${LOG_LEVEL_MAIN:-INFO}
+      MANAGEMENT_EVENTS_URL: ${MANAGEMENT_EVENTS_URL:-http://management-service:9000/internal/events}
     ports:
       - "8000:8000"
     volumes:
-      - ./logs/data-storage:/app/logs
+      - ${LOGS_DIR:-./logs}/data-storage:/app/logs
     depends_on:
       postgres:
         condition: service_healthy
@@ -41,13 +46,62 @@ services:
       DATABASE_URL: postgresql+psycopg://news:${POSTGRES_PASSWORD:-POSTGRES_PASSWORD}@postgres-db:5432/news
       STORAGE_URL: http://data-storage:8000
       LLM_URL: ${LLM_URL:-http://host.docker.internal:1234/v1}
+      LLM_MODEL: ${LLM_MODEL:-google/gemma-4-e4b}
+      MIN_ATTRIBUTION_CONFIDENCE: ${MIN_ATTRIBUTION_CONFIDENCE:-0.35}
+      MIN_EXTRACTION_CONFIDENCE: ${MIN_EXTRACTION_CONFIDENCE:-0.35}
+      PARALLEL_SPEAKER_ANALYSIS: ${PARALLEL_SPEAKER_ANALYSIS:-false}
+      PARALLEL_ANALYSIS_WORKERS: ${PARALLEL_ANALYSIS_WORKERS:-4}
+      LOG_DIR: /app/logs
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_LEVEL_ANALYSIS: ${LOG_LEVEL_ANALYSIS:-INFO}
+      LOG_LEVEL_LLM: ${LOG_LEVEL_LLM:-INFO}
+      LOG_LEVEL_MAIN: ${LOG_LEVEL_MAIN:-INFO}
+      MANAGEMENT_EVENTS_URL: ${MANAGEMENT_EVENTS_URL:-http://management-service:9000/internal/events}
+      MANAGEMENT_CAPTURE_LLM_CONTENT: ${MANAGEMENT_CAPTURE_LLM_CONTENT:-false}
+      PROMPT_VERSION: ${PROMPT_VERSION:-unversioned}
     ports:
       - "7000:7000"
     depends_on:
       data-storage:
         condition: service_healthy
     volumes:
-      - ./logs/analysis:/app/logs
+      - ${LOGS_DIR:-./logs}/analysis:/app/logs
+
+  management-service:
+    build: ./management-service
+    container_name: management-service
+    environment:
+      ANALYSIS_URL: http://analysis-layer:7000
+      STORAGE_URL: http://data-storage:8000
+      MANAGEMENT_DATA_DIR: /app/data
+      MANAGEMENT_DATABASE_PATH: /app/data/management.db
+      MANAGEMENT_MAX_CONCURRENT_JOBS: ${MANAGEMENT_MAX_CONCURRENT_JOBS:-1}
+      MANAGEMENT_REQUEST_TIMEOUT_SECONDS: ${MANAGEMENT_REQUEST_TIMEOUT_SECONDS:-10}
+      MANAGEMENT_ANALYSIS_TIMEOUT_SECONDS: ${MANAGEMENT_ANALYSIS_TIMEOUT_SECONDS:-1800}
+      MANAGEMENT_TELEMETRY_RETENTION_DAYS: ${MANAGEMENT_TELEMETRY_RETENTION_DAYS:-7}
+      MANAGEMENT_EVENTS_URL: ${MANAGEMENT_EVENTS_URL:-http://management-service:9000/internal/events}
+      ANALYSIS_LOG_DIR: /var/log/newsanalysis/analysis
+      STORAGE_LOG_DIR: /var/log/newsanalysis/data-storage
+    ports:
+      - "9000:9000"
+    volumes:
+      - management_data:/app/data
+      - ${LOGS_DIR:-./logs}/analysis:/var/log/newsanalysis/analysis:ro
+      - ${LOGS_DIR:-./logs}/data-storage:/var/log/newsanalysis/data-storage:ro
+    depends_on:
+      data-storage:
+        condition: service_healthy
+      analysis-layer:
+        condition: service_started
+
+  management-dashboard:
+    build: ./management-service/dashboard
+    container_name: management-dashboard
+    ports:
+      - "3000:80"
+    depends_on:
+      - management-service
 
 volumes:
   postgres_data:
+  management_data:

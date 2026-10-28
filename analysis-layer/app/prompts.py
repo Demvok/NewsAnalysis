@@ -20,22 +20,26 @@ CITATION_EXTRACTION_PROMPT = ModelCompatibleChatPromptTemplate.from_messages([
     (
         "system",
         """
-        You are an expert journalist specializing in extracting statements
-        and opinions expressed by people in news articles.
+        Extract every attributable statement, opinion, or position in the article.
+        Group citations by speaker. Preserve direct wording exactly; for paraphrases
+        use the article's wording as exact_quote and classify them accordingly.
+        Keep enough context to resolve attribution and meaning. Include aliases
+        exactly as used in the article.
 
-        Your task is to identify all relevant speakers and extract their citations.
-
-        For each citation:
-        - preserve the exact wording when it is a direct quote;
-        - identify paraphrased statements;
-        - provide the context necessary to understand the citation;
-        - summarize the citation;
-        - identify the speaker correctly;
-        - include aliases used to refer to the same person.
-        - return confidence_level and extraction_confidence on a 0 to 1 scale;
-          do not use a 0 to 5 or percentage scale.
-
-        Do not invent quotes, speakers, or information that is not supported by the article.
+        Do not invent speakers, quotes, or unsupported details. A mere mention is
+        not a citation unless the article attributes a position or statement to the
+        person. Use citation_type exactly as defined by the output schema.
+        Classify each speaker as PERSON, ORGANIZATION, GROUP, ANONYMOUS_SOURCE, or
+        UNRESOLVED. Use ANONYMOUS_SOURCE
+        for anonymous descriptors such as "experts", "some people", "industry
+        sources", "others", or "those behind AI data centres".
+        Also score influence_score from 0 to 1: how much this speaker's evidence
+        affects the article's main story, not how credible the speaker is. A low
+        score means the evidence should be preserved but processed as lower priority.
+        Set uncertain and explain uncertainty_reason when attribution or evidence is
+        ambiguous. confidence_level and extraction_confidence are numbers from 0 to 1.
+        Return the complete structured result, including an empty speakers list when
+        no attributable statements exist.
         """
     ),
     (
@@ -115,6 +119,20 @@ class ExtractedSpeaker(BaseModel):
     speaker_name: str = Field(..., description="The name of the speaker")
     speaker_role: str = Field(..., description="The role or affiliation of the speaker if he represents an organization")
     aliases: list[str] = Field(..., description="A list of aliases used for the speaker in the article")
+    speaker_kind: str = Field(
+        default="UNRESOLVED",
+        description=(
+            "One of PERSON, ORGANIZATION, GROUP, ANONYMOUS_SOURCE, UNRESOLVED."
+        ),
+    )
+    influence_score: float = Field(
+        default=1,
+        ge=0,
+        le=1,
+        description="Impact of this speaker's evidence on the article's main story.",
+    )
+    uncertain: bool = False
+    uncertainty_reason: str = ""
     citations: list[CitationExtractionCitation] = Field(..., description="Citations attributed to the speaker")
 
 class CitationExtractionOutput(BaseModel):
@@ -135,21 +153,13 @@ CITATION_EXTRACTION_REFINING_PROMPT = ModelCompatibleChatPromptTemplate.from_mes
     (
         "system",
         """
-        You are reviewing the result of an automated citation extraction.
-
-        Compare the extracted citations against the original article.
-
-        Your task is to:
-        - identify missing citations;
-        - remove citations that are not supported by the article;
-        - correct incorrectly attributed citations;
-        - correct incomplete or inaccurate quotes;
-        - improve speaker identification;       
-        - preserve correct information from the original extraction.
-
-        Do not invent information that is not supported by the article.
-
-        Return the complete corrected extraction.
+        Audit the extraction against the original article and return a complete
+        corrected extraction. Add omitted attributable statements, remove unsupported
+        items, fix speaker attribution, and repair quote boundaries/type/context.
+        Direct quotes must match the article character-for-character apart from
+        surrounding quotation marks. Never fabricate or silently strengthen evidence.
+        Preserve valid items and all schema fields. If evidence is insufficient,
+        omit the citation rather than guessing.
         """
     ),
     (
@@ -170,49 +180,72 @@ CITATION_EXTRACTION_REFINING_PROMPT = ModelCompatibleChatPromptTemplate.from_mes
 
 # === Citation Evaluation Prompt ===
 
+COMBINED_CITATION_ANALYSIS_PROMPT = ModelCompatibleChatPromptTemplate.from_messages([
+    (
+        "system",
+        """
+        Analyze all citations for this speaker in one pass. For every citation,
+        identify only topics that are actually supported by an attributable position,
+        define each topic as a reusable proposition, and assign the speaker's stance
+        from -10 (strongly against) to +10 (strongly supports). Do not infer a
+        position from a bare mention. Preserve citation fields exactly.
+
+        This is a batch-analysis identity, not necessarily a real-world identity.
+        For PERSON, all citations in this batch belong to the same person.
+        For ANONYMOUS_SOURCE or UNRESOLVED, the citations may come from many
+        different unnamed sources: analyze each citation independently and never
+        merge them into one person's position. The resulting attitudes are
+        citation-level general-source observations, not a person profile.
+
+        The speaker kind controls effort. For ANONYMOUS_SOURCE or UNRESOLVED,
+        do basic topic/stance extraction only, avoid elaborate interpretation, and
+        never produce material for historical inconsistency tracking. Mentions and
+        citations without usable source text must have no evaluated topics. For
+        PERSON speakers belong to one batch identity. Organizations are only valid
+        here when explicitly enabled by the workflow; GROUP and non-person sources
+        must not be treated as canonical people.
+
+        topic_name must be concise and canonical. topic_description must be a
+        proposition that can be meaningfully supported or opposed, including
+        important scope, actor, object, or condition. Determine polarity from the
+        proposition itself: stance > 0 means the speaker supports that proposition,
+        stance < 0 means the speaker opposes it, and stance = 0 means neutral or
+        indeterminate. Do not reverse polarity because the quote uses a negative
+        verb; define the proposition first, then judge for/against it.
+        relevancy_score is 0..1. stance_detected is false and stance is null when
+        evidence is inadequate. Return one result for every input citation.
+        """
+    ),
+    (
+        "human",
+        """
+        Speaker: {speaker_name}
+        Role: {speaker_role}
+        Speaker kind: {speaker_kind}
+        Citations: {citations}
+        """
+    ),
+])
+
 TOPIC_EXTRACTION_PROMPT = ModelCompatibleChatPromptTemplate.from_messages([
     (
         "system",
         """
-            You are an expert researcher in political communication, public opinion,
-            and stance analysis.
+            For each citation, identify each distinct topic that is actually discussed.
+            Use the other citations only to resolve references or missing context.
+            A topic needs an expressed or clearly attributed position to be useful:
+            do not infer a stance from a bare mention. A citation may yield multiple
+            topics and different stances. Judge what the speaker expresses, not truth.
 
-            Your task is to analyze the citations attributed to one speaker and identify
-            the topics toward which the speaker expresses a position.
+            topic_name must be concise, specific, reusable, and free of article-specific
+            phrasing. topic_description must define the proposition being evaluated:
+            what supporting or opposing it means in this context. Keep it factual and
+            compact, retaining essential scope, actor, object, and condition.
+            Do not use stock wording or copy the quote. Set stance_detected false and
+            return no topic when no position is supported.
 
-            For each citation:
-
-            1. Identify the specific topics or issues discussed in the citation.
-            2. For each identified topic, determine how directly the citation expresses
-            a position toward that topic.
-            3. Determine the speaker's stance toward each topic.
-            4. Do not infer a stance when the citation only mentions a topic without
-            expressing support, opposition, or another identifiable position.
-            5. Do not invent topics or positions that are not supported by the citation.
-            6. Use the surrounding citations from the same article only as context for
-            understanding ambiguous references, pronouns, or incomplete statements.
-            7. Evaluate the stance expressed in the citation, not whether the stance
-            is factually correct.
-            8. A citation may contain multiple topics and may express different stances
-            toward them.
-            9. If a citation contains no identifiable topic or stance, return an empty
-            list of mentioned_topics.
-
-            Stance scale:
-            -10 = strongly against
-            -5  = moderately against
-            0   = neutral, unclear, or no identifiable stance
-            +5  = moderately in favor
-            +10 = strongly in favor
-
-            Use intermediate values when appropriate.
-
-            Relevancy score:
-            0.0 = the citation does not meaningfully express a position about the topic
-            0.5 = the topic is relevant but the position is only partially expressed
-            1.0 = the citation directly expresses a clear position about the topic
-
-            Return the result using the provided structured output schema.
+            relevancy_score: 0 means no meaningful position, 0.5 partial, 1 clear.
+            Use only the -10..10 stance scale in the next evaluation stage.
         """
     ),
     (
@@ -223,9 +256,6 @@ TOPIC_EXTRACTION_PROMPT = ModelCompatibleChatPromptTemplate.from_messages([
 
             Role:
             {speaker_role}
-
-            Aliases:
-            {aliases}
 
             Citations:
             {citations}
@@ -252,7 +282,12 @@ CITATION_EVALUATION_PROMPT = ModelCompatibleChatPromptTemplate.from_messages([
     (
         "system",
         """
-            You are an expert researcher in political communication, public opinion, and stance analysis. Your goal is to analyze the citations attributed to one speaker and identify the topics toward which the speaker expresses a position. Consider topic description, which tells what it means for the speaker to be in favor of or against this topic.
+            Assign a numeric stance to each evaluated topic using its proposition and
+            the citation evidence. -10 is strongly against, 0 is neutral/unclear, and
+            +10 is strongly in favor; use intermediate values. Set stance to null when
+            stance_detected is false or evidence is inadequate. Do not change citation
+            text or topics. Keep topic descriptions specific to the proposition, not a
+            generic summary. Return only the structured output.
         """
     ),
     (
@@ -264,11 +299,8 @@ CITATION_EVALUATION_PROMPT = ModelCompatibleChatPromptTemplate.from_messages([
             Role:
             {speaker_role}
 
-            Aliases:
-            {aliases}
-
-            Citations:
-            {analysed_citations}
+            Evaluated citations:
+            {evaluated_citations}
         """
     )
 ])
@@ -290,6 +322,18 @@ class CitationEvaluationOutput(BaseModel):
     evaluated_citations: list[EvaluatedCitation] = Field(..., description="Citations attributed to the speaker with their topic evaluations and stances")
 
 
+class CombinedEvaluatedCitation(CitationExtractionCitation):
+    evaluated_topics: list[CitationEvaluatedTopic] = Field(
+        ..., description="Topics and stances supported by this citation"
+    )
+
+
+class CombinedCitationAnalysisOutput(BaseModel):
+    speaker_name: str
+    speaker_role: str
+    evaluated_citations: list[CombinedEvaluatedCitation]
+
+
 class InconsistencyComparison(BaseModel):
     classification: str = Field(description="CONSISTENT, POSITION_CHANGE, CONTRADICTION, or INSUFFICIENT_EVIDENCE")
     severity: str | None = None
@@ -306,13 +350,12 @@ class InconsistencyComparison(BaseModel):
 
 INCONSISTENCY_COMPARISON_PROMPT = ModelCompatibleChatPromptTemplate.from_messages([
     ("system", """
-        Compare two dated statements by the same person about the same canonical topic.
-        Do not classify different stance values as a contradiction by themselves.
-        Use CONSISTENT when the statements are compatible, POSITION_CHANGE when the
-        person appears to have changed position without logical incompatibility,
-        CONTRADICTION only when the propositions are meaningfully incompatible, and
-        INSUFFICIENT_EVIDENCE when the evidence or context is inadequate.
-        Return only the structured assessment.
+        Compare two dated statements by the same person about the same proposition.
+        Use CONSISTENT when compatible, POSITION_CHANGE when the later position differs
+        without logical incompatibility, CONTRADICTION only for mutually incompatible
+        claims, and INSUFFICIENT_EVIDENCE when scope, context, attribution, or dates
+        do not support a decision. A changed numeric stance alone is not a contradiction.
+        Explain the decisive evidence briefly. Return only the structured assessment.
     """),
     ("human", """
         Topic: {topic_name}

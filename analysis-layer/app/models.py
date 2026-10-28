@@ -55,6 +55,27 @@ class CitationType(str, Enum):
     MENTION = "mention"
 
 
+class SpeakerKind(str, Enum):
+    PERSON = "PERSON"
+    ORGANIZATION = "ORGANIZATION"
+    GROUP = "GROUP"
+    ANONYMOUS_SOURCE = "ANONYMOUS_SOURCE"
+    UNRESOLVED = "UNRESOLVED"
+
+    @classmethod
+    def _missing_(cls, value: object):
+        legacy_values = {
+            "canonical_person": cls.PERSON,
+            "organization_or_government": cls.ORGANIZATION,
+            "collective_or_group": cls.GROUP,
+            "vague_source": cls.ANONYMOUS_SOURCE,
+            "unresolved_reference": cls.UNRESOLVED,
+        }
+        if isinstance(value, str):
+            return legacy_values.get(value.casefold())
+        return None
+
+
 class CitationCandidate(BaseModel):
     exact_quote: str = Field(min_length=1)
     context: str
@@ -75,6 +96,15 @@ class SpeakerExtraction(BaseModel):
     speaker_name: str = Field(min_length=1)
     speaker_role: str = ""
     aliases: list[str] = Field(default_factory=list)
+    speaker_kind: SpeakerKind = SpeakerKind.UNRESOLVED
+    influence_score: float = Field(
+        default=1.0,
+        ge=0,
+        le=1,
+        description="Estimated impact of this speaker's evidence on the article's story.",
+    )
+    uncertain: bool = False
+    uncertainty_reason: str = ""
     citations: list[CitationCandidate] = Field(default_factory=list)
 
 

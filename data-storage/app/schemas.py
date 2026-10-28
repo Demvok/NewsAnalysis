@@ -6,7 +6,7 @@ from typing import Any, Literal
 from uuid import UUID
 
 from enum import Enum
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 def parse_datetime(value: object) -> object:
@@ -133,6 +133,12 @@ class InconsistencyPayload(BaseModel):
     @classmethod
     def normalize_datetime(cls, value: object) -> object:
         return parse_datetime(value)
+
+    @model_validator(mode="after")
+    def validate_distinct_citations(self) -> "InconsistencyPayload":
+        if self.citation_a_uuid == self.citation_b_uuid:
+            raise ValueError("citation_a_uuid and citation_b_uuid must be different")
+        return self
 
 
 class ArticleUpdate(ArticlePayload):

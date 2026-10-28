@@ -43,8 +43,8 @@ The Swagger UI at `/docs` groups endpoints by the following tags:
   and `Attitudes - Bulk` provide bulk create (`POST`), update (`PATCH`), and
   delete (`DELETE`) operations.
 - `Database` contains schema lifecycle operations.
-- `Vectors` contains text embedding, batch embedding, and alias semantic search
-  endpoints, plus bulk re-embedding and vector-index creation.
+- `Vectors` contains text embedding, batch embedding, bulk re-embedding, and
+  vector-index creation endpoints.
 - `System` contains health checks.
 
 Bulk update requests include the resource identifier in each item. Bulk
@@ -58,10 +58,11 @@ Vector endpoints:
 
 - `POST /vectors/embed` embeds one text.
 - `POST /vectors/embed-batch` embeds multiple texts.
-- `POST /aliases/search` embeds a text and searches aliases.
-- `POST /aliases/search/vector` searches aliases using a supplied vector.
 - `POST /people/search` embeds text and searches people using `aliases_vector`.
 - `POST /people/search/vector` searches people using a supplied vector.
+- `POST /topics/search/text` embeds text and searches topics.
+- `POST /citations/search/vector` searches citations using a supplied vector.
+- `POST /citations/search/text` embeds text and searches citations.
 - `GET /people/{person_uuid}/aliases` lists aliases and copied affiliations.
 - `POST /people/{person_uuid}/aliases/reembed` normalizes aliases and
   regenerates that person's `aliases_vector`.
@@ -69,3 +70,10 @@ Vector endpoints:
   vector from its source text.
 - `POST /vectors/reindex-all` creates/ensures HNSW cosine indexes for all
   vector fields.
+
+All semantic search responses include `cosine_similarity` (the actual cosine
+similarity for the returned record) and the legacy `distance` field. Results
+are ordered by cosine distance. The optional `min_similarity` query parameter
+filters results before `limit` is applied. Its default is configured by
+`EMBEDDING_MIN_COSINE_SIMILARITY`, which defaults to `0.0` (no similarity
+cutoff; only the requested result limit applies).

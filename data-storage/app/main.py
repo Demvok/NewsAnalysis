@@ -1,16 +1,17 @@
 from __future__ import annotations
 
-import logging
 import json
 import os
+import time
+from uuid import uuid4
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID
 
-from fastapi import FastAPI, HTTPException, Query, status
+from fastapi import FastAPI, HTTPException, Query, Request, Response, status
 from openai import OpenAI
 from pydantic import ValidationError
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import delete, exists, func, or_, select
 from sqlalchemy.exc import IntegrityError
 
 from app.database import (
@@ -52,19 +53,75 @@ from app.schemas import (
     TopicUpdate,
     parse_datetime,
 )
+from app.logger import get_logger
+from app.telemetry import emit_event
 
-logger = logging.getLogger("data-storage")
+logger = get_logger("main", "data_storage")
 app = FastAPI(title="NewsAnalysis-DataStorage", version="0.2.0")
 _embedding_client = OpenAI(
     base_url=os.getenv("EMBEDDING_URL", "http://host.docker.internal:1234/v1"),
     api_key=os.getenv("EMBEDDING_API_KEY", "fake_api_key"),
 )
 _embedding_model_name = os.getenv("EMBEDDING_MODEL", "text-embedding-embeddinggemma-300m")
+_default_min_cosine_similarity = float(os.getenv("EMBEDDING_MIN_COSINE_SIMILARITY", "0.0"))
+if not -1 <= _default_min_cosine_similarity <= 1:
+    raise ValueError("EMBEDDING_MIN_COSINE_SIMILARITY must be between -1 and 1")
+
+
+@app.middleware("http")
+async def log_api_request(request: Request, call_next) -> Response:
+    request_id = request.headers.get("x-request-id", str(uuid4()))
+    job_id = request.headers.get("x-job-id")
+    correlation_id = request.headers.get("x-correlation-id", request_id)
+    started = time.perf_counter()
+    logger.info(
+        "api_request status=started request_id=%s job_id=%s correlation_id=%s method=%s path=%s query=%s",
+        request_id, job_id or "-", correlation_id,
+        request.method,
+        request.url.path,
+        request.url.query or "-",
+    )
+    try:
+        response = await call_next(request)
+    except Exception:
+        logger.exception(
+            "api_request status=failed request_id=%s job_id=%s correlation_id=%s method=%s path=%s duration=%.3fs",
+            request_id, job_id or "-", correlation_id,
+            request.method,
+            request.url.path,
+            time.perf_counter() - started,
+        )
+        raise
+    duration = time.perf_counter() - started
+    level = logger.info if response.status_code < 400 else logger.warning
+    level(
+        "api_request status=completed request_id=%s job_id=%s correlation_id=%s method=%s path=%s "
+        "status_code=%d response_bytes=%s duration=%.3fs",
+        request_id, job_id or "-", correlation_id,
+        request.method,
+        request.url.path,
+        response.status_code,
+        response.headers.get("content-length", "unknown"),
+        duration,
+    )
+    emit_event(
+        "api_request_completed",
+        job_id=job_id,
+        correlation_id=correlation_id,
+        request_id=request_id,
+        duration_ms=int(duration * 1000),
+        attributes={"path": request.url.path, "status_code": response.status_code},
+    )
+    response.headers["x-request-id"] = request_id
+    return response
 
 
 @app.on_event("startup")
 def initialize_database() -> None:
+    logger.info("database_startup status=started")
+    started = time.perf_counter()
     create_database()
+    logger.info("database_startup status=completed duration=%.3fs", time.perf_counter() - started)
 
 
 def _validate_vector(values: list[float] | None) -> None:
@@ -141,33 +198,43 @@ def _as_dict(item: Any) -> dict[str, Any]:
 
 
 def _get(model: Any, key: Any) -> dict[str, Any]:
+    started = time.perf_counter()
     with get_session() as session:
         item = session.get(model, key)
         if item is None:
             raise HTTPException(status_code=404, detail=f"{model.__name__} not found")
         session.expunge(item)
-        return _as_dict(item)
+        result = _as_dict(item)
+    logger.debug("db_read operation=get model=%s found=true duration=%.3fs", model.__name__, time.perf_counter() - started)
+    return result
 
 
 def _list(model: Any, limit: int) -> list[dict[str, Any]]:
+    started = time.perf_counter()
     with get_session() as session:
-        return [_as_dict(item) for item in session.scalars(select(model).limit(limit)).all()]
+        result = [_as_dict(item) for item in session.scalars(select(model).limit(limit)).all()]
+    logger.debug("db_read operation=list model=%s limit=%d rows=%d duration=%.3fs", model.__name__, limit, len(result), time.perf_counter() - started)
+    return result
 
 
 def _create(model: Any, values: dict[str, Any]) -> dict[str, Any]:
+    started = time.perf_counter()
     try:
         with get_session() as session:
             item = model(**values)
             session.add(item)
             session.flush()
             session.refresh(item)
-            return _as_dict(item)
+            result = _as_dict(item)
+        logger.info("db_write operation=create model=%s status=completed duration=%.3fs", model.__name__, time.perf_counter() - started)
+        return result
     except IntegrityError as exc:
         logger.exception("Failed to create %s", model.__name__)
         raise HTTPException(status_code=409, detail="Resource conflicts with an existing record") from exc
 
 
 def _update(model: Any, key: Any, values: dict[str, Any]) -> dict[str, Any]:
+    started = time.perf_counter()
     try:
         with get_session() as session:
             item = session.get(model, key)
@@ -177,32 +244,40 @@ def _update(model: Any, key: Any, values: dict[str, Any]) -> dict[str, Any]:
                 setattr(item, field, value)
             session.flush()
             session.refresh(item)
-            return _as_dict(item)
+            result = _as_dict(item)
+        logger.info("db_write operation=update model=%s status=completed fields=%d duration=%.3fs", model.__name__, len(values), time.perf_counter() - started)
+        return result
     except IntegrityError as exc:
         logger.exception("Failed to update %s", model.__name__)
         raise HTTPException(status_code=409, detail="Resource conflicts with an existing record") from exc
 
 
 def _delete(model: Any, key: Any) -> None:
+    started = time.perf_counter()
     with get_session() as session:
         item = session.get(model, key)
         if item is not None:
             session.delete(item)
+    logger.info("db_write operation=delete model=%s status=completed duration=%.3fs", model.__name__, time.perf_counter() - started)
 
 
 def _bulk_create(model: Any, values: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    started = time.perf_counter()
     try:
         with get_session() as session:
             items = [model(**item_values) for item_values in values]
             session.add_all(items)
             session.flush()
-            return [_as_dict(item) for item in items]
+            result = [_as_dict(item) for item in items]
+        logger.info("db_write operation=bulk_create model=%s rows=%d duration=%.3fs", model.__name__, len(result), time.perf_counter() - started)
+        return result
     except IntegrityError as exc:
         logger.exception("Failed to create %s records in bulk", model.__name__)
         raise HTTPException(status_code=409, detail="Bulk request conflicts with existing records") from exc
 
 
 def _bulk_update(model: Any, key_field: str, values: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    started = time.perf_counter()
     with get_session() as session:
         result = []
         for item_values in values:
@@ -214,13 +289,18 @@ def _bulk_update(model: Any, key_field: str, values: list[dict[str, Any]]) -> li
                 setattr(item, field, value)
             result.append(item)
         session.flush()
-        return [_as_dict(item) for item in result]
+        response = [_as_dict(item) for item in result]
+    logger.info("db_write operation=bulk_update model=%s rows=%d duration=%.3fs", model.__name__, len(response), time.perf_counter() - started)
+    return response
 
 
 def _bulk_delete(model: Any, key_field: str, keys: list[Any]) -> dict[str, int]:
+    started = time.perf_counter()
     with get_session() as session:
         result = session.execute(delete(model).where(getattr(model, key_field).in_(keys)))
-        return {"deleted": result.rowcount or 0}
+        response = {"deleted": result.rowcount or 0}
+    logger.info("db_write operation=bulk_delete model=%s requested=%d deleted=%d duration=%.3fs", model.__name__, len(keys), response["deleted"], time.perf_counter() - started)
+    return response
 
 
 def _bulk_delete_attitudes(keys: list[AttitudeKey]) -> dict[str, int]:
@@ -421,7 +501,7 @@ def list_person_aliases(person_uuid: UUID) -> list[dict[str, Any]]:
 @app.post(
     "/people/{person_uuid}/aliases/reembed",
     response_model=None,
-    tags=["Vectors"],
+    tags=["People"],
     summary="Regenerate embeddings for a person's aliases",
 )
 def reembed_person_aliases(person_uuid: UUID) -> list[dict[str, Any]]:
@@ -781,46 +861,6 @@ def list_attitudes(limit: int = Query(50, ge=1, le=500)) -> list[dict[str, Any]]
     return _list(FctAttitude, limit)
 
 
-@app.get("/attitudes/history", response_model=None, tags=["Attitudes"], summary="Find historical attitudes")
-def history_attitudes(
-    person_uuid: UUID,
-    topic_uuid: UUID,
-    before: str | None = None,
-    window_days: int = Query(365, ge=1, le=3650),
-    exclude_citation_uuid: UUID | None = None,
-) -> list[dict[str, Any]]:
-    parsed_before = parse_datetime(before) if before else None
-    if parsed_before is not None and not isinstance(parsed_before, datetime):
-        raise HTTPException(status_code=422, detail="before must be a valid datetime")
-    effective_before = parsed_before or datetime.now(timezone.utc)
-    cutoff = effective_before - timedelta(days=window_days)
-    with get_session() as session:
-        statement = (
-            select(FctAttitude, DimCitation, DimArticle)
-            .join(DimCitation, FctAttitude.citation_uuid == DimCitation.citation_uuid)
-            .join(DimArticle, DimCitation.origin_article_id == DimArticle.article_id)
-            .where(
-                FctAttitude.topic_uuid == topic_uuid,
-                DimCitation.person_uuid == person_uuid,
-                DimArticle.published_at.is_not(None),
-                DimArticle.published_at >= cutoff,
-                DimArticle.published_at <= effective_before,
-            )
-            .order_by(DimArticle.published_at.desc())
-        )
-        if exclude_citation_uuid is not None:
-            statement = statement.where(FctAttitude.citation_uuid != exclude_citation_uuid)
-        return [
-            {
-                **_as_dict(attitude),
-                "exact_quote": citation.exact_quote,
-                "summarized_quote": citation.summarized_quote,
-                "published_at": article.published_at,
-            }
-            for attitude, citation, article in session.execute(statement).all()
-        ]
-
-
 @app.get("/attitudes/{topic_uuid}/{citation_uuid}", response_model=None, tags=["Attitudes"], summary="Get an attitude")
 def get_attitude(topic_uuid: UUID, citation_uuid: UUID) -> dict[str, Any]:
     return _get(FctAttitude, (topic_uuid, citation_uuid))
@@ -893,8 +933,16 @@ def create_inconsistency(payload: InconsistencyPayload) -> dict[str, Any]:
         existing = session.scalar(
             select(FctInconsistency).where(
                 FctInconsistency.topic_uuid == payload.topic_uuid,
-                FctInconsistency.citation_a_uuid == payload.citation_a_uuid,
-                FctInconsistency.citation_b_uuid == payload.citation_b_uuid,
+                or_(
+                    (
+                        (FctInconsistency.citation_a_uuid == payload.citation_a_uuid)
+                        & (FctInconsistency.citation_b_uuid == payload.citation_b_uuid)
+                    ),
+                    (
+                        (FctInconsistency.citation_a_uuid == payload.citation_b_uuid)
+                        & (FctInconsistency.citation_b_uuid == payload.citation_a_uuid)
+                    ),
+                ),
             )
         )
         if existing is not None:
@@ -944,34 +992,16 @@ def embed_text_batch(payload: EmbeddingBatchRequest) -> dict[str, Any]:
     }
 
 
-@app.post("/aliases/search", response_model=None, tags=["Vectors"], summary="Search person aliases by text")
-def search_aliases(
-    payload: EmbeddingRequest,
-    person_uuid: UUID | None = None,
-    limit: int = Query(10, ge=1, le=100),
-) -> list[dict[str, Any]]:
-    embedding = _embed_texts([payload.text])[0]
-    return _search_aliases_by_embedding(embedding, person_uuid, limit)
-
-
-@app.post("/aliases/search/vector", response_model=None, tags=["Vectors"], summary="Search person aliases by embedding")
-def search_aliases_by_vector(
-    embedding: list[float],
-    person_uuid: UUID | None = None,
-    limit: int = Query(10, ge=1, le=100),
-) -> list[dict[str, Any]]:
-    _validate_vector(embedding)
-    return _search_aliases_by_embedding(embedding, person_uuid, limit)
-
-
 def _search_aliases_by_embedding(
-    embedding: list[float], person_uuid: UUID | None, limit: int
+    embedding: list[float], person_uuid: UUID | None, limit: int, min_similarity: float
 ) -> list[dict[str, Any]]:
     with get_session() as session:
         distance = DimPerson.aliases_vector.cosine_distance(embedding).label("distance")
+        similarity = (1 - distance).label("cosine_similarity")
         statement = (
-            select(DimPerson, distance)
+            select(DimPerson, distance, similarity)
             .where(DimPerson.aliases_vector.is_not(None))
+            .where(similarity >= min_similarity)
             .order_by(DimPerson.aliases_vector.cosine_distance(embedding))
             .limit(limit)
         )
@@ -981,25 +1011,34 @@ def _search_aliases_by_embedding(
             {
                 **_as_dict(person),
                 "distance": float(distance_value),
+                "cosine_similarity": float(similarity_value),
             }
-            for person, distance_value in session.execute(statement).all()
+            for person, distance_value, similarity_value in session.execute(statement).all()
         ]
 
 
-@app.post("/people/search", response_model=None, tags=["Vectors"], summary="Search people by alias text")
-def search_people(payload: EmbeddingRequest, limit: int = Query(10, ge=1, le=100)) -> list[dict[str, Any]]:
-    return _search_aliases_by_embedding(_embed_texts([payload.text])[0], None, limit)
+@app.post("/people/search", response_model=None, tags=["People"], summary="Search people by alias text")
+def search_people(
+    payload: EmbeddingRequest,
+    limit: int = Query(10, ge=1, le=100),
+    min_similarity: float = Query(_default_min_cosine_similarity, ge=-1, le=1),
+) -> list[dict[str, Any]]:
+    return _search_aliases_by_embedding(_embed_texts([payload.text])[0], None, limit, min_similarity)
 
 
 @app.post(
     "/people/search/vector",
     response_model=None,
-    tags=["Vectors"],
+    tags=["People"],
     summary="Search people by alias embedding",
 )
-def search_people_by_vector(embedding: list[float], limit: int = Query(10, ge=1, le=100)) -> list[dict[str, Any]]:
+def search_people_by_vector(
+    embedding: list[float],
+    limit: int = Query(10, ge=1, le=100),
+    min_similarity: float = Query(_default_min_cosine_similarity, ge=-1, le=1),
+) -> list[dict[str, Any]]:
     _validate_vector(embedding)
-    return _search_aliases_by_embedding(embedding, None, limit)
+    return _search_aliases_by_embedding(embedding, None, limit, min_similarity)
 
 
 @app.post("/vectors/reembed-all", response_model=None, tags=["Vectors"], summary="Re-embed all vector fields")
@@ -1056,44 +1095,122 @@ def reindex_all_vectors() -> dict[str, int]:
 
 
 @app.post("/topics/search", response_model=None, tags=["Topics"], summary="Search topics by embedding")
-def search_topics(embedding: list[float], limit: int = Query(10, ge=1, le=100)) -> list[dict[str, Any]]:
+def search_topics(
+    embedding: list[float],
+    limit: int = Query(10, ge=1, le=100),
+    min_similarity: float = Query(_default_min_cosine_similarity, ge=-1, le=1),
+) -> list[dict[str, Any]]:
     _validate_vector(embedding)
     with get_session() as session:
+        distance = DimTopic.topic_description_vector.cosine_distance(embedding).label("distance")
+        similarity = (1 - distance).label("cosine_similarity")
         statement = (
-            select(DimTopic)
+            select(DimTopic, distance, similarity)
             .where(DimTopic.topic_description_vector.is_not(None))
+            .where(similarity >= min_similarity)
             .order_by(DimTopic.topic_description_vector.cosine_distance(embedding))
             .limit(limit)
         )
-        return [_as_dict(item) for item in session.scalars(statement).all()]
-
-
-@app.post("/topics/search/text", response_model=None, tags=["Vectors"], summary="Search topics by text")
-def search_topics_by_text(payload: EmbeddingRequest, limit: int = Query(10, ge=1, le=100)) -> list[dict[str, Any]]:
-    return search_topics(_embed_texts([payload.text])[0], limit)
-
-
-@app.post("/citations/search/vector", response_model=None, tags=["Vectors"], summary="Search citations by embedding")
-def search_citations_by_vector(
-    embedding: list[float], limit: int = Query(10, ge=1, le=100)
-) -> list[dict[str, Any]]:
-    _validate_vector(embedding)
-    with get_session() as session:
-        distance = DimCitation.summarized_quote_vector.cosine_distance(embedding).label("distance")
-        statement = (
-            select(DimCitation, distance)
-            .where(DimCitation.summarized_quote_vector.is_not(None))
-            .order_by(DimCitation.summarized_quote_vector.cosine_distance(embedding))
-            .limit(limit)
-        )
         return [
-            {**_as_dict(citation), "distance": float(distance_value)}
-            for citation, distance_value in session.execute(statement).all()
+            {
+                **_as_dict(topic),
+                "distance": float(distance_value),
+                "cosine_similarity": float(similarity_value),
+            }
+            for topic, distance_value, similarity_value in session.execute(statement).all()
         ]
 
 
-@app.post("/citations/search/text", response_model=None, tags=["Vectors"], summary="Search citations by text")
-def search_citations_by_text(
-    payload: EmbeddingRequest, limit: int = Query(10, ge=1, le=100)
+@app.post("/topics/search/text", response_model=None, tags=["Topics"], summary="Search topics by text")
+def search_topics_by_text(
+    payload: EmbeddingRequest,
+    limit: int = Query(10, ge=1, le=100),
+    min_similarity: float = Query(_default_min_cosine_similarity, ge=-1, le=1),
 ) -> list[dict[str, Any]]:
-    return search_citations_by_vector(_embed_texts([payload.text])[0], limit)
+    return search_topics(_embed_texts([payload.text])[0], limit, min_similarity)
+
+
+@app.post("/citations/search/vector", response_model=None, tags=["Citations"], summary="Search citations by embedding")
+def search_citations_by_vector(
+    embedding: list[float],
+    limit: int = Query(10, ge=1, le=100),
+    min_similarity: float = Query(_default_min_cosine_similarity, ge=-1, le=1),
+    person_uuid: UUID | None = None,
+    topic_uuid: UUID | None = None,
+    before: str | None = None,
+    window_days: int = Query(365, ge=1, le=3650),
+    exclude_citation_uuid: UUID | None = None,
+) -> list[dict[str, Any]]:
+    _validate_vector(embedding)
+    parsed_before = parse_datetime(before) if before else None
+    if parsed_before is not None and not isinstance(parsed_before, datetime):
+        raise HTTPException(status_code=422, detail="before must be a valid datetime")
+    effective_before = parsed_before or datetime.now(timezone.utc)
+    cutoff = effective_before - timedelta(days=window_days)
+    with get_session() as session:
+        distance = DimCitation.summarized_quote_vector.cosine_distance(embedding).label("distance")
+        similarity = (1 - distance).label("cosine_similarity")
+        stance_query = select(FctAttitude.stance).where(
+            FctAttitude.citation_uuid == DimCitation.citation_uuid
+        )
+        if topic_uuid is not None:
+            stance_query = stance_query.where(FctAttitude.topic_uuid == topic_uuid)
+        stance = (
+            stance_query.correlate(DimCitation).limit(1).scalar_subquery().label("stance")
+        )
+        statement = (
+            select(DimCitation, distance, similarity, stance)
+            .join(DimArticle, DimCitation.origin_article_id == DimArticle.article_id)
+            .where(DimCitation.summarized_quote_vector.is_not(None))
+            .where(similarity >= min_similarity)
+            .where(DimArticle.published_at.is_not(None))
+            .where(DimArticle.published_at >= cutoff)
+            .where(DimArticle.published_at <= effective_before)
+            .order_by(DimCitation.summarized_quote_vector.cosine_distance(embedding))
+        )
+        if person_uuid is not None:
+            statement = statement.where(DimCitation.person_uuid == person_uuid)
+        if topic_uuid is not None:
+            statement = statement.where(
+                exists(
+                    select(1).where(
+                        FctAttitude.citation_uuid == DimCitation.citation_uuid,
+                        FctAttitude.topic_uuid == topic_uuid,
+                    )
+                )
+            )
+        if exclude_citation_uuid is not None:
+            statement = statement.where(DimCitation.citation_uuid != exclude_citation_uuid)
+        statement = statement.limit(limit)
+        return [
+            {
+                **_as_dict(citation),
+                "distance": float(distance_value),
+                "cosine_similarity": float(similarity_value),
+                "stance": stance_value,
+            }
+            for citation, distance_value, similarity_value, stance_value in session.execute(statement).all()
+        ]
+
+
+@app.post("/citations/search/text", response_model=None, tags=["Citations"], summary="Search citations by text")
+def search_citations_by_text(
+    payload: EmbeddingRequest,
+    limit: int = Query(10, ge=1, le=100),
+    min_similarity: float = Query(_default_min_cosine_similarity, ge=-1, le=1),
+    person_uuid: UUID | None = None,
+    topic_uuid: UUID | None = None,
+    before: str | None = None,
+    window_days: int = Query(365, ge=1, le=3650),
+    exclude_citation_uuid: UUID | None = None,
+) -> list[dict[str, Any]]:
+    return search_citations_by_vector(
+        _embed_texts([payload.text])[0],
+        limit,
+        min_similarity,
+        person_uuid,
+        topic_uuid,
+        before,
+        window_days,
+        exclude_citation_uuid,
+    )
