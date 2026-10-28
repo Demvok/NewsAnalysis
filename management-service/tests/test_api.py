@@ -42,6 +42,17 @@ class ManagementApiTests(unittest.TestCase):
         self.assertEqual(response.json()["request_timeout_seconds"], 12)
         self.assertNotIn("database_url", response.json())
 
+    def test_knowledge_endpoints_proxy_storage_model(self):
+        with patch.object(main.client, "knowledge_summary", return_value={"entities": {"articles": 2}}), \
+             patch.object(main.client, "knowledge", return_value=[{"topic_uuid": "topic-1", "topic_name": "Climate"}]):
+            client = TestClient(main.app)
+            summary = client.get("/api/knowledge/summary")
+            records = client.get("/api/knowledge/topics?limit=10")
+        self.assertEqual(summary.status_code, 200)
+        self.assertEqual(summary.json()["entities"]["articles"], 2)
+        self.assertEqual(records.status_code, 200)
+        self.assertEqual(records.json()[0]["topic_name"], "Climate")
+
 
 if __name__ == "__main__":
     unittest.main()

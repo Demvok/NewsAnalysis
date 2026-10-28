@@ -24,7 +24,8 @@ CITATION_EXTRACTION_PROMPT = ModelCompatibleChatPromptTemplate.from_messages([
         Group citations by speaker. Preserve direct wording exactly; for paraphrases
         use the article's wording as exact_quote and classify them accordingly.
         Keep enough context to resolve attribution and meaning. Include aliases
-        exactly as used in the article.
+        exactly as used in the article. An alias is a name-like string that can
+        help identify the real-world entity, not a role, affiliation, or person type.
 
         Do not invent speakers, quotes, or unsupported details. A mere mention is
         not a citation unless the article attributes a position or statement to the
@@ -117,8 +118,8 @@ class CitationExtractionCitation(BaseModel):
 
 class ExtractedSpeaker(BaseModel):
     speaker_name: str = Field(..., description="The name of the speaker")
-    speaker_role: str = Field(..., description="The role or affiliation of the speaker if he represents an organization")
-    aliases: list[str] = Field(..., description="A list of aliases used for the speaker in the article")
+    speaker_role: str = Field(..., description="The speaker's affiliation or role, stored separately from identity aliases")
+    aliases: list[str] = Field(..., description="Name-like strings referring to the same real-world entity; never roles, affiliations, or type labels")
     speaker_kind: str = Field(
         default="UNRESOLVED",
         description=(
@@ -266,6 +267,7 @@ TOPIC_EXTRACTION_PROMPT = ModelCompatibleChatPromptTemplate.from_messages([
 class CitationTopic(BaseModel):
     topic_name: str = Field(..., description="A concise, canonical name of the topic or issue discussed in the citation")
     topic_description: str = Field(..., description="What it means for the speaker to be in favor of or against this topic, in a few sentences")
+    general_topic_field: str = Field(..., description="A stable broad subject area such as politics, economy, energy, health, or technology")
     relevancy_score: float = Field(..., ge=0, le=1, description="How directly the citation expresses a position about this topic, from 0 to 1")
     stance_detected: bool = Field(..., description="Whether the citation expresses an identifiable stance toward the topic")
 
@@ -274,8 +276,8 @@ class AnalysedCitation(CitationExtractionCitation):
 
 class TopicExtractionOutput(BaseModel):
     speaker_name: str = Field(..., description="The name of the speaker")
-    speaker_role: str = Field(..., description="The role or affiliation of the speaker if he represents an organization")
-    aliases: list[str] = Field(..., description="A list of aliases used for the speaker in the article")
+    speaker_role: str = Field(..., description="The speaker's affiliation or role, separate from identity aliases")
+    aliases: list[str] = Field(..., description="Name-like strings referring to this real-world entity; never roles or type labels")
     analysed_citations: list[AnalysedCitation] = Field(..., description="Citations attributed to the speaker with their topic evaluations")
 
 CITATION_EVALUATION_PROMPT = ModelCompatibleChatPromptTemplate.from_messages([

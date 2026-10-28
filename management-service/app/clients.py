@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, ClassVar
 
 import httpx
 
@@ -14,6 +14,15 @@ from .models import ServiceDependency
 @dataclass
 class ServiceClient:
     settings: Settings
+
+    knowledge_resources: ClassVar[tuple[str, ...]] = (
+        "articles",
+        "people",
+        "citations",
+        "topics",
+        "attitudes",
+        "inconsistencies",
+    )
 
     def article(self, article_id: str, headers: dict[str, str]) -> dict[str, Any]:
         response = httpx.get(
@@ -35,6 +44,53 @@ class ServiceClient:
         if not isinstance(payload, list):
             raise ValueError("storage articles response must be a list")
         return [item for item in payload if isinstance(item, dict)]
+
+    def knowledge_summary(self) -> dict[str, Any]:
+        response = httpx.get(
+            f"{self.settings.storage_url}/summary",
+            timeout=self.settings.request_timeout_seconds,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        if not isinstance(payload, dict) or not isinstance(payload.get("entities"), dict):
+            raise ValueError("storage summary response must contain entity counts")
+        return payload
+
+    def knowledge(self, resource: str, limit: int = 100) -> list[dict[str, Any]]:
+        if resource not in self.knowledge_resources:
+            raise ValueError("unsupported knowledge resource")
+        response = httpx.get(
+            f"{self.settings.storage_url}/{resource}",
+            params={"limit": limit},
+            timeout=self.settings.request_timeout_seconds,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        if not isinstance(payload, list):
+            raise ValueError(f"storage {resource} response must be a list")
+        return [item for item in payload if isinstance(item, dict)]
+
+    def search_knowledge(self, resource: str, query: str, limit: int = 100) -> list[dict[str, Any]]:
+        if resource not in self.knowledge_resources:
+            raise ValueError("unsupported knowledge resource")
+        if resource in {"articles", "citations"}:
+            response = httpx.get(
+                f"{self.settings.storage_url}/{resource}/search",
+                params={"query": query, "limit": limit},
+                timeout=self.settings.request_timeout_seconds,
+            )
+            response.raise_for_status()
+            payload = response.json()
+            if not isinstance(payload, list):
+                raise ValueError(f"storage {resource} search response must be a list")
+            return [item for item in payload if isinstance(item, dict)]
+
+        values = self.knowledge(resource, limit)
+        needle = query.casefold()
+        return [
+            item for item in values
+            if needle in str(item.get("name", item.get("topic_name", item.get("stance", "")))).casefold()
+        ]
 
     def analyze(self, payload: dict[str, Any], headers: dict[str, str]) -> dict[str, Any]:
         response = httpx.post(

@@ -140,7 +140,7 @@ def _affiliation_text(affiliation: Any) -> str:
     return json.dumps(affiliation, ensure_ascii=True, sort_keys=True)
 
 
-def _normalize_aliases(aliases: Any, affiliation: Any) -> list[dict[str, Any]]:
+def _normalize_aliases(aliases: list[str] | None) -> list[str]:
     if aliases is None:
         raw_aliases: list[Any] = []
     elif isinstance(aliases, list):
@@ -148,27 +148,21 @@ def _normalize_aliases(aliases: Any, affiliation: Any) -> list[dict[str, Any]]:
     else:
         raise HTTPException(status_code=422, detail="aliases must be a list")
 
-    affiliation_value = affiliation
-    normalized: list[dict[str, Any]] = []
+    normalized: list[str] = []
     for item in raw_aliases:
-        if isinstance(item, str):
-            alias = item.strip()
-        elif isinstance(item, dict):
-            alias = str(item.get("alias", item.get("name", ""))).strip()
-        else:
-            raise HTTPException(status_code=422, detail="Each alias must be a string or object")
+        if not isinstance(item, str):
+            raise HTTPException(status_code=422, detail="Each alias must be a string")
+        alias = item.strip()
         if not alias:
             continue
-        normalized.append({"alias": alias, "affiliation": affiliation_value})
-    affiliation_alias = _affiliation_text(affiliation)
-    if affiliation_alias and not any(item["alias"] == affiliation_alias for item in normalized):
-        normalized.append({"alias": affiliation_alias, "affiliation": affiliation_value})
+        if alias not in normalized:
+            normalized.append(alias)
     return normalized
 
 
 def _person_values(values: dict[str, Any]) -> dict[str, Any]:
     values = dict(values)
-    values["aliases"] = _normalize_aliases(values.get("aliases"), values.get("affiliation"))
+    values["aliases"] = _normalize_aliases(values.get("aliases"))
     alias_text = _person_embedding_text(values["aliases"], values.get("affiliation"))
     values["aliases_vector"] = (
         _embed_texts([alias_text])[0] if alias_text else None
@@ -176,8 +170,8 @@ def _person_values(values: dict[str, Any]) -> dict[str, Any]:
     return values
 
 
-def _person_embedding_text(aliases: list[dict[str, Any]], affiliation: Any) -> str:
-    alias_text = "\n".join(alias["alias"] for alias in aliases)
+def _person_embedding_text(aliases: list[str], affiliation: Any) -> str:
+    alias_text = "\n".join(aliases)
     return f"{alias_text}\n{_affiliation_text(affiliation)}".strip()
 
 
@@ -313,6 +307,11 @@ def _bulk_delete_attitudes(keys: list[AttitudeKey]) -> dict[str, int]:
         return {"deleted": result.rowcount or 0}
 
 
+def _set_bulk_stats(response: Response, created_new: int, retrieved_from_db: int) -> None:
+    response.headers["x-db-created-new"] = str(created_new)
+    response.headers["x-db-retrieved-from-db"] = str(retrieved_from_db)
+
+
 @app.get("/health", tags=["System"], summary="Check API and database health")
 def health() -> dict[str, str]:
     try:
@@ -321,6 +320,34 @@ def health() -> dict[str, str]:
         logger.exception("Database health check failed")
         database = "unavailable"
     return {"message": "Data Storage API Server is running", "version": app.version, "db_status": database}
+
+
+@app.get(
+    "/summary",
+    response_model=None,
+    tags=["System"],
+    summary="Summarize persisted analytical entities",
+)
+def storage_summary() -> dict[str, Any]:
+    """Return bounded database counts for management and operational dashboards."""
+    models = {
+        "articles": DimArticle,
+        "people": DimPerson,
+        "citations": DimCitation,
+        "topics": DimTopic,
+        "attitudes": FctAttitude,
+        "inconsistencies": FctInconsistency,
+    }
+    try:
+        with get_session() as session:
+            counts = {
+                name: session.scalar(select(func.count()).select_from(model)) or 0
+                for name, model in models.items()
+            }
+    except Exception as exc:
+        logger.exception("Failed to summarize stored analytical entities")
+        raise HTTPException(status_code=503, detail="Database summary unavailable") from exc
+    return {"entities": counts}
 
 
 @app.post("/database/create", status_code=201, tags=["Database"], summary="Create missing database tables")
@@ -437,8 +464,10 @@ def delete_article(article_id: UUID) -> None:
 
 
 @app.post("/articles/bulk", status_code=201, response_model=None, tags=["Articles - Bulk"], summary="Create articles in bulk")
-def create_articles_bulk(payload: list[ArticlePayload]) -> list[dict[str, Any]]:
+def create_articles_bulk(payload: list[ArticlePayload], response: Response) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
+    created_new = 0
+    retrieved_from_db = 0
     try:
         with get_session() as session:
             for item in payload:
@@ -452,7 +481,16 @@ def create_articles_bulk(payload: list[ArticlePayload]) -> list[dict[str, Any]]:
                     existing = DimArticle(**values)
                     session.add(existing)
                     session.flush()
+                    created_new += 1
+                else:
+                    retrieved_from_db += 1
                 results.append(_as_dict(existing))
+        _set_bulk_stats(response, created_new, retrieved_from_db)
+        logger.info(
+            "db_write operation=bulk_upsert model=DimArticle created_new=%d retrieved_from_db=%d",
+            created_new,
+            retrieved_from_db,
+        )
         return results
     except IntegrityError as exc:
         logger.exception("Failed to create articles in bulk")
@@ -490,7 +528,7 @@ def list_people(limit: int = Query(50, ge=1, le=500)) -> list[dict[str, Any]]:
 
 
 @app.get("/people/{person_uuid}/aliases", response_model=None, tags=["People"], summary="List person aliases")
-def list_person_aliases(person_uuid: UUID) -> list[dict[str, Any]]:
+def list_person_aliases(person_uuid: UUID) -> list[str]:
     with get_session() as session:
         person = session.get(DimPerson, person_uuid)
         if person is None:
@@ -549,8 +587,10 @@ def delete_person(person_uuid: UUID) -> None:
 
 
 @app.post("/people/bulk", status_code=201, response_model=None, tags=["People - Bulk"], summary="Create people in bulk")
-def create_people_bulk(payload: list[PersonPayload]) -> list[dict[str, Any]]:
+def create_people_bulk(payload: list[PersonPayload], response: Response) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
+    created_new = 0
+    retrieved_from_db = 0
     try:
         with get_session() as session:
             for item in payload:
@@ -560,11 +600,15 @@ def create_people_bulk(payload: list[PersonPayload]) -> list[dict[str, Any]]:
                 existing = session.scalar(
                     select(DimPerson).where(func.lower(DimPerson.name) == item.name.strip().casefold())
                 )
+                was_existing = existing is not None
                 if existing is None:
                     existing = DimPerson(**values)
                     session.add(existing)
                     session.flush()
-                elif has_person_details:
+                    created_new += 1
+                else:
+                    retrieved_from_db += 1
+                if was_existing and has_person_details:
                     existing.affiliation = values.get("affiliation", existing.affiliation)
                 if existing is not None:
                     refreshed = _person_values(
@@ -576,6 +620,12 @@ def create_people_bulk(payload: list[PersonPayload]) -> list[dict[str, Any]]:
                     existing.aliases = refreshed["aliases"]
                     existing.aliases_vector = refreshed["aliases_vector"]
                 results.append(_as_dict(existing))
+        _set_bulk_stats(response, created_new, retrieved_from_db)
+        logger.info(
+            "db_write operation=bulk_upsert model=DimPerson created_new=%d retrieved_from_db=%d",
+            created_new,
+            retrieved_from_db,
+        )
         return results
     except IntegrityError as exc:
         logger.exception("Failed to create people in bulk")
@@ -680,8 +730,10 @@ def delete_citation(citation_uuid: UUID) -> None:
 
 
 @app.post("/citations/bulk", status_code=201, response_model=None, tags=["Citations - Bulk"], summary="Create citations in bulk")
-def create_citations_bulk(payload: list[CitationPayload]) -> list[dict[str, Any]]:
+def create_citations_bulk(payload: list[CitationPayload], response: Response) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
+    created_new = 0
+    retrieved_from_db = 0
     try:
         with get_session() as session:
             for item in payload:
@@ -700,12 +752,20 @@ def create_citations_bulk(payload: list[CitationPayload]) -> list[dict[str, Any]
                 if existing is None:
                     existing = DimCitation(**values)
                     session.add(existing)
+                    created_new += 1
                 else:
+                    retrieved_from_db += 1
                     for field, value in values.items():
                         if field not in {"origin_article_id", "person_uuid", "exact_quote"}:
                             setattr(existing, field, value)
                 session.flush()
                 results.append(_as_dict(existing))
+        _set_bulk_stats(response, created_new, retrieved_from_db)
+        logger.info(
+            "db_write operation=bulk_upsert model=DimCitation created_new=%d retrieved_from_db=%d",
+            created_new,
+            retrieved_from_db,
+        )
         return results
     except IntegrityError as exc:
         logger.exception("Failed to upsert citations in bulk")
@@ -788,8 +848,10 @@ def delete_topic(topic_uuid: UUID) -> None:
 
 
 @app.post("/topics/bulk", status_code=201, response_model=None, tags=["Topics - Bulk"], summary="Create topics in bulk")
-def create_topics_bulk(payload: list[TopicPayload]) -> list[dict[str, Any]]:
+def create_topics_bulk(payload: list[TopicPayload], response: Response) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
+    created_new = 0
+    retrieved_from_db = 0
     try:
         with get_session() as session:
             for item in payload:
@@ -806,7 +868,9 @@ def create_topics_bulk(payload: list[TopicPayload]) -> list[dict[str, Any]]:
                     )
                     session.add(existing)
                     session.flush()
+                    created_new += 1
                 else:
+                    retrieved_from_db += 1
                     values = _with_generated_vector(
                         item.model_dump(exclude_none=True),
                         "topic_description",
@@ -816,6 +880,12 @@ def create_topics_bulk(payload: list[TopicPayload]) -> list[dict[str, Any]]:
                         if field != "topic_uuid":
                             setattr(existing, field, value)
                 results.append(_as_dict(existing))
+        _set_bulk_stats(response, created_new, retrieved_from_db)
+        logger.info(
+            "db_write operation=bulk_upsert model=DimTopic created_new=%d retrieved_from_db=%d",
+            created_new,
+            retrieved_from_db,
+        )
         return results
     except IntegrityError as exc:
         logger.exception("Failed to create topics in bulk")
@@ -882,8 +952,10 @@ def delete_attitude(topic_uuid: UUID, citation_uuid: UUID) -> None:
 
 
 @app.post("/attitudes/bulk", status_code=201, response_model=None, tags=["Attitudes - Bulk"], summary="Create attitudes in bulk")
-def create_attitudes_bulk(payload: list[AttitudePayload]) -> list[dict[str, Any]]:
+def create_attitudes_bulk(payload: list[AttitudePayload], response: Response) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
+    created_new = 0
+    retrieved_from_db = 0
     try:
         with get_session() as session:
             payload_by_key = {
@@ -897,12 +969,20 @@ def create_attitudes_bulk(payload: list[AttitudePayload]) -> list[dict[str, Any]
                 if item is None:
                     item = FctAttitude(**values)
                     session.add(item)
+                    created_new += 1
                 else:
+                    retrieved_from_db += 1
                     for field, value in values.items():
                         if field not in {"topic_uuid", "citation_uuid"}:
                             setattr(item, field, value)
                 session.flush()
                 results.append(_as_dict(item))
+        _set_bulk_stats(response, created_new, retrieved_from_db)
+        logger.info(
+            "db_write operation=bulk_upsert model=FctAttitude created_new=%d retrieved_from_db=%d",
+            created_new,
+            retrieved_from_db,
+        )
         return results
     except IntegrityError as exc:
         logger.exception("Failed to upsert attitudes in bulk")
@@ -927,7 +1007,7 @@ def update_attitudes_bulk(payload: list[AttitudeBulkUpdate]) -> list[dict[str, A
 
 
 @app.post("/inconsistencies", status_code=201, response_model=None, tags=["Inconsistencies"], summary="Create an inconsistency assessment")
-def create_inconsistency(payload: InconsistencyPayload) -> dict[str, Any]:
+def create_inconsistency(payload: InconsistencyPayload, response: Response) -> dict[str, Any]:
     values = payload.model_dump(exclude_none=True)
     with get_session() as session:
         existing = session.scalar(
@@ -946,10 +1026,18 @@ def create_inconsistency(payload: InconsistencyPayload) -> dict[str, Any]:
             )
         )
         if existing is not None:
+            _set_bulk_stats(response, 0, 1)
+            logger.info(
+                "db_write operation=upsert model=FctInconsistency created_new=0 retrieved_from_db=1"
+            )
             return _as_dict(existing)
         item = FctInconsistency(**values)
         session.add(item)
         session.flush()
+        _set_bulk_stats(response, 1, 0)
+        logger.info(
+            "db_write operation=upsert model=FctInconsistency created_new=1 retrieved_from_db=0"
+        )
         return _as_dict(item)
 
 
@@ -1050,7 +1138,7 @@ def reembed_all_vectors() -> dict[str, int]:
         texts: list[str] = []
         targets: list[tuple[Any, str]] = []
         for person in people:
-            person.aliases = _normalize_aliases(person.aliases, person.affiliation)
+            person.aliases = _normalize_aliases(person.aliases)
             aliases = person.aliases
             alias_text = _person_embedding_text(aliases, person.affiliation)
             if alias_text:

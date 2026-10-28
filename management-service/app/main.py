@@ -24,6 +24,7 @@ from .models import (
     JobCreateRequest,
     JobResponse,
     JobStatus,
+    KnowledgeSummaryResponse,
     RuntimeSettingsResponse,
     RuntimeSettingsUpdate,
     ServiceDependency,
@@ -268,6 +269,36 @@ def available_articles(limit: int = Query(100, ge=1, le=500)) -> list[dict[str, 
     except Exception as exc:
         logger.warning("article_listing_failed error_type=%s", type(exc).__name__)
         raise HTTPException(status_code=503, detail="Article storage is unavailable") from exc
+
+
+@app.get("/api/knowledge/summary", response_model=KnowledgeSummaryResponse, tags=["Knowledge"])
+def knowledge_summary() -> KnowledgeSummaryResponse:
+    try:
+        return KnowledgeSummaryResponse.model_validate(client.knowledge_summary())
+    except Exception as exc:
+        logger.warning("knowledge_summary_failed error_type=%s", type(exc).__name__)
+        raise HTTPException(status_code=503, detail="Analytical storage is unavailable") from exc
+
+
+@app.get("/api/knowledge/{resource}", tags=["Knowledge"])
+def knowledge_records(
+    resource: str,
+    query: str | None = Query(default=None, min_length=1),
+    limit: int = Query(100, ge=1, le=500),
+) -> list[dict[str, Any]]:
+    try:
+        if query:
+            return client.search_knowledge(resource, query, limit)
+        return client.knowledge(resource, limit)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.warning(
+            "knowledge_records_failed resource=%s error_type=%s",
+            resource,
+            type(exc).__name__,
+        )
+        raise HTTPException(status_code=503, detail="Analytical storage is unavailable") from exc
 
 
 @app.post("/api/tasks", response_model=TaskResponse, status_code=202, tags=["Tasks"])

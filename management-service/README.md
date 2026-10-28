@@ -18,6 +18,9 @@ The Phase 1 API includes:
 - `GET /api/articles` plus `POST /api/tasks`, `POST /api/tasks/fresh`, and
   `GET /api/tasks/{id}` for multi-article processing tasks with aggregate
   citation, speaker, topic, and attitude counters.
+- `GET /api/knowledge/summary` and `GET /api/knowledge/{articles|people|citations|topics|attitudes|inconsistencies}`
+  for management-side access to the persisted analytical model. Article and
+  citation records support the optional `query` parameter.
 - `POST /api/tasks/{id}/cancel` for cooperative cancellation of task jobs.
 - safe cancellation requests and retry for failed/cancelled jobs
 - `GET/PATCH /api/settings` for timeout settings
@@ -81,7 +84,8 @@ counts, TTFT, and throughput can legitimately be unavailable.
 
 ## Phase 3 dashboard
 
-The React/Vite dashboard is available at `http://localhost:3000` when the
+The React/Vite dashboard is available at `http://localhost:3001` by default
+(override the host port with `DASHBOARD_PORT`) when the
 Compose stack is running. It uses the management API as its only source of
 operational data and includes:
 
@@ -93,6 +97,8 @@ operational data and includes:
 - service health and explicitly supported runtime configuration;
 - multi-article Tasks control with fresh-article discovery, selection, task
   cancellation, aggregate progress, and live telemetry refresh.
+- a Knowledge view showing PostgreSQL entity counts and bounded records from
+  the new storage endpoints.
 
 The dashboard consumes `/api/events/stream` through Server-Sent Events and
 reconnects with the last received event ID. Client-side live data is bounded

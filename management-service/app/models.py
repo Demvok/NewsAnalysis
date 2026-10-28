@@ -124,6 +124,10 @@ class SystemHealthResponse(BaseModel):
     dependencies: list[ServiceDependency] = Field(default_factory=list)
 
 
+class KnowledgeSummaryResponse(BaseModel):
+    entities: dict[str, int] = Field(default_factory=dict)
+
+
 class RuntimeSettingsResponse(BaseModel):
     request_timeout_seconds: float
     analysis_timeout_seconds: float

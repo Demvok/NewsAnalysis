@@ -274,6 +274,42 @@ function Tasks({ notify }) {
   </Page>;
 }
 
+function Knowledge() {
+  const resources = [
+    ["articles", "Articles"],
+    ["people", "People"],
+    ["citations", "Citations"],
+    ["topics", "Topics"],
+    ["attitudes", "Attitudes"],
+    ["inconsistencies", "Inconsistencies"],
+  ];
+  const [resource, setResource] = useState("articles");
+  const [query, setQuery] = useState("");
+  const [summary, setSummary] = useState(null);
+  const [records, setRecords] = useState([]);
+  const [error, setError] = useState(null);
+  const load = async () => {
+    try {
+      setError(null);
+      const suffix = query.trim() ? `?query=${encodeURIComponent(query.trim())}&limit=100` : "?limit=100";
+      const [summaryData, recordsData] = await Promise.all([
+        api("/knowledge/summary"),
+        api(`/knowledge/${resource}${suffix}`),
+      ]);
+      setSummary(summaryData);
+      setRecords(recordsData);
+    } catch (e) { setError(e); }
+  };
+  useEffect(() => { load(); }, [resource]);
+  const columns = records.length ? Object.keys(records[0]).filter(key => !key.includes("vector") && key !== "article_content" && key !== "context") : [];
+  return <Page title="Knowledge base" subtitle="Inspect the persisted analytical model through management API endpoints.">
+    <section className="metric-grid compact">{resources.map(([key, label]) => <MetricCard key={key} label={label} value={formatNumber(summary?.entities?.[key])} detail="PostgreSQL records" />)}</section>
+    <Panel title="Analytical entities" actions={<div className="filter-row"><select value={resource} onChange={e => setResource(e.target.value)}>{resources.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search articles or citations" /><button onClick={load}>Refresh</button></div>}>
+      {error ? <ErrorState error={error} retry={load} /> : records.length ? <div className="table-scroll"><table><thead><tr>{columns.slice(0, 7).map(column => <th key={column}>{column.replaceAll("_", " ")}</th>)}</tr></thead><tbody>{records.map((record, index) => <tr key={record.article_id || record.person_uuid || record.citation_uuid || record.topic_uuid || `${resource}-${index}`}>{columns.slice(0, 7).map(column => <td key={column} title={String(record[column] ?? "")}>{typeof record[column] === "object" ? JSON.stringify(record[column]) : String(record[column] ?? "—").slice(0, 140)}</td>)}</tr>)}</tbody></table></div> : <Empty>No {resource} records found.</Empty>}
+    </Panel>
+  </Page>;
+}
+
 function Experiments({ notify }) {
   const [experiments, setExperiments] = useState([]);
   const [selected, setSelected] = useState([]);
@@ -321,8 +357,8 @@ function App() {
   const [notice, setNotice] = useState(null);
   const notify = (message, isError = false) => { setNotice({ message, isError }); window.setTimeout(() => setNotice(null), 4500); };
   const navigate = name => { setSelectedJob(null); setView(name); };
-  const content = selectedJob ? <JobDetail jobId={selectedJob} back={() => setSelectedJob(null)} notify={notify} /> : view === "overview" ? <Overview notify={notify} /> : view === "jobs" ? <Jobs openJob={setSelectedJob} notify={notify} /> : view === "tasks" ? <Tasks notify={notify} /> : view === "llm" ? <LLMMonitoring /> : view === "logs" ? <Logs notify={notify} /> : view === "services" ? <Services /> : view === "configuration" ? <Configuration notify={notify} /> : <Experiments notify={notify} />;
-  return <div className="shell"><aside className="sidebar"><div className="brand"><span className="brand-mark">N</span><div><strong>NewsAnalysis</strong><small>Management</small></div></div><nav>{[["overview", "Overview"], ["tasks", "Tasks"], ["jobs", "Jobs"], ["llm", "LLM Monitoring"], ["logs", "Logs"], ["services", "Services"], ["configuration", "Configuration"], ["experiments", "Experiments"]].map(([key, label]) => <button className={view === key && !selectedJob ? "active" : ""} key={key} onClick={() => navigate(key)}><span className={`nav-icon icon-${key}`} />{label}</button>)}</nav><div className="sidebar-footer">Local operational console<br /><span>Data from management API</span></div></aside><main className="content">{content}</main>{notice && <div className={`toast ${notice.isError ? "toast-error" : ""}`}>{notice.message}</div>}</div>;
+  const content = selectedJob ? <JobDetail jobId={selectedJob} back={() => setSelectedJob(null)} notify={notify} /> : view === "overview" ? <Overview notify={notify} /> : view === "jobs" ? <Jobs openJob={setSelectedJob} notify={notify} /> : view === "tasks" ? <Tasks notify={notify} /> : view === "knowledge" ? <Knowledge /> : view === "llm" ? <LLMMonitoring /> : view === "logs" ? <Logs notify={notify} /> : view === "services" ? <Services /> : view === "configuration" ? <Configuration notify={notify} /> : <Experiments notify={notify} />;
+  return <div className="shell"><aside className="sidebar"><div className="brand"><span className="brand-mark">N</span><div><strong>NewsAnalysis</strong><small>Management</small></div></div><nav>{[["overview", "Overview"], ["knowledge", "Knowledge"], ["tasks", "Tasks"], ["jobs", "Jobs"], ["llm", "LLM Monitoring"], ["logs", "Logs"], ["services", "Services"], ["configuration", "Configuration"], ["experiments", "Experiments"]].map(([key, label]) => <button className={view === key && !selectedJob ? "active" : ""} key={key} onClick={() => navigate(key)}><span className={`nav-icon icon-${key}`} />{label}</button>)}</nav><div className="sidebar-footer">Local operational console<br /><span>Data from management API</span></div></aside><main className="content">{content}</main>{notice && <div className={`toast ${notice.isError ? "toast-error" : ""}`}>{notice.message}</div>}</div>;
 }
 
 createRoot(document.getElementById("root")).render(<App />);

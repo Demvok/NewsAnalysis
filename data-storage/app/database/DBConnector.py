@@ -6,7 +6,9 @@ from typing import Iterator
 from uuid import UUID, uuid4
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Boolean, CheckConstraint, DateTime, Float, ForeignKey, Index, JSON, String, Text, UniqueConstraint, create_engine, text
+from datetime import datetime, timezone
+
+from sqlalchemy import CheckConstraint, DateTime, Float, ForeignKey, Index, JSON, String, Text, UniqueConstraint, create_engine, event, inspect, text
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 
@@ -38,7 +40,8 @@ class DimArticle(Base):
     url: Mapped[str | None] = mapped_column(Text, unique=True)
     published_at: Mapped[object | None] = mapped_column(DateTime(timezone=True))
     parsed_at: Mapped[object | None] = mapped_column(DateTime(timezone=True))
-    modified_at: Mapped[object | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    modified_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     tags: Mapped[object | None] = mapped_column(JSON)
     description: Mapped[str | None] = mapped_column(Text)
 
@@ -52,11 +55,12 @@ class DimPerson(Base):
     name: Mapped[str] = mapped_column(String(512), nullable=False)
     image_url: Mapped[str | None] = mapped_column(Text)
     affiliation: Mapped[object | None] = mapped_column(JSON)
-    aliases: Mapped[object | None] = mapped_column(JSON)
+    person_type: Mapped[str] = mapped_column(String(32), default="UNRESOLVED", nullable=False)
+    aliases: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     aliases_vector: Mapped[list[float] | None] = mapped_column(Vector(EMBEDDING_DIMENSION))
-    status: Mapped[str | None] = mapped_column(String(32))
-    created_at: Mapped[object | None] = mapped_column(DateTime(timezone=True))
-    modified_at: Mapped[object | None] = mapped_column(DateTime(timezone=True))
+    status: Mapped[str] = mapped_column(String(32), default="NEW", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    modified_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
 
 class DimCitation(Base):
@@ -81,6 +85,9 @@ class DimCitation(Base):
     summarized_quote_vector: Mapped[list[float] | None] = mapped_column(Vector(EMBEDDING_DIMENSION))
     confidence_level: Mapped[float | None] = mapped_column(Float)
     extraction_confidence: Mapped[float | None] = mapped_column(Float)
+    status: Mapped[str] = mapped_column(String(32), default="NEW", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    modified_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     article: Mapped[DimArticle] = relationship(back_populates="citations")
 
@@ -95,13 +102,17 @@ class DimTopic(Base):
     topic_name: Mapped[str] = mapped_column(String(512), nullable=False)
     topic_description: Mapped[str | None] = mapped_column(Text)
     topic_description_vector: Mapped[list[float] | None] = mapped_column(Vector(EMBEDDING_DIMENSION))
-    general_topic_field: Mapped[str | None] = mapped_column(String(128))
+    general_topic_field: Mapped[str] = mapped_column(String(128), default="UNCLASSIFIED", nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="NEW", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    modified_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
 
 class FctAttitude(Base):
     __tablename__ = "fctAttitude"
     __table_args__ = (
         CheckConstraint("relevancy_score IS NULL OR relevancy_score BETWEEN 0 AND 1", name="ck_attitude_relevancy"),
+        CheckConstraint("stance_confidence IS NULL OR stance_confidence BETWEEN 0 AND 1", name="ck_attitude_stance_confidence"),
     )
 
     topic_uuid: Mapped[UUID] = mapped_column(
@@ -112,10 +123,11 @@ class FctAttitude(Base):
     )
     stance: Mapped[str | None] = mapped_column(String(64))
     relevancy_score: Mapped[float | None] = mapped_column(Float)
+    stance_confidence: Mapped[float | None] = mapped_column(Float)
     stance_summary: Mapped[str | None] = mapped_column(Text)
-    inconsistency_detected: Mapped[bool | None] = mapped_column(Boolean)
-    inconsistent_with: Mapped[object | None] = mapped_column(JSON)
-    inconsistency_comment: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(32), default="NEW", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    modified_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
 
 class FctInconsistency(Base):
@@ -149,10 +161,13 @@ class FctInconsistency(Base):
     attitude_a: Mapped[str | None] = mapped_column(String(64))
     attitude_b: Mapped[str | None] = mapped_column(String(64))
     classification: Mapped[str] = mapped_column(String(32), nullable=False)
-    severity: Mapped[str | None] = mapped_column(Text)
+    severity: Mapped[str] = mapped_column(Text, default="NONE", nullable=False)
     confidence: Mapped[float | None] = mapped_column(Float)
     inconsistency_comment: Mapped[str | None] = mapped_column(Text)
-    detected_at: Mapped[object | None] = mapped_column(DateTime(timezone=True))
+    detected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="NEW", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    modified_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
 
 Index(
@@ -186,39 +201,71 @@ engine = create_engine(database_url(), pool_pre_ping=True, pool_recycle=1800)
 SessionFactory = sessionmaker(bind=engine, expire_on_commit=False)
 
 
+@event.listens_for(SessionFactory.class_, "before_flush")
+def update_lifecycle_metadata(session, flush_context, instances) -> None:
+    now = datetime.now(timezone.utc)
+    for item in session.new:
+        if hasattr(item, "status") and not getattr(item, "status", None):
+            item.status = "NEW"
+        if hasattr(item, "created_at") and getattr(item, "created_at", None) is None:
+            item.created_at = now
+        if hasattr(item, "modified_at"):
+            item.modified_at = now
+    for item in session.dirty:
+        if session.is_modified(item, include_collections=False) and hasattr(item, "modified_at"):
+            item.modified_at = now
+            if hasattr(item, "status") and not inspect(item).attrs.status.history.has_changes():
+                item.status = "UPDATED"
+
+
 def create_database() -> None:
     with engine.begin() as connection:
         connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
     Base.metadata.create_all(bind=engine)
     with engine.begin() as connection:
-        connection.execute(text("""
-            ALTER TABLE "fctInconsistency"
-            ALTER COLUMN severity TYPE TEXT
-            USING severity::text;
-        """))
-        connection.execute(text("""
-            DO $$
-            BEGIN
-                IF NOT EXISTS (
-                    SELECT 1
-                    FROM pg_constraint
-                    WHERE conname = 'ck_inconsistency_distinct_citations'
-                ) THEN
-                    ALTER TABLE "fctInconsistency"
-                    ADD CONSTRAINT ck_inconsistency_distinct_citations
-                    CHECK (citation_a_uuid <> citation_b_uuid);
-                END IF;
-            END
-            $$;
-        """))
-        connection.execute(text("""
-            CREATE UNIQUE INDEX IF NOT EXISTS uq_inconsistency_unordered_evidence_pair
-            ON "fctInconsistency" (
-                topic_uuid,
-                LEAST(citation_a_uuid, citation_b_uuid),
-                GREATEST(citation_a_uuid, citation_b_uuid)
-            );
-        """))
+        _migrate_lifecycle_columns(connection)
+        connection.execute(
+            text(
+                'ALTER TABLE "fctAttitude" '
+                'ADD COLUMN IF NOT EXISTS stance_confidence DOUBLE PRECISION'
+            )
+        )
+        connection.execute(
+            text(
+                'DO $$ BEGIN '
+                'ALTER TABLE "fctAttitude" ADD CONSTRAINT '
+                'ck_attitude_stance_confidence CHECK '
+                '(stance_confidence IS NULL OR stance_confidence BETWEEN 0 AND 1); '
+                'EXCEPTION WHEN duplicate_object THEN NULL; END $$'
+            )
+        )
+
+
+def _migrate_lifecycle_columns(connection) -> None:
+    """Add lifecycle fields introduced after the initial schema was deployed."""
+    for table in ("dimArticle", "dimCitation", "dimTopic", "fctAttitude", "fctInconsistency"):
+        connection.execute(
+            text(
+                f'ALTER TABLE "{table}" '
+                'ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE '
+                'NOT NULL DEFAULT CURRENT_TIMESTAMP'
+            )
+        )
+        connection.execute(
+            text(
+                f'ALTER TABLE "{table}" '
+                'ADD COLUMN IF NOT EXISTS modified_at TIMESTAMP WITH TIME ZONE '
+                'NOT NULL DEFAULT CURRENT_TIMESTAMP'
+            )
+        )
+
+    for table in ("dimArticle", "dimCitation", "dimTopic", "fctAttitude", "fctInconsistency"):
+        connection.execute(
+            text(
+                f'ALTER TABLE "{table}" '
+                'ADD COLUMN IF NOT EXISTS status VARCHAR(32) NOT NULL DEFAULT \'NEW\''
+            )
+        )
 
 
 def recreate_database() -> None:

@@ -68,8 +68,9 @@ class PersonPayload(BaseModel):
     name: str = Field(min_length=1, max_length=512)
     image_url: str | None = None
     affiliation: Any = None
-    aliases: Any = None
-    status: str | None = None
+    person_type: Literal["PERSON", "ORGANIZATION", "GROUP", "ANONYMOUS_SOURCE", "UNRESOLVED"] = "UNRESOLVED"
+    aliases: list[str] = Field(default_factory=list)
+    status: str = "NEW"
     created_at: datetime | None = None
     modified_at: datetime | None = None
 
@@ -102,7 +103,8 @@ class TopicPayload(BaseModel):
     topic_uuid: UUID | None = None
     topic_name: str = Field(min_length=1, max_length=512)
     topic_description: str | None = None
-    general_topic_field: str | None = None
+    general_topic_field: str = "UNCLASSIFIED"
+    status: str = "NEW"
 
 
 class AttitudePayload(BaseModel):
@@ -110,10 +112,9 @@ class AttitudePayload(BaseModel):
     citation_uuid: UUID
     stance: str | None = None
     relevancy_score: float | None = Field(default=None, ge=0, le=1)
+    stance_confidence: float | None = Field(default=None, ge=0, le=1)
     stance_summary: str | None = None
-    inconsistency_detected: bool | None = None
-    inconsistent_with: Any = None
-    inconsistency_comment: str | None = None
+    status: str = "NEW"
 
 
 class InconsistencyPayload(BaseModel):
@@ -124,10 +125,11 @@ class InconsistencyPayload(BaseModel):
     attitude_a: str | None = None
     attitude_b: str | None = None
     classification: Literal["CONSISTENT", "POSITION_CHANGE", "CONTRADICTION", "INSUFFICIENT_EVIDENCE"]
-    severity: str | None = None
+    severity: str = "NONE"
     confidence: float | None = Field(default=None, ge=0, le=1)
     inconsistency_comment: str | None = None
     detected_at: datetime | None = None
+    status: str = "ANALYZED"
 
     @field_validator("detected_at", mode="before")
     @classmethod
@@ -149,7 +151,8 @@ class PersonUpdate(BaseModel):
     name: str | None = None
     image_url: str | None = None
     affiliation: Any = None
-    aliases: Any = None
+    person_type: Literal["PERSON", "ORGANIZATION", "GROUP", "ANONYMOUS_SOURCE", "UNRESOLVED"] | None = None
+    aliases: list[str] | None = None
     status: str | None = None
     created_at: datetime | None = None
     modified_at: datetime | None = None
@@ -189,15 +192,15 @@ class TopicUpdate(BaseModel):
     topic_name: str | None = None
     topic_description: str | None = None
     general_topic_field: str | None = None
+    status: str | None = None
 
 
 class AttitudeUpdate(BaseModel):
     stance: str | None = None
     relevancy_score: float | None = None
+    stance_confidence: float | None = Field(default=None, ge=0, le=1)
     stance_summary: str | None = None
-    inconsistency_detected: bool | None = None
-    inconsistent_with: Any = None
-    inconsistency_comment: str | None = None
+    status: str | None = None
 
 
 class ArticleBulkUpdate(ArticleUpdate):

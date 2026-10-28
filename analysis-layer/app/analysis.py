@@ -303,6 +303,13 @@ def analyze_speaker_topics(speaker: models.SpeakerExtraction):
 
 
 def _resolve_person(person: dict[str, object]) -> dict[str, object]:
+    resolved, _ = _resolve_person_with_stats(person)
+    return resolved
+
+
+def _resolve_person_with_stats(
+    person: dict[str, object],
+) -> tuple[dict[str, object], bool]:
     search_text = "\n".join(
         [str(person["name"]), *(str(alias) for alias in person.get("aliases", []) or [])]
     )
@@ -315,14 +322,21 @@ def _resolve_person(person: dict[str, object]) -> dict[str, object]:
     response.raise_for_status()
     matches = response.json()
     if matches:
-        return matches[0]
+        return matches[0], False
 
     response = httpx.post(f"{STORAGE_URL}/people", json=person, timeout=30.0)
     response.raise_for_status()
-    return response.json()
+    return response.json(), True
 
 
 def _resolve_topic(topic: dict[str, object]) -> dict[str, object]:
+    resolved, _ = _resolve_topic_with_stats(topic)
+    return resolved
+
+
+def _resolve_topic_with_stats(
+    topic: dict[str, object],
+) -> tuple[dict[str, object], bool]:
     description = str(topic.get("topic_description") or topic["topic_name"])
     response = httpx.post(
         f"{STORAGE_URL}/topics/search/text",
@@ -333,14 +347,28 @@ def _resolve_topic(topic: dict[str, object]) -> dict[str, object]:
     response.raise_for_status()
     matches = response.json()
     if matches:
-        return matches[0]
+        return matches[0], False
 
     response = httpx.post(f"{STORAGE_URL}/topics", json=topic, timeout=30.0)
     response.raise_for_status()
-    return response.json()
+    return response.json(), True
 
 
-def persist_extraction(article_id: UUID, result: models.CitationExtractionResult) -> None:
+def _bulk_stats(response: httpx.Response) -> dict[str, int]:
+    return {
+        "created_new": int(response.headers.get("x-db-created-new", "0")),
+        "retrieved_from_db": int(response.headers.get("x-db-retrieved-from-db", "0")),
+    }
+
+
+def _add_stats(target: dict[str, int], values: dict[str, int]) -> None:
+    target["created_new"] += values["created_new"]
+    target["retrieved_from_db"] += values["retrieved_from_db"]
+
+
+def persist_extraction(
+    article_id: UUID, result: models.CitationExtractionResult
+) -> dict[str, int]:
     """Persist extracted people and citations without running citation analysis."""
     speakers = _prepare_speakers(result.speakers)
     analysis_speakers = _analysis_speakers(speakers)
@@ -348,6 +376,7 @@ def persist_extraction(article_id: UUID, result: models.CitationExtractionResult
         {
             "name": speaker.speaker_name.strip(),
             "affiliation": speaker.speaker_role or None,
+            "person_type": speaker.speaker_kind.value,
             "aliases": speaker.aliases,
         }
         for speaker in analysis_speakers
@@ -368,7 +397,12 @@ def persist_extraction(article_id: UUID, result: models.CitationExtractionResult
         event_status="started",
         attributes={"article_id": str(article_id), "person_count": len(people)},
     )
-    resolved_people = [(person, _resolve_person(person)) for person in people]
+    stats = {"created_new": 0, "retrieved_from_db": 0}
+    resolved_people = []
+    for person in people:
+        resolved, created = _resolve_person_with_stats(person)
+        resolved_people.append((person, resolved))
+        stats["created_new" if created else "retrieved_from_db"] += 1
     logger.info("analysis_stage=person_resolution status=completed article_id=%s people=%d duration=%.3fs", article_id, len(resolved_people), time.perf_counter() - resolution_started)
     emit_event(
         "pipeline_stage",
@@ -403,14 +437,18 @@ def persist_extraction(article_id: UUID, result: models.CitationExtractionResult
             timeout=30.0,
         )
         citations_response.raise_for_status()
+        _add_stats(stats, _bulk_stats(citations_response))
     logger.info(
         "article_processing status=completed article_id=%s stage=person_and_citation_persistence "
-        "people=%d citations=%d duration=%.3fs",
+        "people=%d citations=%d created_new=%d retrieved_from_db=%d duration=%.3fs",
         article_id,
         len(resolved_people),
         len(citations),
+        stats["created_new"],
+        stats["retrieved_from_db"],
         time.perf_counter() - resolution_started,
     )
+    return stats
 
 
 def persist_citation_analysis(
@@ -418,7 +456,7 @@ def persist_citation_analysis(
     result: models.CitationExtractionResult,
     before: datetime | None,
     window_days: int,
-) -> None:
+) -> dict[str, int]:
     """Analyze and persist topics, attitudes, and historical inconsistencies."""
     speakers = _prepare_speakers(result.speakers)
     analysis_speakers = _analysis_speakers(speakers)
@@ -426,6 +464,7 @@ def persist_citation_analysis(
         {
             "name": speaker.speaker_name.strip(),
             "affiliation": speaker.speaker_role or None,
+            "person_type": speaker.speaker_kind.value,
             "aliases": speaker.aliases,
         }
         for speaker in analysis_speakers
@@ -449,7 +488,12 @@ def persist_citation_analysis(
         event_status="started",
         attributes={"article_id": str(article_id), "person_count": len(people)},
     )
-    resolved_people = [(person, _resolve_person(person)) for person in people]
+    stats = {"created_new": 0, "retrieved_from_db": 0}
+    resolved_people = []
+    for person in people:
+        resolved, created = _resolve_person_with_stats(person)
+        resolved_people.append((person, resolved))
+        stats["created_new" if created else "retrieved_from_db"] += 1
     person_ids = {
         source["name"].strip().casefold(): resolved["person_uuid"]
         for source, resolved in resolved_people
@@ -479,7 +523,7 @@ def persist_citation_analysis(
     ]
     if not citations:
         logger.info("article_processing status=completed article_id=%s stage=citation_analysis people=%d citations=0 duration=%.3fs", article_id, len(people), time.perf_counter() - workflow_started)
-        return
+        return stats
 
     citations_response = httpx.post(
         f"{STORAGE_URL}/citations/bulk",
@@ -487,6 +531,7 @@ def persist_citation_analysis(
         timeout=30.0,
     )
     citations_response.raise_for_status()
+    _add_stats(stats, _bulk_stats(citations_response))
     citation_ids = {
         (str(citation.get("person_uuid")), citation["exact_quote"]): citation["citation_uuid"]
         for citation in citations_response.json()
@@ -525,6 +570,7 @@ def persist_citation_analysis(
             {
                 "topic_name": topic.topic_name.strip(),
                 "topic_description": topic.topic_description,
+                "general_topic_field": topic.general_topic_field,
             }
             for citation in evaluation.evaluated_citations
             for topic in citation.evaluated_topics
@@ -558,7 +604,11 @@ def persist_citation_analysis(
             continue
 
         topic_started = time.perf_counter()
-        resolved_topics = [(topic, _resolve_topic(topic)) for topic in topics]
+        resolved_topics = []
+        for topic in topics:
+            resolved, created = _resolve_topic_with_stats(topic)
+            resolved_topics.append((topic, resolved))
+            stats["created_new" if created else "retrieved_from_db"] += 1
         topic_ids = {
             source["topic_name"].strip().casefold(): resolved["topic_uuid"]
             for source, resolved in resolved_topics
@@ -596,10 +646,12 @@ def persist_citation_analysis(
                     "citation_uuid": citation_uuid,
                     "stance": str(topic.stance) if topic.stance is not None else None,
                     "relevancy_score": topic.relevancy_score,
+                    "stance_confidence": topic.stance_confidence,
                     "stance_summary": canonical_topic_descriptions.get(
                         topic.topic_name.strip().casefold(),
                         topic.topic_description,
                     ),
+                    "status": "ANALYZED",
                 }
         attitudes = list(attitudes_by_key.values())
         logger.info(
@@ -627,6 +679,7 @@ def persist_citation_analysis(
             timeout=30.0,
         )
         attitudes_response.raise_for_status()
+        _add_stats(stats, _bulk_stats(attitudes_response))
         emit_event(
             "pipeline_stage",
             operation="attitude_persistence",
@@ -635,7 +688,7 @@ def persist_citation_analysis(
             duration_ms=int((time.perf_counter() - attitude_started) * 1000),
             attributes={"article_id": str(article_id), "attitude_count": len(attitudes)},
         )
-        persist_inconsistencies(
+        _add_stats(stats, persist_inconsistencies(
             person_uuid=person_ids[speaker.speaker_name.strip().casefold()],
             speaker_kind=speaker.speaker_kind,
             current_citations=current_citations,
@@ -644,16 +697,19 @@ def persist_citation_analysis(
             attitudes=attitudes,
             before=before,
             window_days=window_days,
-        )
+        ))
     logger.info(
         "article_processing status=completed article_id=%s stage=citation_analysis "
-        "people=%d citations=%d duration=%.3fs",
+        "people=%d citations=%d created_new=%d retrieved_from_db=%d duration=%.3fs",
         article_id,
         len(people),
         len(citations),
+        stats["created_new"],
+        stats["retrieved_from_db"],
         time.perf_counter() - workflow_started,
     )
     LLM.log_usage_summary(f"article_id={article_id} stage=citation_analysis")
+    return stats
 
 
 def persist_full(
@@ -675,13 +731,14 @@ def persist_inconsistencies(
     attitudes: list[dict[str, object]],
     before: datetime | None,
     window_days: int,
-) -> None:
+) -> dict[str, int]:
+    stats = {"created_new": 0, "retrieved_from_db": 0}
     if speaker_kind in {
         models.SpeakerKind.ANONYMOUS_SOURCE,
         models.SpeakerKind.UNRESOLVED,
         models.SpeakerKind.GROUP,
     }:
-        return
+        return stats
     topic_names = {
         topic["topic_name"].strip().casefold(): topic["topic_name"]
         for topic in topics
@@ -771,6 +828,7 @@ def persist_inconsistencies(
                 timeout=30.0,
             )
             response.raise_for_status()
+            _add_stats(stats, _bulk_stats(response))
     emit_event(
         "pipeline_stage",
         operation="inconsistency_comparison",
@@ -779,3 +837,4 @@ def persist_inconsistencies(
         duration_ms=int((time.perf_counter() - comparison_started) * 1000),
         attributes={"person_uuid": person_uuid, "comparison_count": comparisons},
     )
+    return stats
