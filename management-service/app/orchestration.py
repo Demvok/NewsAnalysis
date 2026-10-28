@@ -11,7 +11,7 @@ from uuid import UUID, uuid4
 
 from .clients import ServiceClient
 from .database import ManagementDatabase
-from .models import JobCreateRequest, JobStatus, StageStatus
+from .models import JobCreateRequest, JobStatus, StageStatus, TaskCreateRequest, TaskStatus
 
 logger = logging.getLogger("newsanalysis.management.orchestration")
 
@@ -178,10 +178,142 @@ class JobCoordinator:
         with self.database.connection() as connection:
             return [self.database.decode(row) for row in connection.execute(query, params)]
 
+    def create_task(self, request: TaskCreateRequest) -> dict[str, Any]:
+        task_id = str(uuid4())
+        created = timestamp()
+        article_ids = [str(item) for item in request.article_ids]
+        with self.database.connection() as connection:
+            existing = {
+                row["article_id"] for row in connection.execute(
+                    """SELECT DISTINCT article_id FROM jobs
+                       WHERE article_id IN (%s)
+                       AND status IN ('PENDING','RUNNING','RETRYING','COMPLETED')"""
+                    % ",".join("?" for _ in article_ids), article_ids
+                ).fetchall()
+            }
+        article_ids = [item for item in article_ids if item not in existing]
+        if not article_ids:
+            raise ValueError("All selected articles already have active or completed jobs")
+        with self.database.lock, self.database.connection() as connection:
+            connection.execute(
+                """INSERT INTO tasks(task_id,name,status,article_ids_json,created_at)
+                   VALUES(?,?,?,?,?)""",
+                (task_id, request.name, TaskStatus.PENDING.value,
+                 json.dumps(article_ids), created),
+            )
+        for article_id in article_ids:
+            job = self.create(
+                JobCreateRequest(
+                    article_id=article_id,
+                    inconsistency_window_days=request.inconsistency_window_days,
+                ),
+                f"task:{task_id}:article:{article_id}",
+            )
+            with self.database.lock, self.database.connection() as connection:
+                connection.execute(
+                    "INSERT INTO task_jobs(task_id,job_id,article_id) VALUES(?,?,?)",
+                    (task_id, job["job_id"], str(article_id)),
+                )
+                connection.execute(
+                    "UPDATE jobs SET metadata_json=? WHERE job_id=?",
+                    (json.dumps({"source": "management-task", "task_id": task_id}), job["job_id"]),
+                )
+        with self.database.lock, self.database.connection() as connection:
+            connection.execute(
+                "UPDATE tasks SET status=?, started_at=? WHERE task_id=?",
+                (TaskStatus.RUNNING.value, timestamp(), task_id),
+            )
+        return self.task(task_id)
+
+    def task(self, task_id: str) -> dict[str, Any]:
+        with self.database.lock, self.database.connection() as connection:
+            task = connection.execute("SELECT * FROM tasks WHERE task_id=?", (task_id,)).fetchone()
+            if task is None:
+                raise KeyError(task_id)
+            jobs = connection.execute(
+                """SELECT j.* FROM jobs j JOIN task_jobs tj ON tj.job_id=j.job_id
+                   WHERE tj.task_id=? ORDER BY j.created_at""", (task_id,)
+            ).fetchall()
+            citations = speakers = topics = attitudes = 0
+            for job in jobs:
+                events = connection.execute(
+                    """SELECT attributes_json FROM telemetry_events
+                       WHERE job_id=? AND event_type='pipeline_stage' AND status='completed'""",
+                    (job["job_id"],),
+                ).fetchall()
+                for event in events:
+                    attributes = json.loads(event["attributes_json"] or "{}")
+                    citations += attributes.get("citation_count", 0) or 0
+                    speakers += attributes.get("speaker_count", 0) or 0
+                    topics += attributes.get("topic_count", 0) or 0
+                    attitudes += attributes.get("attitude_count", 0) or 0
+            statuses = [job["status"] for job in jobs]
+            completed = statuses.count(JobStatus.COMPLETED.value)
+            failed = statuses.count(JobStatus.FAILED.value)
+            running = statuses.count(JobStatus.RUNNING.value)
+            waiting = statuses.count(JobStatus.PENDING.value) + statuses.count(JobStatus.RETRYING.value)
+            if statuses and not waiting and not running:
+                task_status = (
+                    TaskStatus.CANCELLED.value
+                    if all(status == JobStatus.CANCELLED.value for status in statuses)
+                    else TaskStatus.FAILED.value if failed else TaskStatus.COMPLETED.value
+                )
+                connection.execute(
+                    "UPDATE tasks SET status=?, completed_at=COALESCE(completed_at,?) WHERE task_id=?",
+                    (task_status, timestamp(), task_id),
+                )
+                task = connection.execute("SELECT * FROM tasks WHERE task_id=?", (task_id,)).fetchone()
+            return {
+                "task_id": task["task_id"], "name": task["name"], "status": task["status"],
+                "article_ids": json.loads(task["article_ids_json"]),
+                "job_ids": [job["job_id"] for job in jobs],
+                "total_articles": len(jobs), "completed_articles": completed,
+                "failed_articles": failed, "running_articles": running,
+                "waiting_articles": waiting, "citations": citations, "speakers": speakers,
+                "topics": topics, "attitudes": attitudes,
+                "created_at": task["created_at"], "started_at": task["started_at"],
+                "completed_at": task["completed_at"],
+            }
+
+    def list_tasks(self, limit: int) -> list[dict[str, Any]]:
+        with self.database.connection() as connection:
+            ids = [row["task_id"] for row in connection.execute(
+                "SELECT task_id FROM tasks ORDER BY created_at DESC LIMIT ?", (limit,)
+            ).fetchall()]
+        return [self.task(task_id) for task_id in ids]
+
+    def cancel_task(self, task_id: str) -> dict[str, Any]:
+        task = self.task(task_id)
+        for job_id in task["job_ids"]:
+            try:
+                self.cancel(job_id)
+            except KeyError:
+                continue
+        return self.task(task_id)
+
     def stages(self, job_id: str) -> list[dict[str, Any]]:
         self.get(job_id)
         with self.database.connection() as connection:
             return [self.database.decode(row) for row in connection.execute("SELECT * FROM job_stages WHERE job_id=? ORDER BY started_at", (job_id,))]
+
+    def delete(self, job_id: str) -> None:
+        with self.database.lock, self.database.connection() as connection:
+            row = connection.execute(
+                "SELECT status FROM jobs WHERE job_id=?", (job_id,)
+            ).fetchone()
+            if row is None:
+                raise KeyError(job_id)
+            if row["status"] in {
+                JobStatus.PENDING.value,
+                JobStatus.RUNNING.value,
+                JobStatus.RETRYING.value,
+            }:
+                raise ValueError("Only completed, failed, or cancelled jobs can be deleted")
+            connection.execute("DELETE FROM experiment_jobs WHERE job_id=?", (job_id,))
+            connection.execute("DELETE FROM job_stages WHERE job_id=?", (job_id,))
+            connection.execute("DELETE FROM telemetry_events WHERE job_id=?", (job_id,))
+            connection.execute("DELETE FROM events WHERE job_id=?", (job_id,))
+            connection.execute("DELETE FROM jobs WHERE job_id=?", (job_id,))
 
     def _cancel_requested(self, job_id: str) -> bool:
         with self.database.connection() as connection:

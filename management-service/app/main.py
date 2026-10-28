@@ -29,6 +29,8 @@ from .models import (
     ServiceDependency,
     StageResponse,
     SystemHealthResponse,
+    TaskCreateRequest,
+    TaskResponse,
 )
 
 
@@ -119,7 +121,7 @@ def _experiment_metrics(connection, experiment_id: str) -> dict[str, Any]:
         f"""SELECT stage, COUNT(*) AS count, AVG(duration_ms) AS average_duration_ms,
                    SUM(duration_ms) AS total_duration_ms
             FROM telemetry_events WHERE event_type='pipeline_stage' AND status='completed'
-            AND job_id IN ({placeholders}) GROUP BY stage ORDER BY total_duration_ms DESC""",
+            AND job_id IN ({placeholders}) GROUP BY stage ORDER BY MIN(timestamp), stage""",
         job_ids,
     ).fetchall()
     metrics["stages"] = [dict(row) for row in stage_rows]
@@ -259,6 +261,69 @@ def job_stages(job_id: UUID) -> list[StageResponse]:
         raise HTTPException(status_code=404, detail="Job not found") from None
 
 
+@app.get("/api/articles", tags=["Tasks"])
+def available_articles(limit: int = Query(100, ge=1, le=500)) -> list[dict[str, Any]]:
+    try:
+        return client.articles(limit)
+    except Exception as exc:
+        logger.warning("article_listing_failed error_type=%s", type(exc).__name__)
+        raise HTTPException(status_code=503, detail="Article storage is unavailable") from exc
+
+
+@app.post("/api/tasks", response_model=TaskResponse, status_code=202, tags=["Tasks"])
+def create_task(request: TaskCreateRequest) -> TaskResponse:
+    try:
+        return coordinator.create_task(request)
+    except Exception as exc:
+        logger.exception("task_creation_failed")
+        raise HTTPException(status_code=502, detail="Could not create processing task") from exc
+
+
+@app.post("/api/tasks/fresh", response_model=TaskResponse, status_code=202, tags=["Tasks"])
+def create_fresh_task(
+    name: str = Query("Fresh articles", min_length=1, max_length=200),
+    limit: int = Query(20, ge=1, le=100),
+) -> TaskResponse:
+    try:
+        articles = client.articles(limit)
+        with database.connection() as connection:
+            existing = {
+                row["article_id"] for row in connection.execute(
+                    "SELECT DISTINCT article_id FROM jobs WHERE status IN ('PENDING','RUNNING','RETRYING','COMPLETED')"
+                ).fetchall()
+            }
+        article_ids = [item["article_id"] for item in articles if item.get("article_id") and item["article_id"] not in existing]
+        if not article_ids:
+            raise HTTPException(status_code=409, detail="No unprocessed articles are available")
+        return coordinator.create_task(TaskCreateRequest(name=name, article_ids=article_ids))
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("fresh_task_creation_failed")
+        raise HTTPException(status_code=503, detail="Could not discover fresh articles") from exc
+
+
+@app.get("/api/tasks", response_model=list[TaskResponse], tags=["Tasks"])
+def list_tasks(limit: int = Query(50, ge=1, le=200)) -> list[TaskResponse]:
+    return [TaskResponse.model_validate(item) for item in coordinator.list_tasks(limit)]
+
+
+@app.get("/api/tasks/{task_id}", response_model=TaskResponse, tags=["Tasks"])
+def get_task(task_id: UUID) -> TaskResponse:
+    try:
+        return TaskResponse.model_validate(coordinator.task(str(task_id)))
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Task not found") from None
+
+
+@app.post("/api/tasks/{task_id}/cancel", response_model=TaskResponse, tags=["Tasks"])
+def cancel_task(task_id: UUID) -> TaskResponse:
+    try:
+        return TaskResponse.model_validate(coordinator.cancel_task(str(task_id)))
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Task not found") from None
+
+
 @app.post("/api/jobs/{job_id}/cancel", response_model=JobResponse, tags=["Jobs"])
 def cancel_job(job_id: UUID) -> JobResponse:
     try:
@@ -275,6 +340,17 @@ def retry_job(job_id: UUID) -> JobResponse:
         raise HTTPException(status_code=404, detail="Job not found") from None
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.delete("/api/jobs/{job_id}", status_code=204, tags=["Jobs"])
+def delete_job(job_id: UUID) -> Response:
+    try:
+        coordinator.delete(str(job_id))
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Job not found") from None
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return Response(status_code=204)
 
 
 @app.get("/api/settings", response_model=RuntimeSettingsResponse, tags=["Settings"])
@@ -590,6 +666,45 @@ def logs(
     return results[-limit:]
 
 
+@app.delete("/api/logs", status_code=204, tags=["Diagnostics"])
+def delete_logs(
+    service: str | None = None,
+    job_id: UUID | None = None,
+    article_id: UUID | None = None,
+    stage: str | None = None,
+    trace_id: UUID | None = None,
+) -> Response:
+    clauses = ["1=1"]
+    params: list[Any] = []
+    for column, value in (
+        ("service", service),
+        ("job_id", str(job_id) if job_id else None),
+        ("article_id", str(article_id) if article_id else None),
+        ("stage", stage),
+        ("trace_id", str(trace_id) if trace_id else None),
+    ):
+        if value:
+            clauses.append(f"{column}=?")
+            params.append(value)
+    with database.lock, database.connection() as connection:
+        matching = connection.execute(
+            f"SELECT event_id FROM telemetry_events WHERE {' AND '.join(clauses)}",
+            params,
+        ).fetchall()
+        event_ids = [row["event_id"] for row in matching]
+        if event_ids:
+            placeholders = ",".join("?" for _ in event_ids)
+            connection.execute(
+                f"DELETE FROM telemetry_events WHERE event_id IN ({placeholders})",
+                event_ids,
+            )
+            connection.execute(
+                f"DELETE FROM events WHERE event_id IN ({placeholders})",
+                event_ids,
+            )
+    return Response(status_code=204)
+
+
 @app.get("/api/metrics/llm", tags=["Telemetry"])
 def llm_metrics(
     since: datetime | None = None,
@@ -599,7 +714,7 @@ def llm_metrics(
     article_id: UUID | None = None,
     stage: str | None = None,
 ) -> dict[str, Any]:
-    query = "SELECT * FROM telemetry_events WHERE event_type='llm_call'"
+    query = "SELECT * FROM telemetry_events WHERE event_type='llm_call' AND status IN ('completed','failed')"
     params: list[Any] = []
     if since:
         query += " AND timestamp>=?"; params.append(since.isoformat())
@@ -611,6 +726,26 @@ def llm_metrics(
             query += f" AND {column}=?"; params.append(value)
     with database.connection() as connection:
         rows = [dict(row) for row in connection.execute(query, params)]
+        active_query = (
+            "SELECT sequence FROM telemetry_events "
+            "WHERE event_type='llm_call' AND status='started' "
+            "AND NOT EXISTS (SELECT 1 FROM telemetry_events finished "
+            "WHERE finished.event_type='llm_call' "
+            "AND finished.span_id=telemetry_events.span_id "
+            "AND finished.status IN ('completed','failed')) "
+            "AND (job_id IS NULL OR job_id IN "
+            "(SELECT job_id FROM jobs WHERE status='RUNNING'))"
+        )
+        active_params: list[Any] = []
+        if since:
+            active_query += " AND timestamp>=?"; active_params.append(since.isoformat())
+        if until:
+            active_query += " AND timestamp<=?"; active_params.append(until.isoformat())
+        for column, value in (("model", model), ("job_id", str(job_id) if job_id else None),
+                              ("article_id", str(article_id) if article_id else None), ("stage", stage)):
+            if value:
+                active_query += f" AND {column}=?"; active_params.append(value)
+        active_rows = list(connection.execute(active_query, active_params))
     durations = [row["duration_ms"] for row in rows if row["duration_ms"] is not None]
     ttft = [row["time_to_first_token_ms"] for row in rows if row["time_to_first_token_ms"] is not None]
     throughput = [row["throughput_tokens_per_second"] for row in rows if row["throughput_tokens_per_second"] is not None]
@@ -622,6 +757,7 @@ def llm_metrics(
         return ordered[index]
     return {
         "call_count": len(rows),
+        "active_call_count": len(active_rows),
         "successful_calls": sum(row["status"] == "completed" for row in rows),
         "failed_calls": sum(row["status"] == "failed" for row in rows),
         "retry_count": sum(row["retry_count"] for row in rows),
@@ -644,7 +780,7 @@ def stage_metrics(limit: int = Query(100, ge=1, le=1000)) -> list[dict[str, Any]
             """SELECT stage, COUNT(*) AS count, AVG(duration_ms) AS average_duration_ms,
                       SUM(duration_ms) AS total_duration_ms
                FROM telemetry_events WHERE event_type='pipeline_stage' AND status='completed'
-               GROUP BY stage ORDER BY total_duration_ms DESC LIMIT ?""", (limit,)
+               GROUP BY stage ORDER BY MIN(timestamp), stage LIMIT ?""", (limit,)
         ).fetchall()
     return [dict(row) for row in rows]
 

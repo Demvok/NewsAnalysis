@@ -90,6 +90,10 @@ def emit_event(
     context = current_context()
     if article_id is not None:
         context["article_id"] = str(article_id)
+    if context.get("article_id") is None and attributes:
+        candidate_article_id = attributes.get("article_id")
+        if candidate_article_id:
+            context["article_id"] = str(candidate_article_id)
     payload = {
         "event_id": str(uuid4()),
         "timestamp": _utc_now(),

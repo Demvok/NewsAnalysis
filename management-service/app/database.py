@@ -92,7 +92,18 @@ class ManagementDatabase:
                     false_positives INTEGER NOT NULL, false_negatives INTEGER NOT NULL,
                     created_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS tasks (
+                    task_id TEXT PRIMARY KEY, name TEXT NOT NULL, status TEXT NOT NULL,
+                    article_ids_json TEXT NOT NULL, created_at TEXT NOT NULL,
+                    started_at TEXT, completed_at TEXT
+                );
+                CREATE TABLE IF NOT EXISTS task_jobs (
+                    task_id TEXT NOT NULL, job_id TEXT NOT NULL,
+                    article_id TEXT NOT NULL, PRIMARY KEY (task_id, job_id),
+                    UNIQUE (task_id, article_id)
+                );
                 CREATE INDEX IF NOT EXISTS idx_experiment_jobs_job ON experiment_jobs(job_id);
+                CREATE INDEX IF NOT EXISTS idx_task_jobs_job ON task_jobs(job_id);
                 """
             )
             self._migrate_jobs(connection)

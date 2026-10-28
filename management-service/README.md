@@ -15,6 +15,10 @@ The Phase 1 API includes:
 
 - `GET /health` and `GET /api/services`
 - `POST /api/jobs`, `GET /api/jobs`, and job detail/progress/stage endpoints
+- `GET /api/articles` plus `POST /api/tasks`, `POST /api/tasks/fresh`, and
+  `GET /api/tasks/{id}` for multi-article processing tasks with aggregate
+  citation, speaker, topic, and attitude counters.
+- `POST /api/tasks/{id}/cancel` for cooperative cancellation of task jobs.
 - safe cancellation requests and retry for failed/cancelled jobs
 - `GET/PATCH /api/settings` for timeout settings
 - `GET /api/pipeline/history`
@@ -47,10 +51,9 @@ submission request.
 ## Health semantics
 
 The management service distinguishes API availability from dependency health.
-The storage health response is inspected for `db_status`. LLM health is
-reported as `UNKNOWN/NOT_PROBED` because the existing analysis API has no
-lightweight provider-readiness endpoint; the management service does not issue
-an expensive test completion request.
+The storage health response is inspected for `db_status`. LLM health probes the configured LM Studio/OpenAI-compatible `/models`
+endpoint. This verifies provider API availability and model discovery, not a
+successful completion.
 
 ## Phase 2 observability
 
@@ -88,8 +91,8 @@ operational data and includes:
 - structured log search by severity, service, job, article, stage, trace, and
   text;
 - service health and explicitly supported runtime configuration;
-- an Experiments placeholder that clearly reports the current backend's lack
-  of an experiment API.
+- multi-article Tasks control with fresh-article discovery, selection, task
+  cancellation, aggregate progress, and live telemetry refresh.
 
 The dashboard consumes `/api/events/stream` through Server-Sent Events and
 reconnects with the last received event ID. Client-side live data is bounded

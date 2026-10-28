@@ -24,6 +24,18 @@ class ServiceClient:
         response.raise_for_status()
         return response.json()
 
+    def articles(self, limit: int = 100) -> list[dict[str, Any]]:
+        response = httpx.get(
+            f"{self.settings.storage_url}/articles",
+            params={"limit": limit},
+            timeout=self.settings.request_timeout_seconds,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        if not isinstance(payload, list):
+            raise ValueError("storage articles response must be a list")
+        return [item for item in payload if isinstance(item, dict)]
+
     def analyze(self, payload: dict[str, Any], headers: dict[str, str]) -> dict[str, Any]:
         response = httpx.post(
             f"{self.settings.analysis_url}/analysis/citations",
@@ -64,11 +76,31 @@ class ServiceClient:
             self.health("analysis-layer", self.settings.analysis_url),
             self.health("data-storage", self.settings.storage_url),
         ]
-        result.append(ServiceDependency(
-            name="llm-provider",
-            status="UNKNOWN",
-            availability="NOT_PROBED",
-            details={"reason": "The existing analysis API has no lightweight LLM readiness endpoint."},
-            checked_at=datetime.now(timezone.utc),
-        ))
+        started = time.perf_counter()
+        try:
+            response = httpx.get(
+                f"{self.settings.llm_url}/models",
+                timeout=self.settings.request_timeout_seconds,
+            )
+            details = response.json()
+            if not isinstance(details, dict):
+                raise ValueError("LM Studio response must be a JSON object")
+            result.append(ServiceDependency(
+                name="llm-provider",
+                status="HEALTHY" if response.is_success else "UNHEALTHY",
+                availability="AVAILABLE" if response.is_success else "UNAVAILABLE",
+                latency_ms=int((time.perf_counter() - started) * 1000),
+                details={"endpoint": f"{self.settings.llm_url}/models", "models": details.get("data", [])},
+                checked_at=datetime.now(timezone.utc),
+            ))
+        except (httpx.HTTPError, ValueError) as exc:
+            result.append(ServiceDependency(
+                name="llm-provider",
+                status="UNAVAILABLE",
+                availability="UNAVAILABLE",
+                latency_ms=int((time.perf_counter() - started) * 1000),
+                error=type(exc).__name__,
+                details={"endpoint": f"{self.settings.llm_url}/models"},
+                checked_at=datetime.now(timezone.utc),
+            ))
         return result

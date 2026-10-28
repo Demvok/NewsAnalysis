@@ -149,7 +149,7 @@ class FctInconsistency(Base):
     attitude_a: Mapped[str | None] = mapped_column(String(64))
     attitude_b: Mapped[str | None] = mapped_column(String(64))
     classification: Mapped[str] = mapped_column(String(32), nullable=False)
-    severity: Mapped[str | None] = mapped_column(String(32))
+    severity: Mapped[str | None] = mapped_column(Text)
     confidence: Mapped[float | None] = mapped_column(Float)
     inconsistency_comment: Mapped[str | None] = mapped_column(Text)
     detected_at: Mapped[object | None] = mapped_column(DateTime(timezone=True))
@@ -191,6 +191,11 @@ def create_database() -> None:
         connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
     Base.metadata.create_all(bind=engine)
     with engine.begin() as connection:
+        connection.execute(text("""
+            ALTER TABLE "fctInconsistency"
+            ALTER COLUMN severity TYPE TEXT
+            USING severity::text;
+        """))
         connection.execute(text("""
             DO $$
             BEGIN

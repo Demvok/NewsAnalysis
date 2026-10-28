@@ -130,7 +130,59 @@ def _record_chain_metrics(
 
 def _invoke_chain(chain: Any, payload: Any, *, stage: str, speaker: str | None = None, citation_count: int | None = None) -> Any:
     started = time.perf_counter()
-    response = chain.invoke(payload)
+    span_id = f"chain-{time.time_ns()}"
+    input_chars = _value_chars(payload)
+    emit_event(
+        "llm_call",
+        operation="structured_chain",
+        span_id=span_id,
+        parent_span_id=current_context().get("trace_id"),
+        stage=stage,
+        event_status="started",
+        started_at=datetime.now(timezone.utc).isoformat(),
+        input_tokens_estimated=_estimate_tokens(input_chars),
+        model=os.getenv("LLM_MODEL"),
+        provider=os.getenv("LLM_URL", "").split("/")[2] if "://" in os.getenv("LLM_URL", "") else "openai-compatible",
+        attributes={"speaker": speaker, "citation_count": citation_count, "instrumentation_source": "chain_invoke"},
+    )
+    try:
+        response = chain.invoke(payload)
+    except Exception as error:
+        emit_event(
+            "llm_call",
+            operation="structured_chain",
+            span_id=span_id,
+            parent_span_id=current_context().get("trace_id"),
+            stage=stage,
+            event_status="failed",
+            duration_ms=int((time.perf_counter() - started) * 1000),
+            input_tokens_estimated=_estimate_tokens(input_chars),
+            model=os.getenv("LLM_MODEL"),
+            provider=os.getenv("LLM_URL", "").split("/")[2] if "://" in os.getenv("LLM_URL", "") else "openai-compatible",
+            error_category=type(error).__name__,
+            error_detail=sanitized_error(error),
+            attributes={"speaker": speaker, "citation_count": citation_count, "instrumentation_source": "chain_invoke"},
+        )
+        raise
+    provider_input, provider_output = _provider_usage(response)
+    duration_ms = int((time.perf_counter() - started) * 1000)
+    output_chars = _response_chars(response)
+    emit_event(
+        "llm_call",
+        operation="structured_chain",
+        span_id=span_id,
+        parent_span_id=current_context().get("trace_id"),
+        stage=stage,
+        event_status="completed",
+        duration_ms=duration_ms,
+        input_tokens=provider_input,
+        output_tokens=provider_output,
+        input_tokens_estimated=_estimate_tokens(input_chars) if provider_input is None else None,
+        output_tokens_estimated=_estimate_tokens(output_chars) if provider_output is None else None,
+        model=os.getenv("LLM_MODEL"),
+        provider=os.getenv("LLM_URL", "").split("/")[2] if "://" in os.getenv("LLM_URL", "") else "openai-compatible",
+        attributes={"speaker": speaker, "citation_count": citation_count, "instrumentation_source": "chain_invoke"},
+    )
     _record_chain_metrics(
         stage=stage,
         speaker=speaker,
@@ -241,6 +293,24 @@ class _LLMUsageLogger(BaseCallbackHandler):
             self._estimate_tokens(input_chars),
             model,
         )
+        emit_event(
+            "llm_call",
+            operation="chat_completion",
+            span_id=str(run_id),
+            parent_span_id=current_context().get("trace_id"),
+            stage=call["stage"],
+            event_status="started",
+            started_at=call["started_at_iso"],
+            input_tokens_estimated=self._estimate_tokens(input_chars),
+            model=call["model"],
+            provider=os.getenv("LLM_URL", "").split("/")[2] if "://" in os.getenv("LLM_URL", "") else "openai-compatible",
+            attributes={
+                "speaker": call["speaker"],
+                "citation_count": call["citation_count"],
+                "token_source": "estimated",
+                "prompt_version": os.getenv("PROMPT_VERSION", "unversioned"),
+            },
+        )
 
     def on_chat_model_start(self, serialized, messages, *, run_id, metadata=None, **kwargs):
         self._remember_usage_type(run_id, metadata)
@@ -348,6 +418,7 @@ class _LLMUsageLogger(BaseCallbackHandler):
                 "prompt_version": os.getenv("PROMPT_VERSION", "unversioned"),
             },
         )
+
         logger.info(
             "analysis_kpi stage=%s calls=1 input_chars=%d estimated_input_tokens=%d "
             "output_chars=%d estimated_output_tokens=%d provider_input_tokens=%s "
@@ -528,7 +599,6 @@ def _structured_output(
 ):
     """Create a structured-output model whose underlying call is usage-logged."""
     structured_model = llm_main.with_config(
-        callbacks=[_USAGE_LOGGER],
         metadata={
             "usage_type": usage_type,
             "stage": stage or usage_type,

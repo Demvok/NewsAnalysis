@@ -21,6 +21,14 @@ class JobType(StrEnum):
     ARTICLE_ANALYSIS = "article_analysis"
 
 
+class TaskStatus(StrEnum):
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+
+
 class StageStatus(StrEnum):
     PENDING = "PENDING"
     RUNNING = "RUNNING"
@@ -55,6 +63,34 @@ class JobResponse(BaseModel):
     correlation_id: UUID
     trace_id: UUID
     metadata: dict[str, Any]
+
+
+class TaskCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(default="Article processing task", min_length=1, max_length=200)
+    article_ids: list[UUID] = Field(min_length=1, max_length=500)
+    inconsistency_window_days: int = Field(default=365, ge=1, le=3650)
+
+
+class TaskResponse(BaseModel):
+    task_id: UUID
+    name: str
+    status: TaskStatus
+    article_ids: list[UUID]
+    job_ids: list[UUID]
+    total_articles: int
+    completed_articles: int
+    failed_articles: int
+    running_articles: int
+    waiting_articles: int
+    citations: int
+    speakers: int
+    topics: int
+    attitudes: int
+    created_at: datetime
+    started_at: datetime | None
+    completed_at: datetime | None
 
 
 class StageResponse(BaseModel):
