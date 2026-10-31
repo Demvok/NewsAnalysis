@@ -8,13 +8,15 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID, uuid4
 
-from fastapi import FastAPI, Header, HTTPException, Query, Request
+from fastapi import Body, FastAPI, Header, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse, Response
 
 from .clients import ServiceClient
 from .config import Settings
 from .database import ManagementDatabase
+from .logger import get_logger
 from .models import (
+    ExecutionMode,
     EventRequest,
     EvaluationCreateRequest,
     ExperimentComparisonRequest,
@@ -24,6 +26,7 @@ from .models import (
     JobCreateRequest,
     JobResponse,
     JobStatus,
+    KnowledgeSummaryResponse,
     RuntimeSettingsResponse,
     RuntimeSettingsUpdate,
     ServiceDependency,
@@ -150,8 +153,7 @@ def experiment_response(connection, row) -> ExperimentResponse:
     )
 from .orchestration import JobCoordinator
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s [%(name)s] %(message)s")
-logger = logging.getLogger("newsanalysis.management")
+logger = get_logger("main")
 
 settings = Settings.from_env()
 database = ManagementDatabase(settings.database_path)
@@ -164,6 +166,33 @@ app = FastAPI(
     description="Operational API for health, job coordination, pipeline history, and safe runtime settings.",
     version="0.2.0",
 )
+
+
+@app.middleware("http")
+async def request_logging_middleware(request: Request, call_next):
+    request_id = request.headers.get("x-request-id") or str(uuid4())
+    started = time.perf_counter()
+    try:
+        response = await call_next(request)
+    except Exception:
+        logger.exception(
+            "http_request_failed method=%s path=%s request_id=%s",
+            request.method,
+            request.url.path,
+            request_id,
+        )
+        raise
+    duration_ms = int((time.perf_counter() - started) * 1000)
+    response.headers["x-request-id"] = request_id
+    logger.info(
+        "http_request method=%s path=%s status=%s duration_ms=%s request_id=%s",
+        request.method,
+        request.url.path,
+        response.status_code,
+        duration_ms,
+        request_id,
+    )
+    return response
 
 
 def parse_datetime(value: str | None) -> datetime | None:
@@ -234,6 +263,8 @@ def create_job(
     request: JobCreateRequest,
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> JobResponse:
+    if request.execution_mode == ExecutionMode.BUNDLED:
+        raise HTTPException(status_code=400, detail="bundled execution mode is only supported for tasks")
     if request.idempotency_key and idempotency_key and request.idempotency_key != idempotency_key:
         raise HTTPException(status_code=400, detail="Request body and Idempotency-Key header differ")
     value = coordinator.create(request, idempotency_key or request.idempotency_key)
@@ -268,6 +299,307 @@ def available_articles(limit: int = Query(100, ge=1, le=500)) -> list[dict[str, 
     except Exception as exc:
         logger.warning("article_listing_failed error_type=%s", type(exc).__name__)
         raise HTTPException(status_code=503, detail="Article storage is unavailable") from exc
+
+
+@app.get("/api/knowledge/summary", response_model=KnowledgeSummaryResponse, tags=["Knowledge"])
+def knowledge_summary() -> KnowledgeSummaryResponse:
+    try:
+        return KnowledgeSummaryResponse.model_validate(client.knowledge_summary())
+    except Exception as exc:
+        logger.warning("knowledge_summary_failed error_type=%s", type(exc).__name__)
+        raise HTTPException(status_code=503, detail="Analytical storage is unavailable") from exc
+
+
+@app.get("/api/knowledge/{resource}", tags=["Knowledge"])
+def knowledge_records(
+    resource: str,
+    query: str | None = Query(default=None, min_length=1),
+    limit: int = Query(100, ge=1, le=500),
+) -> list[dict[str, Any]]:
+    try:
+        if query:
+            return client.search_knowledge(resource, query, limit)
+        return client.knowledge(resource, limit)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.warning(
+            "knowledge_records_failed resource=%s error_type=%s",
+            resource,
+            type(exc).__name__,
+        )
+        raise HTTPException(status_code=503, detail="Analytical storage is unavailable") from exc
+
+
+@app.get("/api/semantic-search/{resource}", tags=["Knowledge"])
+def semantic_search(resource: str, query: str = Query(min_length=2), limit: int = Query(25, ge=1, le=100)) -> list[dict[str, Any]]:
+    try:
+        return client.semantic_search(resource, query, limit)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.warning("semantic_search_failed resource=%s error_type=%s", resource, type(exc).__name__)
+        raise HTTPException(status_code=503, detail=f"Semantic search is unavailable: {exc}") from exc
+
+
+@app.get("/api/data-options/{resource}/{field}", tags=["Data management"])
+def data_options(resource: str, field: str, query: str = Query(default="", max_length=200)) -> list[str]:
+    try:
+        return client.browse_options(resource, field, query)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.warning("data_options_failed resource=%s field=%s error_type=%s", resource, field, type(exc).__name__)
+        raise HTTPException(status_code=503, detail="Analytical storage is unavailable") from exc
+
+
+def _record_identifier(resource: str, record: dict[str, Any]) -> str | None:
+    if resource == "attitudes":
+        topic = record.get("topic_uuid")
+        citation = record.get("citation_uuid")
+        return f"{topic}/{citation}" if topic and citation else None
+    fields = {
+        "articles": "article_id",
+        "people": "person_uuid",
+        "citations": "citation_uuid",
+        "topics": "topic_uuid",
+        "inconsistencies": "inconsistency_uuid",
+    }
+    value = record.get(fields.get(resource, ""))
+    return str(value) if value else None
+
+
+def _knowledge_detail(resource: str, identifier: str) -> dict[str, Any]:
+    record = client.knowledge_detail(resource, identifier)
+    if resource == "articles":
+        record["citations"] = [
+            item for item in client.knowledge("citations", 500)
+            if str(item.get("origin_article_id")) == identifier
+        ]
+    elif resource == "citations":
+        article_id = record.get("origin_article_id")
+        person_id = record.get("person_uuid")
+        record["article"] = client.knowledge_detail("articles", str(article_id)) if article_id else None
+        record["person"] = client.knowledge_detail("people", str(person_id)) if person_id else None
+        record["attitudes"] = [
+            item for item in client.knowledge("attitudes", 500)
+            if str(item.get("citation_uuid")) == identifier
+        ]
+    elif resource == "topics":
+        attitudes = [
+            item for item in client.knowledge("attitudes", 500)
+            if str(item.get("topic_uuid")) == identifier
+        ]
+        citations = {str(item.get("citation_uuid")): item for item in client.knowledge("citations", 500)}
+        people = {str(item.get("person_uuid")): item for item in client.knowledge("people", 500)}
+        record["attitudes"] = attitudes
+        record["citations"] = [citations[str(item["citation_uuid"])] for item in attitudes if str(item.get("citation_uuid")) in citations]
+        record["people"] = [
+            people[str(citations[str(item["citation_uuid"])].get("person_uuid"))]
+            for item in attitudes
+            if str(item.get("citation_uuid")) in citations
+            and str(citations[str(item["citation_uuid"])].get("person_uuid")) in people
+        ]
+        record["articles"] = [
+            article for article in client.knowledge("articles", 500)
+            if str(article.get("article_id")) in {
+                str(citation.get("origin_article_id")) for citation in record["citations"]
+            }
+        ]
+    elif resource == "people":
+        citations = [
+            item for item in client.knowledge("citations", 500)
+            if str(item.get("person_uuid")) == identifier
+        ]
+        record["citations"] = citations
+        citation_ids = {str(item.get("citation_uuid")) for item in citations}
+        record["attitudes"] = [
+            item for item in client.knowledge("attitudes", 500)
+            if str(item.get("citation_uuid")) in citation_ids
+        ]
+    elif resource == "attitudes":
+        citation_id = identifier.split("/", 1)[1]
+        record["citation"] = client.knowledge_detail("citations", citation_id)
+        person_id = record["citation"].get("person_uuid")
+        record["person"] = client.knowledge_detail("people", str(person_id)) if person_id else None
+        record["topic"] = client.knowledge_detail("topics", identifier.split("/", 1)[0])
+    elif resource == "inconsistencies":
+        for suffix, field in (("a", "citation_a_uuid"), ("b", "citation_b_uuid")):
+            citation_id = record.get(field)
+            record[f"citation_{suffix}"] = client.knowledge_detail("citations", str(citation_id)) if citation_id else None
+    return record
+
+
+@app.get("/api/data/{resource}", tags=["Data management"])
+def data_records(
+    resource: str,
+    query: str | None = Query(default=None, min_length=1),
+    semantic_query: str | None = Query(default=None, min_length=2),
+    status: str | None = Query(default=None, min_length=1),
+    category: str | None = Query(default=None, min_length=1),
+    category_value: str | None = Query(default=None, min_length=1),
+    person_uuid: str | None = Query(default=None, min_length=1),
+    topic_uuid: str | None = Query(default=None, min_length=1),
+    person_query: str | None = Query(default=None, min_length=1),
+    topic_query: str | None = Query(default=None, min_length=1),
+    sort_by: str | None = Query(default=None, min_length=1),
+    sort_dir: str = Query("desc", pattern="^(asc|desc)$"),
+    min_similarity: float = Query(0.0, ge=-1, le=1),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
+) -> dict[str, Any]:
+    try:
+        if query and resource in {"articles", "people", "citations", "topics", "inconsistencies"}:
+            try:
+                direct = client.knowledge_detail(resource, query.strip())
+            except Exception:
+                direct = None
+            if direct is not None:
+                return {
+                    "items": [direct],
+                    "total": 1,
+                    "page": 1,
+                    "page_size": page_size,
+                    "pages": 1,
+                    "stance_counts": {},
+                }
+        if query and resource == "attitudes" and "/" in query:
+            try:
+                direct = client.knowledge_detail(resource, query.strip())
+            except Exception:
+                direct = None
+            if direct is not None:
+                return {
+                    "items": [direct],
+                    "total": 1,
+                    "page": 1,
+                    "page_size": page_size,
+                    "pages": 1,
+                    "stance_counts": {},
+                }
+        if resource == "topics" and not semantic_query:
+            browse = client.browse_topics(
+                limit=page_size,
+                offset=(page - 1) * page_size,
+                sort_by=sort_by or "topic_name",
+                sort_dir=sort_dir,
+                topic_query=query,
+            )
+            return {
+                "items": browse["items"],
+                "total": browse["total"],
+                "page": page,
+                "page_size": page_size,
+                "pages": (browse["total"] + page_size - 1) // page_size,
+                "stance_counts": {},
+            }
+        if resource in {"attitudes", "inconsistencies"}:
+            browse = client.browse_knowledge(resource, 500, 0, {
+                key: value for key, value in (
+                    ("status", category_value if category == "status" else (status if resource in {"attitudes", "inconsistencies"} else None)),
+                    ("stance", category_value if resource == "attitudes" and category == "stance" else None),
+                    ("classification", category_value if resource == "inconsistencies" and category == "classification" else None),
+                    ("person_uuid", person_uuid),
+                    ("topic_uuid", topic_uuid),
+                    ("person_query", person_query),
+                    ("topic_query", topic_query),
+                    ("sort_by", sort_by),
+                    ("sort_dir", sort_dir if sort_by else None),
+                ) if value
+            })
+            records = browse["items"]
+            total_from_storage = browse["total"]
+            stance_counts = browse.get("stance_counts", {})
+        elif semantic_query:
+            records = client.semantic_search(resource, semantic_query, 100, min_similarity)
+            total_from_storage = len(records)
+            stance_counts = {}
+        else:
+            records = client.search_knowledge(resource, query, 500) if query else client.knowledge(resource, 500)
+            total_from_storage = len(records)
+            stance_counts = {}
+        if query:
+            needle = query.casefold()
+            records = [item for item in records if needle in json.dumps(item, default=str).casefold()]
+        if status and resource not in {"attitudes", "inconsistencies"}:
+            records = [item for item in records if str(item.get("status", "")).casefold() == status.casefold()]
+        if category and category_value and resource not in {"attitudes", "inconsistencies"}:
+            records = [item for item in records if str(item.get(category, "")).casefold() == category_value.casefold()]
+        total = len(records) if query or semantic_query or (
+            resource not in {"attitudes", "inconsistencies"} and (category or status)
+        ) else total_from_storage
+        start = (page - 1) * page_size
+        return {
+            "items": records[start:start + page_size],
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "pages": (total + page_size - 1) // page_size,
+            "stance_counts": stance_counts,
+        }
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.warning("data_records_failed resource=%s error_type=%s", resource, type(exc).__name__)
+        raise HTTPException(status_code=503, detail="Analytical storage is unavailable") from exc
+
+
+@app.post("/api/data/database/{action}", tags=["Data management"])
+def data_database_action(action: str) -> dict[str, Any]:
+    try:
+        return client.database_action(action)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.warning("database_action_failed action=%s error_type=%s", action, type(exc).__name__)
+        raise HTTPException(status_code=502, detail="Database operation failed") from exc
+
+
+@app.post("/api/data/import-temp", tags=["Data management"])
+def data_import_temp() -> dict[str, Any]:
+    try:
+        return client.import_temp_articles()
+    except Exception as exc:
+        logger.warning("temp_import_failed error_type=%s", type(exc).__name__)
+        raise HTTPException(status_code=502, detail="Temporary article import failed") from exc
+
+
+@app.get("/api/data/{resource}/{identifier:path}", tags=["Data management"])
+def data_record_detail(resource: str, identifier: str) -> dict[str, Any]:
+    try:
+        return _knowledge_detail(resource, identifier)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.warning("data_detail_failed resource=%s error_type=%s", resource, type(exc).__name__)
+        raise HTTPException(status_code=503, detail="Analytical storage is unavailable") from exc
+
+
+@app.put("/api/data/{resource}/{identifier:path}", tags=["Data management"])
+def update_data_record(
+    resource: str,
+    identifier: str,
+    payload: dict[str, Any] = Body(...),
+) -> dict[str, Any]:
+    try:
+        return client.mutate_knowledge(resource, identifier, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.warning("data_update_failed resource=%s error_type=%s", resource, type(exc).__name__)
+        raise HTTPException(status_code=502, detail="Could not update analytical record") from exc
+
+
+@app.delete("/api/data/{resource}/{identifier:path}", status_code=204, tags=["Data management"])
+def delete_data_record(resource: str, identifier: str) -> Response:
+    try:
+        client.delete_knowledge(resource, identifier)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.warning("data_delete_failed resource=%s error_type=%s", resource, type(exc).__name__)
+        raise HTTPException(status_code=502, detail="Could not delete analytical record") from exc
+    return Response(status_code=204)
 
 
 @app.post("/api/tasks", response_model=TaskResponse, status_code=202, tags=["Tasks"])
@@ -316,12 +648,69 @@ def get_task(task_id: UUID) -> TaskResponse:
         raise HTTPException(status_code=404, detail="Task not found") from None
 
 
+@app.get("/api/tasks/{task_id}/analytics", tags=["Tasks"])
+def task_analytics(task_id: UUID) -> dict[str, Any]:
+    with database.connection() as connection:
+        task = connection.execute("SELECT task_id FROM tasks WHERE task_id=?", (str(task_id),)).fetchone()
+        if task is None:
+            raise HTTPException(status_code=404, detail="Task not found")
+        jobs = connection.execute("SELECT job_id FROM task_jobs WHERE task_id=?", (str(task_id),)).fetchall()
+        job_ids = [row["job_id"] for row in jobs]
+        if not job_ids:
+            return {"stages": [], "llm": {}, "totals": {}}
+        placeholders = ",".join("?" for _ in job_ids)
+        rows = connection.execute(
+            f"SELECT * FROM telemetry_events WHERE job_id IN ({placeholders}) ORDER BY timestamp",
+            job_ids,
+        ).fetchall()
+    stage_map: dict[str, dict[str, Any]] = {}
+    totals = {"events": len(rows), "citations": 0, "topics": 0, "people": 0, "attitudes": 0, "created_records": 0, "retrieved_records": 0}
+    llm_calls = 0
+    output_tokens = 0
+    input_tokens = 0
+    for row in rows:
+        attributes = json.loads(row["attributes_json"] or "{}")
+        if row["event_type"] == "llm_call":
+            llm_calls += 1
+            input_tokens += row["input_tokens"] or row["input_tokens_estimated"] or 0
+            output_tokens += row["output_tokens"] or row["output_tokens_estimated"] or 0
+        if row["event_type"] != "pipeline_stage":
+            continue
+        stage_name = row["stage"] or "Unspecified"
+        stage = stage_map.setdefault(stage_name, {"stage": stage_name, "events": 0, "duration_ms": 0, "citations": 0, "topics": 0, "people": 0, "attitudes": 0, "created_records": 0, "retrieved_records": 0, "completed": 0})
+        stage["events"] += 1
+        stage["duration_ms"] += row["duration_ms"] or 0
+        stage["completed"] += row["status"] == "completed"
+        for key in ("citation_count", "topic_count", "speaker_count", "attitude_count"):
+            output_key = {"citation_count": "citations", "topic_count": "topics", "speaker_count": "people", "attitude_count": "attitudes"}[key]
+            value = attributes.get(key, 0) or 0
+            stage[output_key] += value
+            totals[output_key] += value
+        for key in ("created_records", "created_new", "retrieved_records", "retrieved_from_db"):
+            value = attributes.get(key, 0) or 0
+            target = "created_records" if key in {"created_records", "created_new"} else "retrieved_records"
+            stage[target] += value
+            totals[target] += value
+    return {"stages": list(stage_map.values()), "llm": {"calls": llm_calls, "input_tokens": input_tokens, "output_tokens": output_tokens, "tok_per_second": output_tokens / max(sum(item["duration_ms"] for item in stage_map.values()) / 1000, 1)}, "totals": totals}
+
+
 @app.post("/api/tasks/{task_id}/cancel", response_model=TaskResponse, tags=["Tasks"])
 def cancel_task(task_id: UUID) -> TaskResponse:
     try:
         return TaskResponse.model_validate(coordinator.cancel_task(str(task_id)))
     except KeyError:
         raise HTTPException(status_code=404, detail="Task not found") from None
+
+
+@app.delete("/api/tasks/{task_id}", status_code=204, tags=["Tasks"])
+def delete_task(task_id: UUID) -> Response:
+    try:
+        coordinator.delete_task(str(task_id))
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Task not found") from None
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return Response(status_code=204)
 
 
 @app.post("/api/jobs/{job_id}/cancel", response_model=JobResponse, tags=["Jobs"])

@@ -31,7 +31,9 @@ python scripts\recreate_db.py
 
 The recreate operation drops all MVP tables before creating them again. The
 same operations are available as `POST /database/create` and
-`POST /database/recreate`. The API also creates missing tables during startup.
+`POST /database/recreate`. The API also creates missing tables and applies
+additive lifecycle-column migrations during startup, preserving data in
+databases created by older versions.
 
 ## API endpoints
 
@@ -39,6 +41,7 @@ The Swagger UI at `/docs` groups endpoints by the following tags:
 
 - `Articles`, `People`, `Citations`, `Topics`, and `Attitudes` provide
   create, list, get, replace, and delete operations.
+- `Inconsistencies` provides persisted evidence-pair assessments.
 - `Articles - Bulk`, `People - Bulk`, `Citations - Bulk`, `Topics - Bulk`,
   and `Attitudes - Bulk` provide bulk create (`POST`), update (`PATCH`), and
   delete (`DELETE`) operations.
@@ -46,6 +49,11 @@ The Swagger UI at `/docs` groups endpoints by the following tags:
 - `Vectors` contains text embedding, batch embedding, bulk re-embedding, and
   vector-index creation endpoints.
 - `System` contains health checks.
+
+`GET /summary` returns database-backed counts for articles, people, citations,
+topics, attitudes, and inconsistencies. Storage startup migrations add new
+lifecycle columns and the nullable `fctAttitude.stance_confidence` column to
+existing databases without discarding analytical data.
 
 Bulk update requests include the resource identifier in each item. Bulk
 deletes use `{ "ids": ["uuid", "..."] }`; attitude deletes use

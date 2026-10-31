@@ -11,8 +11,9 @@ from uuid import UUID
 from fastapi import FastAPI, HTTPException, Query, Request, Response, status
 from openai import OpenAI
 from pydantic import ValidationError
-from sqlalchemy import delete, exists, func, or_, select
+from sqlalchemy import Float, cast, delete, exists, func, or_, select
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import aliased
 
 from app.database import (
     DimArticle,
@@ -140,7 +141,7 @@ def _affiliation_text(affiliation: Any) -> str:
     return json.dumps(affiliation, ensure_ascii=True, sort_keys=True)
 
 
-def _normalize_aliases(aliases: Any, affiliation: Any) -> list[dict[str, Any]]:
+def _normalize_aliases(aliases: list[str] | None) -> list[str]:
     if aliases is None:
         raw_aliases: list[Any] = []
     elif isinstance(aliases, list):
@@ -148,27 +149,21 @@ def _normalize_aliases(aliases: Any, affiliation: Any) -> list[dict[str, Any]]:
     else:
         raise HTTPException(status_code=422, detail="aliases must be a list")
 
-    affiliation_value = affiliation
-    normalized: list[dict[str, Any]] = []
+    normalized: list[str] = []
     for item in raw_aliases:
-        if isinstance(item, str):
-            alias = item.strip()
-        elif isinstance(item, dict):
-            alias = str(item.get("alias", item.get("name", ""))).strip()
-        else:
-            raise HTTPException(status_code=422, detail="Each alias must be a string or object")
+        if not isinstance(item, str):
+            raise HTTPException(status_code=422, detail="Each alias must be a string")
+        alias = item.strip()
         if not alias:
             continue
-        normalized.append({"alias": alias, "affiliation": affiliation_value})
-    affiliation_alias = _affiliation_text(affiliation)
-    if affiliation_alias and not any(item["alias"] == affiliation_alias for item in normalized):
-        normalized.append({"alias": affiliation_alias, "affiliation": affiliation_value})
+        if alias not in normalized:
+            normalized.append(alias)
     return normalized
 
 
 def _person_values(values: dict[str, Any]) -> dict[str, Any]:
     values = dict(values)
-    values["aliases"] = _normalize_aliases(values.get("aliases"), values.get("affiliation"))
+    values["aliases"] = _normalize_aliases(values.get("aliases"))
     alias_text = _person_embedding_text(values["aliases"], values.get("affiliation"))
     values["aliases_vector"] = (
         _embed_texts([alias_text])[0] if alias_text else None
@@ -176,8 +171,8 @@ def _person_values(values: dict[str, Any]) -> dict[str, Any]:
     return values
 
 
-def _person_embedding_text(aliases: list[dict[str, Any]], affiliation: Any) -> str:
-    alias_text = "\n".join(alias["alias"] for alias in aliases)
+def _person_embedding_text(aliases: list[str], affiliation: Any) -> str:
+    alias_text = "\n".join(aliases)
     return f"{alias_text}\n{_affiliation_text(affiliation)}".strip()
 
 
@@ -313,6 +308,11 @@ def _bulk_delete_attitudes(keys: list[AttitudeKey]) -> dict[str, int]:
         return {"deleted": result.rowcount or 0}
 
 
+def _set_bulk_stats(response: Response, created_new: int, retrieved_from_db: int) -> None:
+    response.headers["x-db-created-new"] = str(created_new)
+    response.headers["x-db-retrieved-from-db"] = str(retrieved_from_db)
+
+
 @app.get("/health", tags=["System"], summary="Check API and database health")
 def health() -> dict[str, str]:
     try:
@@ -321,6 +321,62 @@ def health() -> dict[str, str]:
         logger.exception("Database health check failed")
         database = "unavailable"
     return {"message": "Data Storage API Server is running", "version": app.version, "db_status": database}
+
+
+@app.get(
+    "/summary",
+    response_model=None,
+    tags=["System"],
+    summary="Summarize persisted analytical entities",
+)
+def storage_summary() -> dict[str, Any]:
+    """Return bounded database counts for management and operational dashboards."""
+    models = {
+        "articles": DimArticle,
+        "people": DimPerson,
+        "citations": DimCitation,
+        "topics": DimTopic,
+        "attitudes": FctAttitude,
+        "inconsistencies": FctInconsistency,
+    }
+    try:
+        with get_session() as session:
+            counts = {
+                name: session.scalar(select(func.count()).select_from(model)) or 0
+                for name, model in models.items()
+            }
+    except Exception as exc:
+        logger.exception("Failed to summarize stored analytical entities")
+        raise HTTPException(status_code=503, detail="Database summary unavailable") from exc
+    return {"entities": counts}
+
+
+@app.get("/browse/options/{resource}/{field}", response_model=None, tags=["System"], summary="List distinct browse filter values")
+def browse_options(resource: str, field: str, query: str | None = Query(default=None, min_length=1), limit: int = Query(100, ge=1, le=500)) -> list[str]:
+    models = {
+        "articles": DimArticle,
+        "people": DimPerson,
+        "citations": DimCitation,
+        "topics": DimTopic,
+        "attitudes": FctAttitude,
+        "inconsistencies": FctInconsistency,
+    }
+    allowed = {
+        "articles": {"status", "source"},
+        "people": {"status", "person_type"},
+        "citations": {"status", "citation_type"},
+        "topics": {"status", "general_topic_field"},
+        "attitudes": {"status", "stance"},
+        "inconsistencies": {"status", "classification", "severity"},
+    }
+    if resource not in models or field not in allowed.get(resource, set()):
+        raise HTTPException(status_code=400, detail="Unsupported browse option")
+    column = getattr(models[resource], field)
+    with get_session() as session:
+        statement = select(column).where(column.is_not(None)).distinct().order_by(column).limit(limit)
+        if query:
+            statement = statement.where(column.ilike(f"%{query}%"))
+        return [str(value) for value in session.scalars(statement).all()]
 
 
 @app.post("/database/create", status_code=201, tags=["Database"], summary="Create missing database tables")
@@ -437,8 +493,10 @@ def delete_article(article_id: UUID) -> None:
 
 
 @app.post("/articles/bulk", status_code=201, response_model=None, tags=["Articles - Bulk"], summary="Create articles in bulk")
-def create_articles_bulk(payload: list[ArticlePayload]) -> list[dict[str, Any]]:
+def create_articles_bulk(payload: list[ArticlePayload], response: Response) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
+    created_new = 0
+    retrieved_from_db = 0
     try:
         with get_session() as session:
             for item in payload:
@@ -452,7 +510,16 @@ def create_articles_bulk(payload: list[ArticlePayload]) -> list[dict[str, Any]]:
                     existing = DimArticle(**values)
                     session.add(existing)
                     session.flush()
+                    created_new += 1
+                else:
+                    retrieved_from_db += 1
                 results.append(_as_dict(existing))
+        _set_bulk_stats(response, created_new, retrieved_from_db)
+        logger.info(
+            "db_write operation=bulk_upsert model=DimArticle created_new=%d retrieved_from_db=%d",
+            created_new,
+            retrieved_from_db,
+        )
         return results
     except IntegrityError as exc:
         logger.exception("Failed to create articles in bulk")
@@ -490,7 +557,7 @@ def list_people(limit: int = Query(50, ge=1, le=500)) -> list[dict[str, Any]]:
 
 
 @app.get("/people/{person_uuid}/aliases", response_model=None, tags=["People"], summary="List person aliases")
-def list_person_aliases(person_uuid: UUID) -> list[dict[str, Any]]:
+def list_person_aliases(person_uuid: UUID) -> list[str]:
     with get_session() as session:
         person = session.get(DimPerson, person_uuid)
         if person is None:
@@ -549,8 +616,10 @@ def delete_person(person_uuid: UUID) -> None:
 
 
 @app.post("/people/bulk", status_code=201, response_model=None, tags=["People - Bulk"], summary="Create people in bulk")
-def create_people_bulk(payload: list[PersonPayload]) -> list[dict[str, Any]]:
+def create_people_bulk(payload: list[PersonPayload], response: Response) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
+    created_new = 0
+    retrieved_from_db = 0
     try:
         with get_session() as session:
             for item in payload:
@@ -560,11 +629,15 @@ def create_people_bulk(payload: list[PersonPayload]) -> list[dict[str, Any]]:
                 existing = session.scalar(
                     select(DimPerson).where(func.lower(DimPerson.name) == item.name.strip().casefold())
                 )
+                was_existing = existing is not None
                 if existing is None:
                     existing = DimPerson(**values)
                     session.add(existing)
                     session.flush()
-                elif has_person_details:
+                    created_new += 1
+                else:
+                    retrieved_from_db += 1
+                if was_existing and has_person_details:
                     existing.affiliation = values.get("affiliation", existing.affiliation)
                 if existing is not None:
                     refreshed = _person_values(
@@ -576,6 +649,12 @@ def create_people_bulk(payload: list[PersonPayload]) -> list[dict[str, Any]]:
                     existing.aliases = refreshed["aliases"]
                     existing.aliases_vector = refreshed["aliases_vector"]
                 results.append(_as_dict(existing))
+        _set_bulk_stats(response, created_new, retrieved_from_db)
+        logger.info(
+            "db_write operation=bulk_upsert model=DimPerson created_new=%d retrieved_from_db=%d",
+            created_new,
+            retrieved_from_db,
+        )
         return results
     except IntegrityError as exc:
         logger.exception("Failed to create people in bulk")
@@ -680,8 +759,10 @@ def delete_citation(citation_uuid: UUID) -> None:
 
 
 @app.post("/citations/bulk", status_code=201, response_model=None, tags=["Citations - Bulk"], summary="Create citations in bulk")
-def create_citations_bulk(payload: list[CitationPayload]) -> list[dict[str, Any]]:
+def create_citations_bulk(payload: list[CitationPayload], response: Response) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
+    created_new = 0
+    retrieved_from_db = 0
     try:
         with get_session() as session:
             for item in payload:
@@ -700,12 +781,20 @@ def create_citations_bulk(payload: list[CitationPayload]) -> list[dict[str, Any]
                 if existing is None:
                     existing = DimCitation(**values)
                     session.add(existing)
+                    created_new += 1
                 else:
+                    retrieved_from_db += 1
                     for field, value in values.items():
                         if field not in {"origin_article_id", "person_uuid", "exact_quote"}:
                             setattr(existing, field, value)
                 session.flush()
                 results.append(_as_dict(existing))
+        _set_bulk_stats(response, created_new, retrieved_from_db)
+        logger.info(
+            "db_write operation=bulk_upsert model=DimCitation created_new=%d retrieved_from_db=%d",
+            created_new,
+            retrieved_from_db,
+        )
         return results
     except IntegrityError as exc:
         logger.exception("Failed to upsert citations in bulk")
@@ -762,6 +851,76 @@ def list_topics(limit: int = Query(50, ge=1, le=500)) -> list[dict[str, Any]]:
     return _list(DimTopic, limit)
 
 
+@app.get("/topics/browse", response_model=None, tags=["Topics"], summary="Browse topics with analytical aggregates")
+def browse_topics(
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    topic_query: str | None = Query(default=None, min_length=1),
+    sort_by: str = Query("topic_name"),
+    sort_dir: str = Query("asc", pattern="^(asc|desc)$"),
+) -> dict[str, Any]:
+    """Return topic rows with counts and stance statistics calculated by the database."""
+    stance_number = cast(FctAttitude.stance, Float)
+    numeric_stance = FctAttitude.stance.op("~")(r"^-?[0-9]+(\.[0-9]+)?$")
+    stats = (
+        select(
+            FctAttitude.topic_uuid.label("topic_uuid"),
+            func.count(func.distinct(FctAttitude.citation_uuid)).label("citation_count"),
+            func.count(func.distinct(DimCitation.person_uuid)).label("people_count"),
+            func.avg(stance_number).filter(numeric_stance).label("stance_average"),
+            func.stddev_pop(stance_number).filter(numeric_stance).label("stance_std"),
+            func.percentile_cont(0.5).within_group(stance_number).filter(numeric_stance).label("stance_median"),
+        )
+        .join(DimCitation, FctAttitude.citation_uuid == DimCitation.citation_uuid)
+        .group_by(FctAttitude.topic_uuid)
+        .subquery()
+    )
+    sort_columns = {
+        "topic_name": DimTopic.topic_name,
+        "citation_count": stats.c.citation_count,
+        "people_count": stats.c.people_count,
+        "stance_average": stats.c.stance_average,
+        "stance_std": stats.c.stance_std,
+        "stance_median": stats.c.stance_median,
+    }
+    sort_column = sort_columns.get(sort_by, DimTopic.topic_name)
+    with get_session() as session:
+        statement = (
+            select(
+                DimTopic,
+                stats.c.citation_count,
+                stats.c.people_count,
+                stats.c.stance_average,
+                stats.c.stance_std,
+                stats.c.stance_median,
+            )
+            .outerjoin(stats, DimTopic.topic_uuid == stats.c.topic_uuid)
+        )
+        count_statement = select(func.count()).select_from(DimTopic)
+        if topic_query:
+            pattern = f"%{topic_query.strip()}%"
+            statement = statement.where(DimTopic.topic_name.ilike(pattern))
+            count_statement = count_statement.where(DimTopic.topic_name.ilike(pattern))
+        total = session.scalar(count_statement) or 0
+        ordered_sort = sort_column.asc().nulls_last() if sort_dir == "asc" else sort_column.desc().nulls_last()
+        rows = session.execute(
+            statement.order_by(ordered_sort)
+            .offset(offset).limit(limit)
+        ).all()
+    items = []
+    for topic, citation_count, people_count, stance_average, stance_std, stance_median in rows:
+        item = _as_dict(topic)
+        item.update({
+            "citation_count": citation_count or 0,
+            "people_count": people_count or 0,
+            "stance_average": float(stance_average) if stance_average is not None else None,
+            "stance_std": float(stance_std) if stance_std is not None else None,
+            "stance_median": float(stance_median) if stance_median is not None else None,
+        })
+        items.append(item)
+    return {"items": items, "total": total, "offset": offset, "limit": limit}
+
+
 @app.get("/topics/{topic_uuid}", response_model=None, tags=["Topics"], summary="Get a topic")
 def get_topic(topic_uuid: UUID) -> dict[str, Any]:
     return _get(DimTopic, topic_uuid)
@@ -788,8 +947,10 @@ def delete_topic(topic_uuid: UUID) -> None:
 
 
 @app.post("/topics/bulk", status_code=201, response_model=None, tags=["Topics - Bulk"], summary="Create topics in bulk")
-def create_topics_bulk(payload: list[TopicPayload]) -> list[dict[str, Any]]:
+def create_topics_bulk(payload: list[TopicPayload], response: Response) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
+    created_new = 0
+    retrieved_from_db = 0
     try:
         with get_session() as session:
             for item in payload:
@@ -806,7 +967,9 @@ def create_topics_bulk(payload: list[TopicPayload]) -> list[dict[str, Any]]:
                     )
                     session.add(existing)
                     session.flush()
+                    created_new += 1
                 else:
+                    retrieved_from_db += 1
                     values = _with_generated_vector(
                         item.model_dump(exclude_none=True),
                         "topic_description",
@@ -816,6 +979,12 @@ def create_topics_bulk(payload: list[TopicPayload]) -> list[dict[str, Any]]:
                         if field != "topic_uuid":
                             setattr(existing, field, value)
                 results.append(_as_dict(existing))
+        _set_bulk_stats(response, created_new, retrieved_from_db)
+        logger.info(
+            "db_write operation=bulk_upsert model=DimTopic created_new=%d retrieved_from_db=%d",
+            created_new,
+            retrieved_from_db,
+        )
         return results
     except IntegrityError as exc:
         logger.exception("Failed to create topics in bulk")
@@ -861,6 +1030,75 @@ def list_attitudes(limit: int = Query(50, ge=1, le=500)) -> list[dict[str, Any]]
     return _list(FctAttitude, limit)
 
 
+@app.get("/attitudes/browse", response_model=None, tags=["Attitudes"], summary="Browse attitudes with related entities")
+def browse_attitudes(
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    stance: str | None = Query(default=None, min_length=1),
+    status: str | None = Query(default=None, min_length=1),
+    person_uuid: UUID | None = None,
+    topic_uuid: UUID | None = None,
+    person_query: str | None = Query(default=None, min_length=1),
+    topic_query: str | None = Query(default=None, min_length=1),
+    sort_by: str = Query("created_at"),
+    sort_dir: str = Query("desc"),
+) -> dict[str, Any]:
+    with get_session() as session:
+        statement = (
+            select(FctAttitude, DimTopic, DimCitation, DimPerson)
+            .join(DimTopic, FctAttitude.topic_uuid == DimTopic.topic_uuid)
+            .join(DimCitation, FctAttitude.citation_uuid == DimCitation.citation_uuid)
+            .outerjoin(DimPerson, DimCitation.person_uuid == DimPerson.person_uuid)
+        )
+        count_statement = select(func.count()).select_from(FctAttitude).join(DimCitation, FctAttitude.citation_uuid == DimCitation.citation_uuid).join(DimTopic, FctAttitude.topic_uuid == DimTopic.topic_uuid).outerjoin(DimPerson, DimCitation.person_uuid == DimPerson.person_uuid)
+        if stance:
+            statement = statement.where(FctAttitude.stance.ilike(f"%{stance}%"))
+            count_statement = count_statement.where(FctAttitude.stance.ilike(f"%{stance}%"))
+        if status:
+            statement = statement.where(FctAttitude.status == status)
+            count_statement = count_statement.where(FctAttitude.status == status)
+        if person_uuid:
+            statement = statement.where(DimCitation.person_uuid == person_uuid)
+            count_statement = count_statement.where(DimCitation.person_uuid == person_uuid)
+        if topic_uuid:
+            statement = statement.where(FctAttitude.topic_uuid == topic_uuid)
+            count_statement = count_statement.where(FctAttitude.topic_uuid == topic_uuid)
+        if person_query:
+            statement = statement.where(DimPerson.name.ilike(f"%{person_query}%"))
+            count_statement = count_statement.where(DimPerson.name.ilike(f"%{person_query}%"))
+        if topic_query:
+            statement = statement.where(DimTopic.topic_name.ilike(f"%{topic_query}%"))
+            count_statement = count_statement.where(DimTopic.topic_name.ilike(f"%{topic_query}%"))
+        total = session.scalar(count_statement) or 0
+        sort_column = {"created_at": FctAttitude.created_at, "stance": FctAttitude.stance, "relevancy_score": FctAttitude.relevancy_score}.get(sort_by, FctAttitude.created_at)
+        rows = session.execute(statement.order_by(sort_column.asc() if sort_dir == "asc" else sort_column.desc()).offset(offset).limit(limit)).all()
+        stance_rows = session.execute(
+            select(FctAttitude.stance, func.count()).select_from(FctAttitude)
+            .join(DimCitation, FctAttitude.citation_uuid == DimCitation.citation_uuid)
+            .where(*(condition for condition in (
+                FctAttitude.stance.ilike(f"%{stance}%") if stance else None,
+                FctAttitude.status == status if status else None,
+                DimCitation.person_uuid == person_uuid if person_uuid else None,
+                FctAttitude.topic_uuid == topic_uuid if topic_uuid else None,
+            ) if condition))
+            .group_by(FctAttitude.stance)
+        ).all()
+    items = []
+    for attitude, topic, citation, person in rows:
+        items.append({
+            **_as_dict(attitude),
+            "topic_name": topic.topic_name,
+            "topic_description": topic.topic_description,
+            "citation_exact_quote": citation.exact_quote,
+            "citation_summarized_quote": citation.summarized_quote,
+            "citation_type": citation.citation_type,
+            "origin_article_id": citation.origin_article_id,
+            "person_uuid": citation.person_uuid,
+            "person_name": person.name if person else None,
+        })
+    return {"items": items, "total": total, "offset": offset, "limit": limit, "stance_counts": {stance or "UNKNOWN": count for stance, count in stance_rows}}
+
+
 @app.get("/attitudes/{topic_uuid}/{citation_uuid}", response_model=None, tags=["Attitudes"], summary="Get an attitude")
 def get_attitude(topic_uuid: UUID, citation_uuid: UUID) -> dict[str, Any]:
     return _get(FctAttitude, (topic_uuid, citation_uuid))
@@ -882,8 +1120,10 @@ def delete_attitude(topic_uuid: UUID, citation_uuid: UUID) -> None:
 
 
 @app.post("/attitudes/bulk", status_code=201, response_model=None, tags=["Attitudes - Bulk"], summary="Create attitudes in bulk")
-def create_attitudes_bulk(payload: list[AttitudePayload]) -> list[dict[str, Any]]:
+def create_attitudes_bulk(payload: list[AttitudePayload], response: Response) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
+    created_new = 0
+    retrieved_from_db = 0
     try:
         with get_session() as session:
             payload_by_key = {
@@ -897,12 +1137,20 @@ def create_attitudes_bulk(payload: list[AttitudePayload]) -> list[dict[str, Any]
                 if item is None:
                     item = FctAttitude(**values)
                     session.add(item)
+                    created_new += 1
                 else:
+                    retrieved_from_db += 1
                     for field, value in values.items():
                         if field not in {"topic_uuid", "citation_uuid"}:
                             setattr(item, field, value)
                 session.flush()
                 results.append(_as_dict(item))
+        _set_bulk_stats(response, created_new, retrieved_from_db)
+        logger.info(
+            "db_write operation=bulk_upsert model=FctAttitude created_new=%d retrieved_from_db=%d",
+            created_new,
+            retrieved_from_db,
+        )
         return results
     except IntegrityError as exc:
         logger.exception("Failed to upsert attitudes in bulk")
@@ -927,7 +1175,7 @@ def update_attitudes_bulk(payload: list[AttitudeBulkUpdate]) -> list[dict[str, A
 
 
 @app.post("/inconsistencies", status_code=201, response_model=None, tags=["Inconsistencies"], summary="Create an inconsistency assessment")
-def create_inconsistency(payload: InconsistencyPayload) -> dict[str, Any]:
+def create_inconsistency(payload: InconsistencyPayload, response: Response) -> dict[str, Any]:
     values = payload.model_dump(exclude_none=True)
     with get_session() as session:
         existing = session.scalar(
@@ -946,16 +1194,94 @@ def create_inconsistency(payload: InconsistencyPayload) -> dict[str, Any]:
             )
         )
         if existing is not None:
+            _set_bulk_stats(response, 0, 1)
+            logger.info(
+                "db_write operation=upsert model=FctInconsistency created_new=0 retrieved_from_db=1"
+            )
             return _as_dict(existing)
         item = FctInconsistency(**values)
         session.add(item)
         session.flush()
+        _set_bulk_stats(response, 1, 0)
+        logger.info(
+            "db_write operation=upsert model=FctInconsistency created_new=1 retrieved_from_db=0"
+        )
         return _as_dict(item)
 
 
 @app.get("/inconsistencies", response_model=None, tags=["Inconsistencies"], summary="List inconsistency assessments")
 def list_inconsistencies(limit: int = Query(50, ge=1, le=500)) -> list[dict[str, Any]]:
     return _list(FctInconsistency, limit)
+
+
+@app.get("/inconsistencies/browse", response_model=None, tags=["Inconsistencies"], summary="Browse inconsistencies with evidence")
+def browse_inconsistencies(
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    classification: str | None = Query(default=None, min_length=1),
+    person_uuid: UUID | None = None,
+    topic_uuid: UUID | None = None,
+    person_query: str | None = Query(default=None, min_length=1),
+    topic_query: str | None = Query(default=None, min_length=1),
+    sort_by: str = Query("detected_at"),
+    sort_dir: str = Query("desc"),
+) -> dict[str, Any]:
+    citation_a = aliased(DimCitation)
+    citation_b = aliased(DimCitation)
+    with get_session() as session:
+        statement = (
+            select(FctInconsistency, DimPerson, DimTopic, citation_a, citation_b)
+            .join(DimPerson, FctInconsistency.person_uuid == DimPerson.person_uuid)
+            .join(DimTopic, FctInconsistency.topic_uuid == DimTopic.topic_uuid)
+            .join(citation_a, FctInconsistency.citation_a_uuid == citation_a.citation_uuid)
+            .join(citation_b, FctInconsistency.citation_b_uuid == citation_b.citation_uuid)
+        )
+        count_statement = select(func.count()).select_from(FctInconsistency).join(DimPerson, FctInconsistency.person_uuid == DimPerson.person_uuid).join(DimTopic, FctInconsistency.topic_uuid == DimTopic.topic_uuid)
+        if classification:
+            statement = statement.where(FctInconsistency.classification == classification)
+            count_statement = count_statement.where(FctInconsistency.classification == classification)
+        if person_uuid:
+            statement = statement.where(FctInconsistency.person_uuid == person_uuid)
+            count_statement = count_statement.where(FctInconsistency.person_uuid == person_uuid)
+        if topic_uuid:
+            statement = statement.where(FctInconsistency.topic_uuid == topic_uuid)
+            count_statement = count_statement.where(FctInconsistency.topic_uuid == topic_uuid)
+        if person_query:
+            statement = statement.where(DimPerson.name.ilike(f"%{person_query}%"))
+            count_statement = count_statement.where(DimPerson.name.ilike(f"%{person_query}%"))
+        if topic_query:
+            statement = statement.where(DimTopic.topic_name.ilike(f"%{topic_query}%"))
+            count_statement = count_statement.where(DimTopic.topic_name.ilike(f"%{topic_query}%"))
+        total = session.scalar(count_statement) or 0
+        sort_column = {"detected_at": FctInconsistency.detected_at, "classification": FctInconsistency.classification, "severity": FctInconsistency.severity}.get(sort_by, FctInconsistency.detected_at)
+        rows = session.execute(statement.order_by(sort_column.asc() if sort_dir == "asc" else sort_column.desc()).offset(offset).limit(limit)).all()
+    items = []
+    for inconsistency, person, topic, citation_left, citation_right in rows:
+        items.append({
+            **_as_dict(inconsistency),
+            "person_name": person.name,
+            "topic_name": topic.topic_name,
+            "citation_a_exact_quote": citation_left.exact_quote,
+            "citation_b_exact_quote": citation_right.exact_quote,
+            "citation_a_origin_article_id": citation_left.origin_article_id,
+            "citation_b_origin_article_id": citation_right.origin_article_id,
+        })
+    return {"items": items, "total": total, "offset": offset, "limit": limit}
+
+
+@app.get("/inconsistencies/{inconsistency_uuid}", response_model=None, tags=["Inconsistencies"], summary="Get inconsistency assessment")
+def get_inconsistency(inconsistency_uuid: UUID) -> dict[str, Any]:
+    record = _get(FctInconsistency, inconsistency_uuid)
+    with get_session() as session:
+        person = session.get(DimPerson, record["person_uuid"])
+        topic = session.get(DimTopic, record["topic_uuid"])
+        citation_a = session.get(DimCitation, record["citation_a_uuid"])
+        citation_b = session.get(DimCitation, record["citation_b_uuid"])
+    record["person"] = _as_dict(person) if person else None
+    record["topic"] = _as_dict(topic) if topic else None
+    record["citation_a"] = _as_dict(citation_a) if citation_a else None
+    record["citation_b"] = _as_dict(citation_b) if citation_b else None
+    return record
 
 
 def _embed_texts(texts: list[str]) -> list[list[float]]:
@@ -1050,7 +1376,7 @@ def reembed_all_vectors() -> dict[str, int]:
         texts: list[str] = []
         targets: list[tuple[Any, str]] = []
         for person in people:
-            person.aliases = _normalize_aliases(person.aliases, person.affiliation)
+            person.aliases = _normalize_aliases(person.aliases)
             aliases = person.aliases
             alias_text = _person_embedding_text(aliases, person.affiliation)
             if alias_text:
@@ -1108,7 +1434,7 @@ def search_topics(
             select(DimTopic, distance, similarity)
             .where(DimTopic.topic_description_vector.is_not(None))
             .where(similarity >= min_similarity)
-            .order_by(DimTopic.topic_description_vector.cosine_distance(embedding))
+            .order_by(similarity.desc())
             .limit(limit)
         )
         return [
@@ -1166,7 +1492,7 @@ def search_citations_by_vector(
             .where(DimArticle.published_at.is_not(None))
             .where(DimArticle.published_at >= cutoff)
             .where(DimArticle.published_at <= effective_before)
-            .order_by(DimCitation.summarized_quote_vector.cosine_distance(embedding))
+            .order_by(similarity.desc())
         )
         if person_uuid is not None:
             statement = statement.where(DimCitation.person_uuid == person_uuid)

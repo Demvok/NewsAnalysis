@@ -2,6 +2,7 @@ from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 from pydantic import BaseModel, Field, field_validator
 import json
 from enum import Enum
+from typing import Literal
 
 
 class ModelCompatibleChatPromptTemplate(ChatPromptTemplate):
@@ -24,7 +25,8 @@ CITATION_EXTRACTION_PROMPT = ModelCompatibleChatPromptTemplate.from_messages([
         Group citations by speaker. Preserve direct wording exactly; for paraphrases
         use the article's wording as exact_quote and classify them accordingly.
         Keep enough context to resolve attribution and meaning. Include aliases
-        exactly as used in the article.
+        exactly as used in the article. An alias is a name-like string that can
+        help identify the real-world entity, not a role, affiliation, or person type.
 
         Do not invent speakers, quotes, or unsupported details. A mere mention is
         not a citation unless the article attributes a position or statement to the
@@ -117,8 +119,8 @@ class CitationExtractionCitation(BaseModel):
 
 class ExtractedSpeaker(BaseModel):
     speaker_name: str = Field(..., description="The name of the speaker")
-    speaker_role: str = Field(..., description="The role or affiliation of the speaker if he represents an organization")
-    aliases: list[str] = Field(..., description="A list of aliases used for the speaker in the article")
+    speaker_role: str = Field(..., description="The speaker's affiliation or role, stored separately from identity aliases")
+    aliases: list[str] = Field(..., description="Name-like strings referring to the same real-world entity; never roles, affiliations, or type labels")
     speaker_kind: str = Field(
         default="UNRESOLVED",
         description=(
@@ -212,7 +214,9 @@ COMBINED_CITATION_ANALYSIS_PROMPT = ModelCompatibleChatPromptTemplate.from_messa
         stance < 0 means the speaker opposes it, and stance = 0 means neutral or
         indeterminate. Do not reverse polarity because the quote uses a negative
         verb; define the proposition first, then judge for/against it.
-        relevancy_score is 0..1. stance_detected is false and stance is null when
+        relevancy_score and stance_confidence are 0..1. stance_summary must briefly
+        explain the speaker's position toward the proposition using only the
+        citation evidence. stance_detected is false and stance is null when
         evidence is inadequate. Return one result for every input citation.
         """
     ),
@@ -266,6 +270,7 @@ TOPIC_EXTRACTION_PROMPT = ModelCompatibleChatPromptTemplate.from_messages([
 class CitationTopic(BaseModel):
     topic_name: str = Field(..., description="A concise, canonical name of the topic or issue discussed in the citation")
     topic_description: str = Field(..., description="What it means for the speaker to be in favor of or against this topic, in a few sentences")
+    general_topic_field: str = Field(..., description="A stable broad subject area such as politics, economy, energy, health, or technology")
     relevancy_score: float = Field(..., ge=0, le=1, description="How directly the citation expresses a position about this topic, from 0 to 1")
     stance_detected: bool = Field(..., description="Whether the citation expresses an identifiable stance toward the topic")
 
@@ -274,8 +279,8 @@ class AnalysedCitation(CitationExtractionCitation):
 
 class TopicExtractionOutput(BaseModel):
     speaker_name: str = Field(..., description="The name of the speaker")
-    speaker_role: str = Field(..., description="The role or affiliation of the speaker if he represents an organization")
-    aliases: list[str] = Field(..., description="A list of aliases used for the speaker in the article")
+    speaker_role: str = Field(..., description="The speaker's affiliation or role, separate from identity aliases")
+    aliases: list[str] = Field(..., description="Name-like strings referring to this real-world entity; never roles or type labels")
     analysed_citations: list[AnalysedCitation] = Field(..., description="Citations attributed to the speaker with their topic evaluations")
 
 CITATION_EVALUATION_PROMPT = ModelCompatibleChatPromptTemplate.from_messages([
@@ -311,6 +316,16 @@ class CitationEvaluatedTopic(CitationTopic):
         -10 means strongly against, 0 means neutral or no identifiable stance,
         and 10 means strongly in favor."""
     ))
+    stance_confidence: float | None = Field(
+        None,
+        ge=0,
+        le=1,
+        description="Confidence in the assigned stance, from 0 to 1.",
+    )
+    stance_summary: str | None = Field(
+        None,
+        description="A concise explanation of the speaker's stance based on the citation.",
+    )
 
 class EvaluatedCitation(AnalysedCitation):
     evaluated_topics: list[CitationEvaluatedTopic] = Field(..., description="A list of topics mentioned in the quote, each with their relevancy score and stance")
@@ -335,10 +350,22 @@ class CombinedCitationAnalysisOutput(BaseModel):
 
 
 class InconsistencyComparison(BaseModel):
-    classification: str = Field(description="CONSISTENT, POSITION_CHANGE, CONTRADICTION, or INSUFFICIENT_EVIDENCE")
+    classification: Literal[
+        "CONSISTENT",
+        "POSITION_CHANGE",
+        "CONTRADICTION",
+        "INSUFFICIENT_EVIDENCE",
+    ] = Field(description="CONSISTENT, POSITION_CHANGE, CONTRADICTION, or INSUFFICIENT_EVIDENCE")
     severity: str | None = None
     confidence: float = Field(ge=0, le=1)
     comment: str
+
+    @field_validator("classification", mode="before")
+    @classmethod
+    def normalize_classification(cls, value: object) -> object:
+        if isinstance(value, str):
+            return value.strip().upper().replace("-", "_").replace(" ", "_")
+        return value
 
     @field_validator("confidence", mode="before")
     @classmethod

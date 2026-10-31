@@ -11,9 +11,10 @@ from uuid import UUID, uuid4
 
 from .clients import ServiceClient
 from .database import ManagementDatabase
-from .models import JobCreateRequest, JobStatus, StageStatus, TaskCreateRequest, TaskStatus
+from .logger import get_logger
+from .models import ExecutionMode, JobCreateRequest, JobStatus, StageStatus, TaskCreateRequest, TaskStatus
 
-logger = logging.getLogger("newsanalysis.management.orchestration")
+logger = get_logger("orchestration")
 
 
 def timestamp() -> str:
@@ -45,7 +46,11 @@ class JobCoordinator:
         request: JobCreateRequest,
         idempotency_key: str | None,
         initial_status: JobStatus = JobStatus.PENDING,
+        schedule: bool = True,
+        metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        if request.execution_mode == ExecutionMode.BUNDLED and schedule:
+            raise ValueError("bundled execution mode is only supported for tasks")
         with self.database.lock, self.database.connection() as connection:
             if idempotency_key:
                 existing = connection.execute(
@@ -69,7 +74,7 @@ class JobCoordinator:
                     job_id, "article_analysis", str(request.article_id),
                     initial_status.value, created, correlation_id, trace_id,
                     idempotency_key, json.dumps(request.model_dump(mode="json")),
-                    json.dumps({"source": "management-api"}),
+                    json.dumps({"source": "management-api", **(metadata or {})}),
                 ]
                 if "requested_at" in columns:
                     insert_columns.append("requested_at")
@@ -90,7 +95,8 @@ class JobCoordinator:
             row = connection.execute("SELECT * FROM jobs WHERE job_id=?", (job_id,)).fetchone()
         assert row is not None
         job = self.database.decode(row)
-        self.executor.submit(self.run, job_id)
+        if schedule:
+            self.executor.submit(self.run, job_id)
         return job
 
     def run(self, job_id: str) -> None:
@@ -105,6 +111,7 @@ class JobCoordinator:
         headers = {"x-job-id": job_id, "x-correlation-id": row["correlation_id"], "x-request-id": row["trace_id"]}
         current_stage: str | None = None
         try:
+            logger.info("job_started job_id=%s article_id=%s mode=%s", job_id, row["article_id"], json.loads(row["config_json"]).get("execution_mode", ExecutionMode.PER_ARTICLE.value))
             current_stage = "article_retrieval"
             self._stage(job_id, "article_retrieval", StageStatus.RUNNING)
             article = self.client.article(row["article_id"], headers)
@@ -112,26 +119,194 @@ class JobCoordinator:
             if self._cancel_requested(job_id):
                 self._cancel_after_stage(job_id)
                 return
-            current_stage = "analysis"
-            self._stage(job_id, "analysis", StageStatus.RUNNING)
-            result = self.client.analyze({
-                "article_id": row["article_id"],
-                "article_title": article.get("article_title") or "",
-                "article_content": article.get("article_content") or "",
-                "published_at": article.get("published_at"),
-                "inconsistency_window_days": json.loads(row["config_json"])["inconsistency_window_days"],
-            }, headers)
-            self._stage(job_id, "analysis", StageStatus.COMPLETED, {
-                "speaker_count": len(result.get("speakers", [])),
-                "citation_count": sum(len(item.get("citations", [])) for item in result.get("speakers", [])),
+            if not hasattr(self.client, "analysis_stage"):
+                current_stage = "analysis"
+                self._stage(job_id, current_stage, StageStatus.RUNNING)
+                result = self.client.analyze({
+                    "article_id": row["article_id"],
+                    "article_title": article.get("article_title") or "",
+                    "article_content": article.get("article_content") or "",
+                    "published_at": article.get("published_at"),
+                    "inconsistency_window_days": json.loads(row["config_json"])["inconsistency_window_days"],
+                }, headers)
+                self._stage(job_id, current_stage, StageStatus.COMPLETED, {
+                    "speaker_count": len(result.get("speakers", [])),
+                    "citation_count": sum(len(item.get("citations", [])) for item in result.get("speakers", [])),
+                })
+                self._finish(job_id, JobStatus.COMPLETED)
+                logger.info("job_completed job_id=%s", job_id)
+                return
+            config = json.loads(row["config_json"])
+            extraction_payload = {
+                "article": {
+                    "article_id": row["article_id"],
+                    "article_title": article.get("article_title") or "",
+                    "article_content": article.get("article_content") or "",
+                    "published_at": article.get("published_at"),
+                    "inconsistency_window_days": config["inconsistency_window_days"],
+                }
+            }
+            current_stage = "citation_extraction"
+            self._stage(job_id, current_stage, StageStatus.RUNNING)
+            extraction_response = self.client.analysis_stage(
+                "citation_extraction", extraction_payload, headers
+            )
+            extraction = extraction_response.get("result")
+            if not isinstance(extraction, dict):
+                raise ValueError("citation extraction response did not contain a result")
+            self._stage(job_id, current_stage, StageStatus.COMPLETED, {
+                "speaker_count": len(extraction.get("speakers", [])),
+                "citation_count": sum(len(item.get("citations", [])) for item in extraction.get("speakers", [])),
             })
+            if self._cancel_requested(job_id):
+                self._cancel_after_stage(job_id)
+                return
+
+            current_stage = "extraction_persistence"
+            self._stage(job_id, current_stage, StageStatus.RUNNING)
+            persistence = self.client.analysis_stage(
+                current_stage,
+                {"article_id": row["article_id"], "extraction": extraction},
+                headers,
+            )
+            self._stage(job_id, current_stage, StageStatus.COMPLETED, persistence.get("stats") or {})
+            if self._cancel_requested(job_id):
+                self._cancel_after_stage(job_id)
+                return
+
+            current_stage = "citation_analysis"
+            self._stage(job_id, current_stage, StageStatus.RUNNING)
+            analysis = self.client.analysis_stage(
+                current_stage,
+                {"analysis": {
+                    "article_id": row["article_id"],
+                    "extraction": extraction,
+                    "published_at": article.get("published_at"),
+                    "inconsistency_window_days": config["inconsistency_window_days"],
+                }},
+                headers,
+            )
+            self._stage(job_id, current_stage, StageStatus.COMPLETED, analysis.get("stats") or {})
             self._finish(job_id, JobStatus.COMPLETED)
+            logger.info("job_completed job_id=%s", job_id)
         except Exception as exc:
             logger.exception("job_failed job_id=%s error_type=%s", job_id, type(exc).__name__)
             if current_stage:
                 summary = safe_error_summary(exc)
                 self._stage(job_id, current_stage, StageStatus.FAILED, error_code=type(exc).__name__, error_summary=summary)
                 self._finish(job_id, JobStatus.FAILED, type(exc).__name__, summary)
+                logger.error("job_failed job_id=%s stage=%s error_type=%s", job_id, current_stage, type(exc).__name__)
+
+    def run_bundled(self, task_id: str, job_ids: list[str]) -> None:
+        """Run independently persisted analysis stages in reserve batch mode.
+
+        The analysis service owns the analytical implementation; management only
+        coordinates its stage APIs and records each article's status.
+        """
+        logger.info("bundled_task_started task_id=%s job_count=%s", task_id, len(job_ids))
+        rows: dict[str, Any] = {}
+        try:
+            with self.database.lock, self.database.connection() as connection:
+                for job_id in job_ids:
+                    row = connection.execute("SELECT * FROM jobs WHERE job_id=?", (job_id,)).fetchone()
+                    if row is None:
+                        raise KeyError(job_id)
+                    rows[job_id] = row
+                    connection.execute(
+                        "UPDATE jobs SET status=?, started_at=? WHERE job_id=? AND status IN (?,?)",
+                        (JobStatus.RUNNING.value, timestamp(), job_id,
+                         JobStatus.PENDING.value, JobStatus.RETRYING.value),
+                    )
+
+            articles: dict[str, dict[str, Any]] = {}
+            for job_id, row in rows.items():
+                if self._cancel_requested(job_id):
+                    self._finish(job_id, JobStatus.CANCELLED, "CANCEL_REQUESTED", "Cancellation requested before bundled execution")
+                    continue
+                self._stage(job_id, "article_retrieval", StageStatus.RUNNING)
+                articles[job_id] = self.client.article(
+                    row["article_id"],
+                    {"x-job-id": job_id, "x-correlation-id": row["correlation_id"], "x-request-id": row["trace_id"]},
+                )
+                self._stage(job_id, "article_retrieval", StageStatus.COMPLETED, {"article_id": row["article_id"]})
+
+            active = [job_id for job_id in job_ids if job_id in articles and not self._cancel_requested(job_id)]
+            extraction_payload = [
+                {"article": {
+                    "article_id": rows[job_id]["article_id"],
+                    "article_title": articles[job_id].get("article_title") or "",
+                    "article_content": articles[job_id].get("article_content") or "",
+                    "published_at": articles[job_id].get("published_at"),
+                    "inconsistency_window_days": json.loads(rows[job_id]["config_json"])["inconsistency_window_days"],
+                }}
+                for job_id in active
+            ]
+            self._run_bundled_stage(active, "citation_extraction")
+            extraction_response = self.client.analysis_stage_bulk(
+                "citation_extraction", extraction_payload,
+                {"x-task-id": task_id, "x-request-id": str(uuid4())},
+            )
+            extractions = extraction_response.get("results", [])
+            if len(extractions) != len(active):
+                raise ValueError("bundled extraction response count does not match request")
+
+            persistence_payload = []
+            for job_id, item in zip(active, extractions):
+                extraction = item.get("result")
+                if not extraction:
+                    raise ValueError(f"bundled extraction returned no result for job {job_id}")
+                persistence_payload.append({
+                    "article_id": rows[job_id]["article_id"],
+                    "extraction": extraction,
+                })
+            self._complete_bundled_stage(active, "citation_extraction", {"item_count": len(active)})
+            self._run_bundled_stage(active, "extraction_persistence")
+            self.client.analysis_stage_bulk(
+                "extraction_persistence", persistence_payload,
+                {"x-task-id": task_id, "x-request-id": str(uuid4())},
+            )
+            self._complete_bundled_stage(active, "extraction_persistence", {"item_count": len(active)})
+
+            analysis_payload = []
+            for job_id, item in zip(active, extractions):
+                config = json.loads(rows[job_id]["config_json"])
+                analysis_payload.append({
+                    "analysis": {
+                        "article_id": rows[job_id]["article_id"],
+                        "extraction": item["result"],
+                        "published_at": articles[job_id].get("published_at"),
+                        "inconsistency_window_days": config["inconsistency_window_days"],
+                    }
+                })
+            self._run_bundled_stage(active, "citation_analysis")
+            result = self.client.analysis_stage_bulk(
+                "citation_analysis", analysis_payload,
+                {"x-task-id": task_id, "x-request-id": str(uuid4())},
+            )
+            self._complete_bundled_stage(active, "citation_analysis", {
+                "item_count": len(active),
+                "result_count": len(result.get("results", [])),
+            })
+            for job_id in active:
+                self._finish(job_id, JobStatus.COMPLETED)
+            logger.info("bundled_task_completed task_id=%s job_count=%s", task_id, len(active))
+        except Exception as exc:
+            summary = safe_error_summary(exc)
+            logger.exception("bundled_task_failed task_id=%s error_type=%s", task_id, type(exc).__name__)
+            for job_id in job_ids:
+                current = self.get(job_id)
+                if current["status"] in {JobStatus.RUNNING.value, JobStatus.PENDING.value, JobStatus.RETRYING.value}:
+                    self._stage(job_id, current.get("current_stage") or "bundled_analysis", StageStatus.FAILED,
+                                error_code=type(exc).__name__, error_summary=summary)
+                    self._finish(job_id, JobStatus.FAILED, type(exc).__name__, summary)
+
+    def _run_bundled_stage(self, job_ids: list[str], stage: str) -> None:
+        for job_id in job_ids:
+            self._stage(job_id, stage, StageStatus.RUNNING)
+
+    def _complete_bundled_stage(self, job_ids: list[str], stage: str, summary: dict[str, Any]) -> None:
+        for job_id in job_ids:
+            self._stage(job_id, stage, StageStatus.COMPLETED, summary)
 
     def cancel(self, job_id: str) -> dict[str, Any]:
         with self.database.lock, self.database.connection() as connection:
@@ -196,18 +371,21 @@ class JobCoordinator:
             raise ValueError("All selected articles already have active or completed jobs")
         with self.database.lock, self.database.connection() as connection:
             connection.execute(
-                """INSERT INTO tasks(task_id,name,status,article_ids_json,created_at)
-                   VALUES(?,?,?,?,?)""",
+                """INSERT INTO tasks(task_id,name,status,article_ids_json,created_at,execution_mode)
+                   VALUES(?,?,?,?,?,?)""",
                 (task_id, request.name, TaskStatus.PENDING.value,
-                 json.dumps(article_ids), created),
+                 json.dumps(article_ids), created, request.execution_mode.value),
             )
         for article_id in article_ids:
             job = self.create(
                 JobCreateRequest(
                     article_id=article_id,
                     inconsistency_window_days=request.inconsistency_window_days,
+                    execution_mode=request.execution_mode,
                 ),
                 f"task:{task_id}:article:{article_id}",
+                schedule=request.execution_mode == ExecutionMode.PER_ARTICLE,
+                metadata={"source": "management-task", "task_id": task_id, "execution_mode": request.execution_mode.value},
             )
             with self.database.lock, self.database.connection() as connection:
                 connection.execute(
@@ -216,8 +394,16 @@ class JobCoordinator:
                 )
                 connection.execute(
                     "UPDATE jobs SET metadata_json=? WHERE job_id=?",
-                    (json.dumps({"source": "management-task", "task_id": task_id}), job["job_id"]),
+                    (json.dumps({"source": "management-task", "task_id": task_id, "execution_mode": request.execution_mode.value}), job["job_id"]),
                 )
+        if request.execution_mode == ExecutionMode.BUNDLED:
+            with self.database.connection() as connection:
+                job_ids = [
+                    row["job_id"] for row in connection.execute(
+                        "SELECT job_id FROM task_jobs WHERE task_id=?", (task_id,)
+                    ).fetchall()
+                ]
+            self.executor.submit(self.run_bundled, task_id, job_ids)
         with self.database.lock, self.database.connection() as connection:
             connection.execute(
                 "UPDATE tasks SET status=?, started_at=? WHERE task_id=?",
@@ -255,7 +441,7 @@ class JobCoordinator:
             if statuses and not waiting and not running:
                 task_status = (
                     TaskStatus.CANCELLED.value
-                    if all(status == JobStatus.CANCELLED.value for status in statuses)
+                    if any(status == JobStatus.CANCELLED.value for status in statuses)
                     else TaskStatus.FAILED.value if failed else TaskStatus.COMPLETED.value
                 )
                 connection.execute(
@@ -270,6 +456,7 @@ class JobCoordinator:
                 "total_articles": len(jobs), "completed_articles": completed,
                 "failed_articles": failed, "running_articles": running,
                 "waiting_articles": waiting, "citations": citations, "speakers": speakers,
+                "execution_mode": task["execution_mode"], "citations": citations, "speakers": speakers,
                 "topics": topics, "attitudes": attitudes,
                 "created_at": task["created_at"], "started_at": task["started_at"],
                 "completed_at": task["completed_at"],
@@ -290,6 +477,36 @@ class JobCoordinator:
             except KeyError:
                 continue
         return self.task(task_id)
+
+    def delete_task(self, task_id: str) -> None:
+        task = self.task(task_id)
+        active = {"PENDING", "RUNNING", "RETRYING"}
+        if task["status"] in active:
+            raise ValueError("Only completed, failed, or cancelled tasks can be deleted")
+        with self.database.lock, self.database.connection() as connection:
+            job_ids = [
+                row["job_id"]
+                for row in connection.execute(
+                    "SELECT job_id FROM task_jobs WHERE task_id=?", (task_id,)
+                ).fetchall()
+            ]
+            connection.execute(
+                "DELETE FROM telemetry_events WHERE job_id IN (SELECT job_id FROM task_jobs WHERE task_id=?)",
+                (task_id,),
+            )
+            connection.execute(
+                "DELETE FROM events WHERE job_id IN (SELECT job_id FROM task_jobs WHERE task_id=?)",
+                (task_id,),
+            )
+            connection.execute(
+                "DELETE FROM job_stages WHERE job_id IN (SELECT job_id FROM task_jobs WHERE task_id=?)",
+                (task_id,),
+            )
+            connection.execute("DELETE FROM task_jobs WHERE task_id=?", (task_id,))
+            connection.execute("DELETE FROM tasks WHERE task_id=?", (task_id,))
+            for job_id in job_ids:
+                connection.execute("DELETE FROM experiment_jobs WHERE job_id=?", (job_id,))
+                connection.execute("DELETE FROM jobs WHERE job_id=?", (job_id,))
 
     def stages(self, job_id: str) -> list[dict[str, Any]]:
         self.get(job_id)

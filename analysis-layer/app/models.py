@@ -62,19 +62,6 @@ class SpeakerKind(str, Enum):
     ANONYMOUS_SOURCE = "ANONYMOUS_SOURCE"
     UNRESOLVED = "UNRESOLVED"
 
-    @classmethod
-    def _missing_(cls, value: object):
-        legacy_values = {
-            "canonical_person": cls.PERSON,
-            "organization_or_government": cls.ORGANIZATION,
-            "collective_or_group": cls.GROUP,
-            "vague_source": cls.ANONYMOUS_SOURCE,
-            "unresolved_reference": cls.UNRESOLVED,
-        }
-        if isinstance(value, str):
-            return legacy_values.get(value.casefold())
-        return None
-
 
 class CitationCandidate(BaseModel):
     exact_quote: str = Field(min_length=1)
@@ -139,10 +126,49 @@ class CitationAnalysisRequest(BaseModel):
         return parse_datetime(value)
 
 
+class StageRequest(BaseModel):
+    """Input shared by independently executable analysis stages."""
+
+    stage_status: str = Field(default="READY", min_length=1)
+
+
+class ExtractionStageRequest(StageRequest):
+    article: AnalysisRequest
+
+
+class ExtractionPersistenceRequest(StageRequest):
+    article_id: UUID
+    extraction: CitationExtractionResult
+
+
+class CitationAnalysisStageRequest(StageRequest):
+    analysis: CitationAnalysisRequest
+
+
+class StageStats(BaseModel):
+    created_new: int = Field(default=0, ge=0)
+    retrieved_from_db: int = Field(default=0, ge=0)
+
+
+class StageResponse(BaseModel):
+    stage: str
+    status: str
+    result: Any = None
+    stats: StageStats = Field(default_factory=StageStats)
+
+
+class BulkStageResponse(BaseModel):
+    stage: str
+    status: str
+    results: list[StageResponse]
+    stats: StageStats = Field(default_factory=StageStats)
+
+
 class TopicAttitude(BaseModel):
     topic_name: str
     topic_description: str | None = None
-    stance: str
+    general_topic_field: str = "UNCLASSIFIED"
+    stance: str | None = None
     relevancy_score: float = Field(ge=0, le=1)
-    stance_summary: str
-    stance_confidence: float = Field(ge=0, le=1)
+    stance_summary: str | None = None
+    stance_confidence: float | None = Field(default=None, ge=0, le=1)

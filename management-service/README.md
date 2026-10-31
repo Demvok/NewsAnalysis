@@ -18,6 +18,9 @@ The Phase 1 API includes:
 - `GET /api/articles` plus `POST /api/tasks`, `POST /api/tasks/fresh`, and
   `GET /api/tasks/{id}` for multi-article processing tasks with aggregate
   citation, speaker, topic, and attitude counters.
+- `GET /api/knowledge/summary` and `GET /api/knowledge/{articles|people|citations|topics|attitudes|inconsistencies}`
+  for management-side access to the persisted analytical model. Article and
+  citation records support the optional `query` parameter.
 - `POST /api/tasks/{id}/cancel` for cooperative cancellation of task jobs.
 - safe cancellation requests and retry for failed/cancelled jobs
 - `GET/PATCH /api/settings` for timeout settings
@@ -29,6 +32,11 @@ The Phase 1 API includes:
   `GET /api/metrics/jobs` for aggregate telemetry.
 - `GET /api/events/stream` for bounded Server-Sent Events delivery. Clients
   can resume using the `last_event_id` query parameter.
+- Management logs are written to both stdout and `LOG_DIR/management_service.log`.
+  `LOG_LEVEL`, `LOG_LEVEL_MANAGEMENT_SERVICE`, and module-specific
+  `LOG_LEVEL_MAIN`, `LOG_LEVEL_ORCHESTRATION`, and `LOG_LEVEL_CLIENTS` settings
+  control verbosity. HTTP method, path, status, duration, request ID, job ID,
+  stage, and upstream failures are logged without request contents.
 
 Job history is stored in the management-owned SQLite database at
 `MANAGEMENT_DATABASE_PATH`. The database is mounted by the `management_data`
@@ -81,7 +89,8 @@ counts, TTFT, and throughput can legitimately be unavailable.
 
 ## Phase 3 dashboard
 
-The React/Vite dashboard is available at `http://localhost:3000` when the
+The React/Vite dashboard is available at `http://localhost:3001` by default
+(override the host port with `DASHBOARD_PORT`) when the
 Compose stack is running. It uses the management API as its only source of
 operational data and includes:
 
@@ -93,12 +102,29 @@ operational data and includes:
 - service health and explicitly supported runtime configuration;
 - multi-article Tasks control with fresh-article discovery, selection, task
   cancellation, aggregate progress, and live telemetry refresh.
+- a Data Management view grouped separately from processing and operations:
+  paged/filterable article, citation, topic, people, and attitude browsers;
+  per-record editing; article citation links; citation person/article/attitude
+  context; and topic-linked people and articles.
+- testing-database controls for creating missing tables, dropping and
+  recreating the schema, and importing temporary articles through the storage
+  service. Recreate is confirmation-protected in the dashboard.
 
 The dashboard consumes `/api/events/stream` through Server-Sent Events and
 reconnects with the last received event ID. Client-side live data is bounded
 to the most recent 60 events, while historical tables are bounded API
 requests; the browser never loads unrestricted log history. The backend
 remains authoritative for job state, metrics, validation, and action safety.
+
+The management data API uses the following routes:
+
+- `GET /api/data/{resource}` with `page`, `page_size`, `query`, and `status`
+- `GET /api/data/{resource}/{id}` for enriched detail
+- `PUT` and `DELETE /api/data/{resource}/{id}` for supported edits
+- `POST /api/data/database/create`, `POST /api/data/database/recreate`, and
+  `POST /api/data/import-temp` for local testing workflows
+- `DELETE /api/tasks/{id}` for completed, failed, or cancelled task history;
+  active tasks must be cancelled and finished before deletion.
 
 ## Phase 4 experiments
 
@@ -144,6 +170,30 @@ curl http://localhost:9000/health
 ```
 
 The management database is stored in the `management_data` volume. Restarting
+
+## Execution modes
+
+The default `per_article` mode preserves the original behavior: each job
+retrieves and analyzes one article through the full pipeline. A task may
+explicitly request `execution_mode: "bundled"` to use the independent analysis
+stage endpoints. The coordinator then runs article retrieval, citation
+extraction, extraction persistence, and citation analysis as batch waves while
+retaining a stage row and status for every article job:
+
+```json
+{
+  "name": "Reserve bundled run",
+  "article_ids": ["..."],
+  "execution_mode": "bundled"
+}
+```
+
+Bundled mode is deliberately opt-in and remains a reserve method. The analysis
+service owns stage semantics and currently implements bulk endpoints
+sequentially; management does not duplicate analytical logic or claim
+parallelism that the upstream service does not provide. This keeps the primary
+pipeline unchanged while leaving stage-level scheduling and future upstream
+parallel execution observable. Restarting
 the management container preserves jobs, stages, telemetry, and experiments.
 The service deliberately marks interrupted active jobs as
 `MANAGEMENT_RESTART` rather than replaying them, because replaying a

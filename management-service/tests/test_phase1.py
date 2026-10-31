@@ -10,7 +10,7 @@ os.environ["MANAGEMENT_DATA_DIR"] = tempfile.mkdtemp()
 os.environ["MANAGEMENT_DATABASE_PATH"] = str(Path(os.environ["MANAGEMENT_DATA_DIR"]) / "management.db")
 
 from app.database import ManagementDatabase  # noqa: E402
-from app.models import JobCreateRequest, JobStatus  # noqa: E402
+from app.models import ExecutionMode, JobCreateRequest, JobStatus, TaskCreateRequest  # noqa: E402
 from app.orchestration import JobCoordinator  # noqa: E402
 
 
@@ -20,6 +20,16 @@ class FakeClient:
 
     def analyze(self, payload, headers):
         return {"speakers": [{"citations": []}]}
+
+    def analysis_stage_bulk(self, stage, payload, headers):
+        if stage == "citation_extraction":
+            result = {
+                "article_title": "Title",
+                "status": "COMPLETED",
+                "speakers": [],
+            }
+            return {"stage": stage, "status": "COMPLETED", "results": [{"result": result} for _ in payload]}
+        return {"stage": stage, "status": "COMPLETED", "results": [{} for _ in payload]}
 
 
 class ManagementPhase1Tests(unittest.TestCase):
@@ -105,6 +115,27 @@ class ManagementPhase1Tests(unittest.TestCase):
         finally:
             coordinator.executor.shutdown(wait=True)
         legacy_directory.cleanup()
+
+    def test_bundled_task_tracks_each_independent_stage(self):
+        articles = [uuid4(), uuid4()]
+        task = self.coordinator.create_task(
+            TaskCreateRequest(article_ids=articles, execution_mode=ExecutionMode.BUNDLED)
+        )
+        self.coordinator.executor.shutdown(wait=True)
+        self.assertEqual(task["execution_mode"], ExecutionMode.BUNDLED.value)
+        refreshed = self.coordinator.task(task["task_id"])
+        self.assertEqual(refreshed["status"], "COMPLETED")
+        for job_id in refreshed["job_ids"]:
+            self.assertEqual(self.coordinator.get(job_id)["status"], "COMPLETED")
+            self.assertEqual(
+                [stage["stage"] for stage in self.coordinator.stages(job_id)],
+                [
+                    "article_retrieval",
+                    "citation_extraction",
+                    "extraction_persistence",
+                    "citation_analysis",
+                ],
+            )
 
 
 if __name__ == "__main__":

@@ -95,7 +95,8 @@ class ManagementDatabase:
                 CREATE TABLE IF NOT EXISTS tasks (
                     task_id TEXT PRIMARY KEY, name TEXT NOT NULL, status TEXT NOT NULL,
                     article_ids_json TEXT NOT NULL, created_at TEXT NOT NULL,
-                    started_at TEXT, completed_at TEXT
+                    started_at TEXT, completed_at TEXT,
+                    execution_mode TEXT NOT NULL DEFAULT 'per_article'
                 );
                 CREATE TABLE IF NOT EXISTS task_jobs (
                     task_id TEXT NOT NULL, job_id TEXT NOT NULL,
@@ -108,6 +109,13 @@ class ManagementDatabase:
             )
             self._migrate_jobs(connection)
             self._migrate_job_stages(connection)
+            task_columns = {
+                row["name"] for row in connection.execute("PRAGMA table_info(tasks)").fetchall()
+            }
+            if "execution_mode" not in task_columns:
+                connection.execute(
+                    "ALTER TABLE tasks ADD COLUMN execution_mode TEXT NOT NULL DEFAULT 'per_article'"
+                )
             connection.execute(
                 "CREATE UNIQUE INDEX IF NOT EXISTS uq_jobs_idempotency "
                 "ON jobs(idempotency_key) WHERE idempotency_key IS NOT NULL"
