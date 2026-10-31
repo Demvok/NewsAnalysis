@@ -80,12 +80,19 @@ services:
       MANAGEMENT_ANALYSIS_TIMEOUT_SECONDS: ${MANAGEMENT_ANALYSIS_TIMEOUT_SECONDS:-1800}
       MANAGEMENT_TELEMETRY_RETENTION_DAYS: ${MANAGEMENT_TELEMETRY_RETENTION_DAYS:-7}
       MANAGEMENT_EVENTS_URL: ${MANAGEMENT_EVENTS_URL:-http://management-service:9000/internal/events}
+      LOG_DIR: /app/logs
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_LEVEL_MANAGEMENT_SERVICE: ${LOG_LEVEL_MANAGEMENT_SERVICE:-INFO}
+      LOG_LEVEL_MAIN: ${LOG_LEVEL_MAIN:-INFO}
+      LOG_LEVEL_ORCHESTRATION: ${LOG_LEVEL_ORCHESTRATION:-INFO}
+      LOG_LEVEL_CLIENTS: ${LOG_LEVEL_CLIENTS:-INFO}
       ANALYSIS_LOG_DIR: /var/log/newsanalysis/analysis
       STORAGE_LOG_DIR: /var/log/newsanalysis/data-storage
     ports:
       - "9000:9000"
     volumes:
       - management_data:/app/data
+      - ${LOGS_DIR:-./logs}/management-service:/app/logs
       - ${LOGS_DIR:-./logs}/analysis:/var/log/newsanalysis/analysis:ro
       - ${LOGS_DIR:-./logs}/data-storage:/var/log/newsanalysis/data-storage:ro
     depends_on:

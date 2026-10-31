@@ -2,6 +2,7 @@ from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 from pydantic import BaseModel, Field, field_validator
 import json
 from enum import Enum
+from typing import Literal
 
 
 class ModelCompatibleChatPromptTemplate(ChatPromptTemplate):
@@ -349,10 +350,22 @@ class CombinedCitationAnalysisOutput(BaseModel):
 
 
 class InconsistencyComparison(BaseModel):
-    classification: str = Field(description="CONSISTENT, POSITION_CHANGE, CONTRADICTION, or INSUFFICIENT_EVIDENCE")
+    classification: Literal[
+        "CONSISTENT",
+        "POSITION_CHANGE",
+        "CONTRADICTION",
+        "INSUFFICIENT_EVIDENCE",
+    ] = Field(description="CONSISTENT, POSITION_CHANGE, CONTRADICTION, or INSUFFICIENT_EVIDENCE")
     severity: str | None = None
     confidence: float = Field(ge=0, le=1)
     comment: str
+
+    @field_validator("classification", mode="before")
+    @classmethod
+    def normalize_classification(cls, value: object) -> object:
+        if isinstance(value, str):
+            return value.strip().upper().replace("-", "_").replace(" ", "_")
+        return value
 
     @field_validator("confidence", mode="before")
     @classmethod

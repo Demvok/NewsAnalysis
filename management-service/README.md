@@ -32,6 +32,11 @@ The Phase 1 API includes:
   `GET /api/metrics/jobs` for aggregate telemetry.
 - `GET /api/events/stream` for bounded Server-Sent Events delivery. Clients
   can resume using the `last_event_id` query parameter.
+- Management logs are written to both stdout and `LOG_DIR/management_service.log`.
+  `LOG_LEVEL`, `LOG_LEVEL_MANAGEMENT_SERVICE`, and module-specific
+  `LOG_LEVEL_MAIN`, `LOG_LEVEL_ORCHESTRATION`, and `LOG_LEVEL_CLIENTS` settings
+  control verbosity. HTTP method, path, status, duration, request ID, job ID,
+  stage, and upstream failures are logged without request contents.
 
 Job history is stored in the management-owned SQLite database at
 `MANAGEMENT_DATABASE_PATH`. The database is mounted by the `management_data`
@@ -165,6 +170,30 @@ curl http://localhost:9000/health
 ```
 
 The management database is stored in the `management_data` volume. Restarting
+
+## Execution modes
+
+The default `per_article` mode preserves the original behavior: each job
+retrieves and analyzes one article through the full pipeline. A task may
+explicitly request `execution_mode: "bundled"` to use the independent analysis
+stage endpoints. The coordinator then runs article retrieval, citation
+extraction, extraction persistence, and citation analysis as batch waves while
+retaining a stage row and status for every article job:
+
+```json
+{
+  "name": "Reserve bundled run",
+  "article_ids": ["..."],
+  "execution_mode": "bundled"
+}
+```
+
+Bundled mode is deliberately opt-in and remains a reserve method. The analysis
+service owns stage semantics and currently implements bulk endpoints
+sequentially; management does not duplicate analytical logic or claim
+parallelism that the upstream service does not provide. This keeps the primary
+pipeline unchanged while leaving stage-level scheduling and future upstream
+parallel execution observable. Restarting
 the management container preserves jobs, stages, telemetry, and experiments.
 The service deliberately marks interrupted active jobs as
 `MANAGEMENT_RESTART` rather than replaying them, because replaying a

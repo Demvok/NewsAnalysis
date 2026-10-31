@@ -11,7 +11,7 @@ from uuid import UUID
 from fastapi import FastAPI, HTTPException, Query, Request, Response, status
 from openai import OpenAI
 from pydantic import ValidationError
-from sqlalchemy import delete, exists, func, or_, select
+from sqlalchemy import Float, cast, delete, exists, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import aliased
 
@@ -849,6 +849,76 @@ def create_topic(payload: TopicPayload) -> dict[str, Any]:
 @app.get("/topics", response_model=None, tags=["Topics"], summary="List topics")
 def list_topics(limit: int = Query(50, ge=1, le=500)) -> list[dict[str, Any]]:
     return _list(DimTopic, limit)
+
+
+@app.get("/topics/browse", response_model=None, tags=["Topics"], summary="Browse topics with analytical aggregates")
+def browse_topics(
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    topic_query: str | None = Query(default=None, min_length=1),
+    sort_by: str = Query("topic_name"),
+    sort_dir: str = Query("asc", pattern="^(asc|desc)$"),
+) -> dict[str, Any]:
+    """Return topic rows with counts and stance statistics calculated by the database."""
+    stance_number = cast(FctAttitude.stance, Float)
+    numeric_stance = FctAttitude.stance.op("~")(r"^-?[0-9]+(\.[0-9]+)?$")
+    stats = (
+        select(
+            FctAttitude.topic_uuid.label("topic_uuid"),
+            func.count(func.distinct(FctAttitude.citation_uuid)).label("citation_count"),
+            func.count(func.distinct(DimCitation.person_uuid)).label("people_count"),
+            func.avg(stance_number).filter(numeric_stance).label("stance_average"),
+            func.stddev_pop(stance_number).filter(numeric_stance).label("stance_std"),
+            func.percentile_cont(0.5).within_group(stance_number).filter(numeric_stance).label("stance_median"),
+        )
+        .join(DimCitation, FctAttitude.citation_uuid == DimCitation.citation_uuid)
+        .group_by(FctAttitude.topic_uuid)
+        .subquery()
+    )
+    sort_columns = {
+        "topic_name": DimTopic.topic_name,
+        "citation_count": stats.c.citation_count,
+        "people_count": stats.c.people_count,
+        "stance_average": stats.c.stance_average,
+        "stance_std": stats.c.stance_std,
+        "stance_median": stats.c.stance_median,
+    }
+    sort_column = sort_columns.get(sort_by, DimTopic.topic_name)
+    with get_session() as session:
+        statement = (
+            select(
+                DimTopic,
+                stats.c.citation_count,
+                stats.c.people_count,
+                stats.c.stance_average,
+                stats.c.stance_std,
+                stats.c.stance_median,
+            )
+            .outerjoin(stats, DimTopic.topic_uuid == stats.c.topic_uuid)
+        )
+        count_statement = select(func.count()).select_from(DimTopic)
+        if topic_query:
+            pattern = f"%{topic_query.strip()}%"
+            statement = statement.where(DimTopic.topic_name.ilike(pattern))
+            count_statement = count_statement.where(DimTopic.topic_name.ilike(pattern))
+        total = session.scalar(count_statement) or 0
+        ordered_sort = sort_column.asc().nulls_last() if sort_dir == "asc" else sort_column.desc().nulls_last()
+        rows = session.execute(
+            statement.order_by(ordered_sort)
+            .offset(offset).limit(limit)
+        ).all()
+    items = []
+    for topic, citation_count, people_count, stance_average, stance_std, stance_median in rows:
+        item = _as_dict(topic)
+        item.update({
+            "citation_count": citation_count or 0,
+            "people_count": people_count or 0,
+            "stance_average": float(stance_average) if stance_average is not None else None,
+            "stance_std": float(stance_std) if stance_std is not None else None,
+            "stance_median": float(stance_median) if stance_median is not None else None,
+        })
+        items.append(item)
+    return {"items": items, "total": total, "offset": offset, "limit": limit}
 
 
 @app.get("/topics/{topic_uuid}", response_model=None, tags=["Topics"], summary="Get a topic")

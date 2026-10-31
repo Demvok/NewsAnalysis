@@ -27,7 +27,7 @@ LOW_INFLUENCE_THRESHOLD = float(os.getenv("LOW_INFLUENCE_THRESHOLD", "0.35"))
 ANALYZE_ORGANIZATIONS = os.getenv("ANALYZE_ORGANIZATIONS", "false").lower() in {
     "1", "true", "yes", "on"
 }
-PARALLEL_SPEAKER_ANALYSIS = os.getenv("PARALLEL_SPEAKER_ANALYSIS", "false").lower() in {
+PARALLEL_SPEAKER_ANALYSIS = os.getenv("PARALLEL_SPEAKER_ANALYSIS", "true").lower() in {
     "1", "true", "yes", "on"
 }
 PARALLEL_ANALYSIS_WORKERS = max(1, int(os.getenv("PARALLEL_ANALYSIS_WORKERS", "4")))
@@ -146,7 +146,8 @@ def _remove_empty_citations(
         cleaned_speaker = dict(speaker)
         citations = []
         for citation in speaker.get("citations") or []:
-            if not str(citation.get("exact_quote") or "").strip():
+            exact_quote = str(citation.get("exact_quote") or "")
+            if not exact_quote.strip():
                 removed += 1
                 continue
             cleaned_citation = dict(citation)
@@ -161,6 +162,26 @@ def _remove_empty_citations(
         speakers.append(cleaned_speaker)
     cleaned["speakers"] = speakers
     return cleaned, removed, normalized
+
+
+def _json_list_response(
+    response: httpx.Response,
+    *,
+    expected_count: int | None = None,
+    required_fields: tuple[str, ...] = (),
+) -> list[dict[str, object]]:
+    """Validate storage JSON before analytical code relies on its identifiers."""
+    payload = response.json()
+    if not isinstance(payload, list) or any(not isinstance(item, dict) for item in payload):
+        raise ValueError("Storage API returned an invalid list response")
+    if expected_count is not None and len(payload) != expected_count:
+        raise ValueError(
+            f"Storage API returned {len(payload)} records for {expected_count} inputs"
+        )
+    for item in payload:
+        if any(not str(item.get(field) or "").strip() for field in required_fields):
+            raise ValueError("Storage API returned a record missing a required identifier")
+    return payload
 
 
 # Persistence belongs to the analysis workflow so extraction and citation analysis
@@ -320,13 +341,18 @@ def _resolve_person_with_stats(
         timeout=30.0,
     )
     response.raise_for_status()
-    matches = response.json()
+    matches = _json_list_response(response)
     if matches:
+        if not matches[0].get("person_uuid"):
+            raise ValueError("Storage API returned a person without person_uuid")
         return matches[0], False
 
     response = httpx.post(f"{STORAGE_URL}/people", json=person, timeout=30.0)
     response.raise_for_status()
-    return response.json(), True
+    resolved = response.json()
+    if not isinstance(resolved, dict) or not str(resolved.get("person_uuid") or "").strip():
+        raise ValueError("Storage API returned a person without person_uuid")
+    return resolved, True
 
 
 def _resolve_topic(topic: dict[str, object]) -> dict[str, object]:
@@ -345,13 +371,18 @@ def _resolve_topic_with_stats(
         timeout=30.0,
     )
     response.raise_for_status()
-    matches = response.json()
+    matches = _json_list_response(response)
     if matches:
+        if not matches[0].get("topic_uuid"):
+            raise ValueError("Storage API returned a topic without topic_uuid")
         return matches[0], False
 
     response = httpx.post(f"{STORAGE_URL}/topics", json=topic, timeout=30.0)
     response.raise_for_status()
-    return response.json(), True
+    resolved = response.json()
+    if not isinstance(resolved, dict) or not str(resolved.get("topic_uuid") or "").strip():
+        raise ValueError("Storage API returned a topic without topic_uuid")
+    return resolved, True
 
 
 def _bulk_stats(response: httpx.Response) -> dict[str, int]:
@@ -410,7 +441,12 @@ def persist_extraction(
         stage="person_resolution",
         event_status="completed",
         duration_ms=int((time.perf_counter() - resolution_started) * 1000),
-        attributes={"article_id": str(article_id), "person_count": len(resolved_people)},
+        attributes={
+            "article_id": str(article_id),
+            "person_count": len(resolved_people),
+            "created_new": stats["created_new"],
+            "retrieved_from_db": stats["retrieved_from_db"],
+        },
     )
     person_ids = {
         source["name"].strip().casefold(): resolved["person_uuid"]
@@ -437,6 +473,11 @@ def persist_extraction(
             timeout=30.0,
         )
         citations_response.raise_for_status()
+        _json_list_response(
+            citations_response,
+            expected_count=len(citations),
+            required_fields=("citation_uuid",),
+        )
         _add_stats(stats, _bulk_stats(citations_response))
     logger.info(
         "article_processing status=completed article_id=%s stage=person_and_citation_persistence "
@@ -489,6 +530,9 @@ def persist_citation_analysis(
         attributes={"article_id": str(article_id), "person_count": len(people)},
     )
     stats = {"created_new": 0, "retrieved_from_db": 0}
+    topic_total = 0
+    attitude_total = 0
+    comparison_total = 0
     resolved_people = []
     for person in people:
         resolved, created = _resolve_person_with_stats(person)
@@ -505,7 +549,12 @@ def persist_citation_analysis(
         stage="person_resolution",
         event_status="completed",
         duration_ms=int((time.perf_counter() - person_started) * 1000),
-        attributes={"article_id": str(article_id), "person_count": len(resolved_people)},
+        attributes={
+            "article_id": str(article_id),
+            "person_count": len(resolved_people),
+            "created_new": stats["created_new"],
+            "retrieved_from_db": stats["retrieved_from_db"],
+        },
     )
     citations = [
         {
@@ -531,17 +580,22 @@ def persist_citation_analysis(
         timeout=30.0,
     )
     citations_response.raise_for_status()
+    stored_citations = _json_list_response(
+        citations_response,
+        expected_count=len(citations),
+        required_fields=("citation_uuid",),
+    )
     _add_stats(stats, _bulk_stats(citations_response))
     citation_ids = {
         (str(citation.get("person_uuid")), citation["exact_quote"]): citation["citation_uuid"]
-        for citation in citations_response.json()
+        for citation in stored_citations
         if citation.get("exact_quote") and citation.get("person_uuid")
     }
     current_citations = {
         citation["citation_uuid"]: citation.get("summarized_quote")
         or citation.get("exact_quote")
         or ""
-        for citation in citations_response.json()
+        for citation in stored_citations
     }
 
     analysis_inputs = [
@@ -609,6 +663,7 @@ def persist_citation_analysis(
             resolved, created = _resolve_topic_with_stats(topic)
             resolved_topics.append((topic, resolved))
             stats["created_new" if created else "retrieved_from_db"] += 1
+        topic_total += len(resolved_topics)
         topic_ids = {
             source["topic_name"].strip().casefold(): resolved["topic_uuid"]
             for source, resolved in resolved_topics
@@ -655,6 +710,7 @@ def persist_citation_analysis(
                     "status": "ANALYZED",
                 }
         attitudes = list(attitudes_by_key.values())
+        attitude_total += len(attitudes)
         logger.info(
             "article_processing status=progress article_id=%s stage=attitude_persistence "
             "speaker_index=%d topics=%d attitudes=%d",
@@ -689,7 +745,7 @@ def persist_citation_analysis(
             duration_ms=int((time.perf_counter() - attitude_started) * 1000),
             attributes={"article_id": str(article_id), "attitude_count": len(attitudes)},
         )
-        _add_stats(stats, persist_inconsistencies(
+        inconsistency_stats = persist_inconsistencies(
             person_uuid=person_ids[speaker.speaker_name.strip().casefold()],
             speaker_kind=speaker.speaker_kind,
             current_citations=current_citations,
@@ -698,7 +754,9 @@ def persist_citation_analysis(
             attitudes=attitudes,
             before=before,
             window_days=window_days,
-        ))
+        )
+        _add_stats(stats, inconsistency_stats)
+        comparison_total += inconsistency_stats.get("comparison_count", 0)
     logger.info(
         "article_processing status=completed article_id=%s stage=citation_analysis "
         "people=%d citations=%d created_new=%d retrieved_from_db=%d duration=%.3fs",
@@ -708,6 +766,23 @@ def persist_citation_analysis(
         stats["created_new"],
         stats["retrieved_from_db"],
         time.perf_counter() - workflow_started,
+    )
+    emit_event(
+        "pipeline_stage",
+        operation="citation_analysis",
+        stage="citation_analysis",
+        event_status="completed",
+        duration_ms=int((time.perf_counter() - workflow_started) * 1000),
+        attributes={
+            "article_id": str(article_id),
+            "person_count": len(resolved_people),
+            "citation_count": len(citations),
+            "topic_count": topic_total,
+            "attitude_count": attitude_total,
+            "comparison_count": comparison_total,
+            "created_new": stats["created_new"],
+            "retrieved_from_db": stats["retrieved_from_db"],
+        },
     )
     LLM.log_usage_summary(f"article_id={article_id} stage=citation_analysis")
     return stats
@@ -733,7 +808,7 @@ def persist_inconsistencies(
     before: datetime | None,
     window_days: int,
 ) -> dict[str, int]:
-    stats = {"created_new": 0, "retrieved_from_db": 0}
+    stats = {"created_new": 0, "retrieved_from_db": 0, "comparison_count": 0}
     if speaker_kind in {
         models.SpeakerKind.ANONYMOUS_SOURCE,
         models.SpeakerKind.UNRESOLVED,
@@ -828,8 +903,21 @@ def persist_inconsistencies(
                 },
                 timeout=30.0,
             )
+            if response.is_error:
+                logger.error(
+                    "analysis_stage=inconsistency_persistence status=rejected "
+                    "person_uuid=%s topic_uuid=%s citation_a_uuid=%s citation_b_uuid=%s "
+                    "status_code=%d detail=%s",
+                    person_uuid,
+                    topic_uuid,
+                    historical["citation_uuid"],
+                    citation_uuid,
+                    response.status_code,
+                    response.text[:1000],
+                )
             response.raise_for_status()
             _add_stats(stats, _bulk_stats(response))
+    stats["comparison_count"] = comparisons
     emit_event(
         "pipeline_stage",
         operation="inconsistency_comparison",

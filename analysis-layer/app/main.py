@@ -89,6 +89,10 @@ def test_llm_connection(query: str):
     from app.LLM import llm_invoke
 
     response = llm_invoke(query)
+    if hasattr(response, "model_dump"):
+        response = response.model_dump()
+    elif hasattr(response, "content"):
+        response = response.content
     return {"message": "LLM connection is successful", "response": response}
 
 

@@ -21,6 +21,11 @@ class JobType(StrEnum):
     ARTICLE_ANALYSIS = "article_analysis"
 
 
+class ExecutionMode(StrEnum):
+    PER_ARTICLE = "per_article"
+    BUNDLED = "bundled"
+
+
 class TaskStatus(StrEnum):
     PENDING = "PENDING"
     RUNNING = "RUNNING"
@@ -43,6 +48,7 @@ class JobCreateRequest(BaseModel):
     article_id: UUID
     inconsistency_window_days: int = Field(default=365, ge=1, le=3650)
     idempotency_key: str | None = Field(default=None, min_length=1, max_length=200)
+    execution_mode: ExecutionMode = ExecutionMode.PER_ARTICLE
 
 
 class JobResponse(BaseModel):
@@ -71,6 +77,7 @@ class TaskCreateRequest(BaseModel):
     name: str = Field(default="Article processing task", min_length=1, max_length=200)
     article_ids: list[UUID] = Field(min_length=1, max_length=500)
     inconsistency_window_days: int = Field(default=365, ge=1, le=3650)
+    execution_mode: ExecutionMode = ExecutionMode.PER_ARTICLE
 
 
 class TaskResponse(BaseModel):
@@ -84,6 +91,7 @@ class TaskResponse(BaseModel):
     failed_articles: int
     running_articles: int
     waiting_articles: int
+    execution_mode: ExecutionMode
     citations: int
     speakers: int
     topics: int

@@ -14,7 +14,9 @@ from fastapi.responses import JSONResponse, StreamingResponse, Response
 from .clients import ServiceClient
 from .config import Settings
 from .database import ManagementDatabase
+from .logger import get_logger
 from .models import (
+    ExecutionMode,
     EventRequest,
     EvaluationCreateRequest,
     ExperimentComparisonRequest,
@@ -151,8 +153,7 @@ def experiment_response(connection, row) -> ExperimentResponse:
     )
 from .orchestration import JobCoordinator
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s [%(name)s] %(message)s")
-logger = logging.getLogger("newsanalysis.management")
+logger = get_logger("main")
 
 settings = Settings.from_env()
 database = ManagementDatabase(settings.database_path)
@@ -165,6 +166,33 @@ app = FastAPI(
     description="Operational API for health, job coordination, pipeline history, and safe runtime settings.",
     version="0.2.0",
 )
+
+
+@app.middleware("http")
+async def request_logging_middleware(request: Request, call_next):
+    request_id = request.headers.get("x-request-id") or str(uuid4())
+    started = time.perf_counter()
+    try:
+        response = await call_next(request)
+    except Exception:
+        logger.exception(
+            "http_request_failed method=%s path=%s request_id=%s",
+            request.method,
+            request.url.path,
+            request_id,
+        )
+        raise
+    duration_ms = int((time.perf_counter() - started) * 1000)
+    response.headers["x-request-id"] = request_id
+    logger.info(
+        "http_request method=%s path=%s status=%s duration_ms=%s request_id=%s",
+        request.method,
+        request.url.path,
+        response.status_code,
+        duration_ms,
+        request_id,
+    )
+    return response
 
 
 def parse_datetime(value: str | None) -> datetime | None:
@@ -235,6 +263,8 @@ def create_job(
     request: JobCreateRequest,
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> JobResponse:
+    if request.execution_mode == ExecutionMode.BUNDLED:
+        raise HTTPException(status_code=400, detail="bundled execution mode is only supported for tasks")
     if request.idempotency_key and idempotency_key and request.idempotency_key != idempotency_key:
         raise HTTPException(status_code=400, detail="Request body and Idempotency-Key header differ")
     value = coordinator.create(request, idempotency_key or request.idempotency_key)
@@ -419,6 +449,50 @@ def data_records(
     page_size: int = Query(25, ge=1, le=100),
 ) -> dict[str, Any]:
     try:
+        if query and resource in {"articles", "people", "citations", "topics", "inconsistencies"}:
+            try:
+                direct = client.knowledge_detail(resource, query.strip())
+            except Exception:
+                direct = None
+            if direct is not None:
+                return {
+                    "items": [direct],
+                    "total": 1,
+                    "page": 1,
+                    "page_size": page_size,
+                    "pages": 1,
+                    "stance_counts": {},
+                }
+        if query and resource == "attitudes" and "/" in query:
+            try:
+                direct = client.knowledge_detail(resource, query.strip())
+            except Exception:
+                direct = None
+            if direct is not None:
+                return {
+                    "items": [direct],
+                    "total": 1,
+                    "page": 1,
+                    "page_size": page_size,
+                    "pages": 1,
+                    "stance_counts": {},
+                }
+        if resource == "topics" and not semantic_query:
+            browse = client.browse_topics(
+                limit=page_size,
+                offset=(page - 1) * page_size,
+                sort_by=sort_by or "topic_name",
+                sort_dir=sort_dir,
+                topic_query=query,
+            )
+            return {
+                "items": browse["items"],
+                "total": browse["total"],
+                "page": page,
+                "page_size": page_size,
+                "pages": (browse["total"] + page_size - 1) // page_size,
+                "stance_counts": {},
+            }
         if resource in {"attitudes", "inconsistencies"}:
             browse = client.browse_knowledge(resource, 500, 0, {
                 key: value for key, value in (
