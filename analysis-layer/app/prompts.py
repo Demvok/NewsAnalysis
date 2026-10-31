@@ -213,7 +213,9 @@ COMBINED_CITATION_ANALYSIS_PROMPT = ModelCompatibleChatPromptTemplate.from_messa
         stance < 0 means the speaker opposes it, and stance = 0 means neutral or
         indeterminate. Do not reverse polarity because the quote uses a negative
         verb; define the proposition first, then judge for/against it.
-        relevancy_score is 0..1. stance_detected is false and stance is null when
+        relevancy_score and stance_confidence are 0..1. stance_summary must briefly
+        explain the speaker's position toward the proposition using only the
+        citation evidence. stance_detected is false and stance is null when
         evidence is inadequate. Return one result for every input citation.
         """
     ),
@@ -313,6 +315,16 @@ class CitationEvaluatedTopic(CitationTopic):
         -10 means strongly against, 0 means neutral or no identifiable stance,
         and 10 means strongly in favor."""
     ))
+    stance_confidence: float | None = Field(
+        None,
+        ge=0,
+        le=1,
+        description="Confidence in the assigned stance, from 0 to 1.",
+    )
+    stance_summary: str | None = Field(
+        None,
+        description="A concise explanation of the speaker's stance based on the citation.",
+    )
 
 class EvaluatedCitation(AnalysedCitation):
     evaluated_topics: list[CitationEvaluatedTopic] = Field(..., description="A list of topics mentioned in the quote, each with their relevancy score and stance")

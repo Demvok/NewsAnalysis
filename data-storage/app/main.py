@@ -13,6 +13,7 @@ from openai import OpenAI
 from pydantic import ValidationError
 from sqlalchemy import delete, exists, func, or_, select
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import aliased
 
 from app.database import (
     DimArticle,
@@ -348,6 +349,34 @@ def storage_summary() -> dict[str, Any]:
         logger.exception("Failed to summarize stored analytical entities")
         raise HTTPException(status_code=503, detail="Database summary unavailable") from exc
     return {"entities": counts}
+
+
+@app.get("/browse/options/{resource}/{field}", response_model=None, tags=["System"], summary="List distinct browse filter values")
+def browse_options(resource: str, field: str, query: str | None = Query(default=None, min_length=1), limit: int = Query(100, ge=1, le=500)) -> list[str]:
+    models = {
+        "articles": DimArticle,
+        "people": DimPerson,
+        "citations": DimCitation,
+        "topics": DimTopic,
+        "attitudes": FctAttitude,
+        "inconsistencies": FctInconsistency,
+    }
+    allowed = {
+        "articles": {"status", "source"},
+        "people": {"status", "person_type"},
+        "citations": {"status", "citation_type"},
+        "topics": {"status", "general_topic_field"},
+        "attitudes": {"status", "stance"},
+        "inconsistencies": {"status", "classification", "severity"},
+    }
+    if resource not in models or field not in allowed.get(resource, set()):
+        raise HTTPException(status_code=400, detail="Unsupported browse option")
+    column = getattr(models[resource], field)
+    with get_session() as session:
+        statement = select(column).where(column.is_not(None)).distinct().order_by(column).limit(limit)
+        if query:
+            statement = statement.where(column.ilike(f"%{query}%"))
+        return [str(value) for value in session.scalars(statement).all()]
 
 
 @app.post("/database/create", status_code=201, tags=["Database"], summary="Create missing database tables")
@@ -931,6 +960,75 @@ def list_attitudes(limit: int = Query(50, ge=1, le=500)) -> list[dict[str, Any]]
     return _list(FctAttitude, limit)
 
 
+@app.get("/attitudes/browse", response_model=None, tags=["Attitudes"], summary="Browse attitudes with related entities")
+def browse_attitudes(
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    stance: str | None = Query(default=None, min_length=1),
+    status: str | None = Query(default=None, min_length=1),
+    person_uuid: UUID | None = None,
+    topic_uuid: UUID | None = None,
+    person_query: str | None = Query(default=None, min_length=1),
+    topic_query: str | None = Query(default=None, min_length=1),
+    sort_by: str = Query("created_at"),
+    sort_dir: str = Query("desc"),
+) -> dict[str, Any]:
+    with get_session() as session:
+        statement = (
+            select(FctAttitude, DimTopic, DimCitation, DimPerson)
+            .join(DimTopic, FctAttitude.topic_uuid == DimTopic.topic_uuid)
+            .join(DimCitation, FctAttitude.citation_uuid == DimCitation.citation_uuid)
+            .outerjoin(DimPerson, DimCitation.person_uuid == DimPerson.person_uuid)
+        )
+        count_statement = select(func.count()).select_from(FctAttitude).join(DimCitation, FctAttitude.citation_uuid == DimCitation.citation_uuid).join(DimTopic, FctAttitude.topic_uuid == DimTopic.topic_uuid).outerjoin(DimPerson, DimCitation.person_uuid == DimPerson.person_uuid)
+        if stance:
+            statement = statement.where(FctAttitude.stance.ilike(f"%{stance}%"))
+            count_statement = count_statement.where(FctAttitude.stance.ilike(f"%{stance}%"))
+        if status:
+            statement = statement.where(FctAttitude.status == status)
+            count_statement = count_statement.where(FctAttitude.status == status)
+        if person_uuid:
+            statement = statement.where(DimCitation.person_uuid == person_uuid)
+            count_statement = count_statement.where(DimCitation.person_uuid == person_uuid)
+        if topic_uuid:
+            statement = statement.where(FctAttitude.topic_uuid == topic_uuid)
+            count_statement = count_statement.where(FctAttitude.topic_uuid == topic_uuid)
+        if person_query:
+            statement = statement.where(DimPerson.name.ilike(f"%{person_query}%"))
+            count_statement = count_statement.where(DimPerson.name.ilike(f"%{person_query}%"))
+        if topic_query:
+            statement = statement.where(DimTopic.topic_name.ilike(f"%{topic_query}%"))
+            count_statement = count_statement.where(DimTopic.topic_name.ilike(f"%{topic_query}%"))
+        total = session.scalar(count_statement) or 0
+        sort_column = {"created_at": FctAttitude.created_at, "stance": FctAttitude.stance, "relevancy_score": FctAttitude.relevancy_score}.get(sort_by, FctAttitude.created_at)
+        rows = session.execute(statement.order_by(sort_column.asc() if sort_dir == "asc" else sort_column.desc()).offset(offset).limit(limit)).all()
+        stance_rows = session.execute(
+            select(FctAttitude.stance, func.count()).select_from(FctAttitude)
+            .join(DimCitation, FctAttitude.citation_uuid == DimCitation.citation_uuid)
+            .where(*(condition for condition in (
+                FctAttitude.stance.ilike(f"%{stance}%") if stance else None,
+                FctAttitude.status == status if status else None,
+                DimCitation.person_uuid == person_uuid if person_uuid else None,
+                FctAttitude.topic_uuid == topic_uuid if topic_uuid else None,
+            ) if condition))
+            .group_by(FctAttitude.stance)
+        ).all()
+    items = []
+    for attitude, topic, citation, person in rows:
+        items.append({
+            **_as_dict(attitude),
+            "topic_name": topic.topic_name,
+            "topic_description": topic.topic_description,
+            "citation_exact_quote": citation.exact_quote,
+            "citation_summarized_quote": citation.summarized_quote,
+            "citation_type": citation.citation_type,
+            "origin_article_id": citation.origin_article_id,
+            "person_uuid": citation.person_uuid,
+            "person_name": person.name if person else None,
+        })
+    return {"items": items, "total": total, "offset": offset, "limit": limit, "stance_counts": {stance or "UNKNOWN": count for stance, count in stance_rows}}
+
+
 @app.get("/attitudes/{topic_uuid}/{citation_uuid}", response_model=None, tags=["Attitudes"], summary="Get an attitude")
 def get_attitude(topic_uuid: UUID, citation_uuid: UUID) -> dict[str, Any]:
     return _get(FctAttitude, (topic_uuid, citation_uuid))
@@ -1044,6 +1142,76 @@ def create_inconsistency(payload: InconsistencyPayload, response: Response) -> d
 @app.get("/inconsistencies", response_model=None, tags=["Inconsistencies"], summary="List inconsistency assessments")
 def list_inconsistencies(limit: int = Query(50, ge=1, le=500)) -> list[dict[str, Any]]:
     return _list(FctInconsistency, limit)
+
+
+@app.get("/inconsistencies/browse", response_model=None, tags=["Inconsistencies"], summary="Browse inconsistencies with evidence")
+def browse_inconsistencies(
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    classification: str | None = Query(default=None, min_length=1),
+    person_uuid: UUID | None = None,
+    topic_uuid: UUID | None = None,
+    person_query: str | None = Query(default=None, min_length=1),
+    topic_query: str | None = Query(default=None, min_length=1),
+    sort_by: str = Query("detected_at"),
+    sort_dir: str = Query("desc"),
+) -> dict[str, Any]:
+    citation_a = aliased(DimCitation)
+    citation_b = aliased(DimCitation)
+    with get_session() as session:
+        statement = (
+            select(FctInconsistency, DimPerson, DimTopic, citation_a, citation_b)
+            .join(DimPerson, FctInconsistency.person_uuid == DimPerson.person_uuid)
+            .join(DimTopic, FctInconsistency.topic_uuid == DimTopic.topic_uuid)
+            .join(citation_a, FctInconsistency.citation_a_uuid == citation_a.citation_uuid)
+            .join(citation_b, FctInconsistency.citation_b_uuid == citation_b.citation_uuid)
+        )
+        count_statement = select(func.count()).select_from(FctInconsistency).join(DimPerson, FctInconsistency.person_uuid == DimPerson.person_uuid).join(DimTopic, FctInconsistency.topic_uuid == DimTopic.topic_uuid)
+        if classification:
+            statement = statement.where(FctInconsistency.classification == classification)
+            count_statement = count_statement.where(FctInconsistency.classification == classification)
+        if person_uuid:
+            statement = statement.where(FctInconsistency.person_uuid == person_uuid)
+            count_statement = count_statement.where(FctInconsistency.person_uuid == person_uuid)
+        if topic_uuid:
+            statement = statement.where(FctInconsistency.topic_uuid == topic_uuid)
+            count_statement = count_statement.where(FctInconsistency.topic_uuid == topic_uuid)
+        if person_query:
+            statement = statement.where(DimPerson.name.ilike(f"%{person_query}%"))
+            count_statement = count_statement.where(DimPerson.name.ilike(f"%{person_query}%"))
+        if topic_query:
+            statement = statement.where(DimTopic.topic_name.ilike(f"%{topic_query}%"))
+            count_statement = count_statement.where(DimTopic.topic_name.ilike(f"%{topic_query}%"))
+        total = session.scalar(count_statement) or 0
+        sort_column = {"detected_at": FctInconsistency.detected_at, "classification": FctInconsistency.classification, "severity": FctInconsistency.severity}.get(sort_by, FctInconsistency.detected_at)
+        rows = session.execute(statement.order_by(sort_column.asc() if sort_dir == "asc" else sort_column.desc()).offset(offset).limit(limit)).all()
+    items = []
+    for inconsistency, person, topic, citation_left, citation_right in rows:
+        items.append({
+            **_as_dict(inconsistency),
+            "person_name": person.name,
+            "topic_name": topic.topic_name,
+            "citation_a_exact_quote": citation_left.exact_quote,
+            "citation_b_exact_quote": citation_right.exact_quote,
+            "citation_a_origin_article_id": citation_left.origin_article_id,
+            "citation_b_origin_article_id": citation_right.origin_article_id,
+        })
+    return {"items": items, "total": total, "offset": offset, "limit": limit}
+
+
+@app.get("/inconsistencies/{inconsistency_uuid}", response_model=None, tags=["Inconsistencies"], summary="Get inconsistency assessment")
+def get_inconsistency(inconsistency_uuid: UUID) -> dict[str, Any]:
+    record = _get(FctInconsistency, inconsistency_uuid)
+    with get_session() as session:
+        person = session.get(DimPerson, record["person_uuid"])
+        topic = session.get(DimTopic, record["topic_uuid"])
+        citation_a = session.get(DimCitation, record["citation_a_uuid"])
+        citation_b = session.get(DimCitation, record["citation_b_uuid"])
+    record["person"] = _as_dict(person) if person else None
+    record["topic"] = _as_dict(topic) if topic else None
+    record["citation_a"] = _as_dict(citation_a) if citation_a else None
+    record["citation_b"] = _as_dict(citation_b) if citation_b else None
+    return record
 
 
 def _embed_texts(texts: list[str]) -> list[list[float]]:
@@ -1196,7 +1364,7 @@ def search_topics(
             select(DimTopic, distance, similarity)
             .where(DimTopic.topic_description_vector.is_not(None))
             .where(similarity >= min_similarity)
-            .order_by(DimTopic.topic_description_vector.cosine_distance(embedding))
+            .order_by(similarity.desc())
             .limit(limit)
         )
         return [
@@ -1254,7 +1422,7 @@ def search_citations_by_vector(
             .where(DimArticle.published_at.is_not(None))
             .where(DimArticle.published_at >= cutoff)
             .where(DimArticle.published_at <= effective_before)
-            .order_by(DimCitation.summarized_quote_vector.cosine_distance(embedding))
+            .order_by(similarity.desc())
         )
         if person_uuid is not None:
             statement = statement.where(DimCitation.person_uuid == person_uuid)

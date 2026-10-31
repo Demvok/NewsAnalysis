@@ -179,6 +179,7 @@ class CitationUpdate(BaseModel):
     summarized_quote: str | None = None
     confidence_level: float | None = Field(default=None, ge=0, le=1)
     extraction_confidence: float | None = Field(default=None, ge=0, le=1)
+    status: str | None = None
 
     @field_validator("confidence_level", "extraction_confidence", mode="before")
     @classmethod

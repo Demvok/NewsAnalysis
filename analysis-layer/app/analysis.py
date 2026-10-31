@@ -641,13 +641,14 @@ def persist_citation_analysis(
                 if topic_uuid is None:
                     continue
                 key = (str(topic_uuid), str(citation_uuid))
+                stance_summary = (topic.stance_summary or "").strip()
                 attitudes_by_key[key] = {
                     "topic_uuid": topic_uuid,
                     "citation_uuid": citation_uuid,
                     "stance": str(topic.stance) if topic.stance is not None else None,
                     "relevancy_score": topic.relevancy_score,
                     "stance_confidence": topic.stance_confidence,
-                    "stance_summary": canonical_topic_descriptions.get(
+                    "stance_summary": stance_summary or canonical_topic_descriptions.get(
                         topic.topic_name.strip().casefold(),
                         topic.topic_description,
                     ),

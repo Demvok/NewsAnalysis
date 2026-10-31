@@ -97,14 +97,29 @@ operational data and includes:
 - service health and explicitly supported runtime configuration;
 - multi-article Tasks control with fresh-article discovery, selection, task
   cancellation, aggregate progress, and live telemetry refresh.
-- a Knowledge view showing PostgreSQL entity counts and bounded records from
-  the new storage endpoints.
+- a Data Management view grouped separately from processing and operations:
+  paged/filterable article, citation, topic, people, and attitude browsers;
+  per-record editing; article citation links; citation person/article/attitude
+  context; and topic-linked people and articles.
+- testing-database controls for creating missing tables, dropping and
+  recreating the schema, and importing temporary articles through the storage
+  service. Recreate is confirmation-protected in the dashboard.
 
 The dashboard consumes `/api/events/stream` through Server-Sent Events and
 reconnects with the last received event ID. Client-side live data is bounded
 to the most recent 60 events, while historical tables are bounded API
 requests; the browser never loads unrestricted log history. The backend
 remains authoritative for job state, metrics, validation, and action safety.
+
+The management data API uses the following routes:
+
+- `GET /api/data/{resource}` with `page`, `page_size`, `query`, and `status`
+- `GET /api/data/{resource}/{id}` for enriched detail
+- `PUT` and `DELETE /api/data/{resource}/{id}` for supported edits
+- `POST /api/data/database/create`, `POST /api/data/database/recreate`, and
+  `POST /api/data/import-temp` for local testing workflows
+- `DELETE /api/tasks/{id}` for completed, failed, or cancelled task history;
+  active tasks must be cancelled and finished before deletion.
 
 ## Phase 4 experiments
 

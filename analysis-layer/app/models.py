@@ -168,7 +168,7 @@ class TopicAttitude(BaseModel):
     topic_name: str
     topic_description: str | None = None
     general_topic_field: str = "UNCLASSIFIED"
-    stance: str
+    stance: str | None = None
     relevancy_score: float = Field(ge=0, le=1)
-    stance_summary: str
-    stance_confidence: float = Field(ge=0, le=1)
+    stance_summary: str | None = None
+    stance_confidence: float | None = Field(default=None, ge=0, le=1)

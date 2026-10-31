@@ -291,6 +291,36 @@ class JobCoordinator:
                 continue
         return self.task(task_id)
 
+    def delete_task(self, task_id: str) -> None:
+        task = self.task(task_id)
+        active = {"PENDING", "RUNNING", "RETRYING"}
+        if task["status"] in active:
+            raise ValueError("Only completed, failed, or cancelled tasks can be deleted")
+        with self.database.lock, self.database.connection() as connection:
+            job_ids = [
+                row["job_id"]
+                for row in connection.execute(
+                    "SELECT job_id FROM task_jobs WHERE task_id=?", (task_id,)
+                ).fetchall()
+            ]
+            connection.execute(
+                "DELETE FROM telemetry_events WHERE job_id IN (SELECT job_id FROM task_jobs WHERE task_id=?)",
+                (task_id,),
+            )
+            connection.execute(
+                "DELETE FROM events WHERE job_id IN (SELECT job_id FROM task_jobs WHERE task_id=?)",
+                (task_id,),
+            )
+            connection.execute(
+                "DELETE FROM job_stages WHERE job_id IN (SELECT job_id FROM task_jobs WHERE task_id=?)",
+                (task_id,),
+            )
+            connection.execute("DELETE FROM task_jobs WHERE task_id=?", (task_id,))
+            connection.execute("DELETE FROM tasks WHERE task_id=?", (task_id,))
+            for job_id in job_ids:
+                connection.execute("DELETE FROM experiment_jobs WHERE job_id=?", (job_id,))
+                connection.execute("DELETE FROM jobs WHERE job_id=?", (job_id,))
+
     def stages(self, job_id: str) -> list[dict[str, Any]]:
         self.get(job_id)
         with self.database.connection() as connection:
