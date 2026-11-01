@@ -104,10 +104,14 @@ class JobCoordinator:
             row = connection.execute("SELECT * FROM jobs WHERE job_id=?", (job_id,)).fetchone()
             if row is None or row["status"] == JobStatus.CANCELLED.value or row["cancel_requested"]:
                 return
-            connection.execute(
-                "UPDATE jobs SET status=?, started_at=? WHERE job_id=?",
-                (JobStatus.RUNNING.value, timestamp(), job_id),
+            updated = connection.execute(
+                "UPDATE jobs SET status=?, started_at=COALESCE(started_at,?) "
+                "WHERE job_id=? AND status IN (?,?) AND cancel_requested=0",
+                (JobStatus.RUNNING.value, timestamp(), job_id,
+                 JobStatus.PENDING.value, JobStatus.RETRYING.value),
             )
+            if updated.rowcount != 1:
+                return
         headers = {"x-job-id": job_id, "x-correlation-id": row["correlation_id"], "x-request-id": row["trace_id"]}
         current_stage: str | None = None
         try:
@@ -116,6 +120,7 @@ class JobCoordinator:
             self._stage(job_id, "article_retrieval", StageStatus.RUNNING)
             article = self.client.article(row["article_id"], headers)
             self._stage(job_id, "article_retrieval", StageStatus.COMPLETED, {"article_id": row["article_id"]})
+            self._set_article_status(row["article_id"], "INGESTED")
             if self._cancel_requested(job_id):
                 self._cancel_after_stage(job_id)
                 return
@@ -133,6 +138,7 @@ class JobCoordinator:
                     "speaker_count": len(result.get("speakers", [])),
                     "citation_count": sum(len(item.get("citations", [])) for item in result.get("speakers", [])),
                 })
+                self._set_article_status(row["article_id"], "ANALYZED")
                 self._finish(job_id, JobStatus.COMPLETED)
                 logger.info("job_completed job_id=%s", job_id)
                 return
@@ -170,6 +176,7 @@ class JobCoordinator:
                 headers,
             )
             self._stage(job_id, current_stage, StageStatus.COMPLETED, persistence.get("stats") or {})
+            self._set_article_status(row["article_id"], "CITATIONS_EXTRACTED")
             if self._cancel_requested(job_id):
                 self._cancel_after_stage(job_id)
                 return
@@ -187,6 +194,7 @@ class JobCoordinator:
                 headers,
             )
             self._stage(job_id, current_stage, StageStatus.COMPLETED, analysis.get("stats") or {})
+            self._set_article_status(row["article_id"], "ANALYZED")
             self._finish(job_id, JobStatus.COMPLETED)
             logger.info("job_completed job_id=%s", job_id)
         except Exception as exc:
@@ -229,6 +237,7 @@ class JobCoordinator:
                     {"x-job-id": job_id, "x-correlation-id": row["correlation_id"], "x-request-id": row["trace_id"]},
                 )
                 self._stage(job_id, "article_retrieval", StageStatus.COMPLETED, {"article_id": row["article_id"]})
+                self._set_article_status(row["article_id"], "INGESTED")
 
             active = [job_id for job_id in job_ids if job_id in articles and not self._cancel_requested(job_id)]
             extraction_payload = [
@@ -266,6 +275,8 @@ class JobCoordinator:
                 {"x-task-id": task_id, "x-request-id": str(uuid4())},
             )
             self._complete_bundled_stage(active, "extraction_persistence", {"item_count": len(active)})
+            for job_id in active:
+                self._set_article_status(rows[job_id]["article_id"], "CITATIONS_EXTRACTED")
 
             analysis_payload = []
             for job_id, item in zip(active, extractions):
@@ -287,6 +298,8 @@ class JobCoordinator:
                 "item_count": len(active),
                 "result_count": len(result.get("results", [])),
             })
+            for job_id in active:
+                self._set_article_status(rows[job_id]["article_id"], "ANALYZED")
             for job_id in active:
                 self._finish(job_id, JobStatus.COMPLETED)
             logger.info("bundled_task_completed task_id=%s job_count=%s", task_id, len(active))
@@ -317,6 +330,11 @@ class JobCoordinator:
                 connection.execute("UPDATE jobs SET status=?, completed_at=? WHERE job_id=?", (JobStatus.CANCELLED.value, timestamp(), job_id))
             elif row["status"] == JobStatus.RUNNING.value:
                 connection.execute("UPDATE jobs SET cancel_requested=1 WHERE job_id=?", (job_id,))
+            task = connection.execute(
+                "SELECT task_id FROM task_jobs WHERE job_id=?", (job_id,)
+            ).fetchone()
+            if task:
+                self._refresh_task_status(connection, task["task_id"])
         return self.get(job_id)
 
     def retry(self, job_id: str) -> dict[str, Any]:
@@ -328,13 +346,20 @@ class JobCoordinator:
             request,
             f"retry:{job_id}:{current['retry_count'] + 1}",
             initial_status=JobStatus.RETRYING,
+            schedule=False,
         )
         with self.database.lock, self.database.connection() as connection:
             connection.execute(
                 "UPDATE jobs SET status=?, retry_count=? WHERE job_id=?",
                 (JobStatus.RETRYING.value, current["retry_count"] + 1, retry["job_id"]),
             )
+        self.executor.submit(self.run, retry["job_id"])
         return self.get(retry["job_id"])
+
+    def _set_article_status(self, article_id: str, status: str) -> None:
+        update = getattr(self.client, "update_article_status", None)
+        if callable(update):
+            update(article_id, status)
 
     def get(self, job_id: str) -> dict[str, Any]:
         with self.database.connection() as connection:
@@ -358,12 +383,13 @@ class JobCoordinator:
         created = timestamp()
         article_ids = [str(item) for item in request.article_ids]
         with self.database.connection() as connection:
+            blocked_statuses = "('PENDING','RUNNING','RETRYING')" if request.redo else "('PENDING','RUNNING','RETRYING','COMPLETED')"
             existing = {
                 row["article_id"] for row in connection.execute(
                     """SELECT DISTINCT article_id FROM jobs
                        WHERE article_id IN (%s)
-                       AND status IN ('PENDING','RUNNING','RETRYING','COMPLETED')"""
-                    % ",".join("?" for _ in article_ids), article_ids
+                       AND status IN %s"""
+                    % (",".join("?" for _ in article_ids), blocked_statuses), article_ids
                 ).fetchall()
             }
         article_ids = [item for item in article_ids if item not in existing]
@@ -384,7 +410,7 @@ class JobCoordinator:
                     execution_mode=request.execution_mode,
                 ),
                 f"task:{task_id}:article:{article_id}",
-                schedule=request.execution_mode == ExecutionMode.PER_ARTICLE,
+                schedule=False,
                 metadata={"source": "management-task", "task_id": task_id, "execution_mode": request.execution_mode.value},
             )
             with self.database.lock, self.database.connection() as connection:
@@ -396,19 +422,21 @@ class JobCoordinator:
                     "UPDATE jobs SET metadata_json=? WHERE job_id=?",
                     (json.dumps({"source": "management-task", "task_id": task_id, "execution_mode": request.execution_mode.value}), job["job_id"]),
                 )
-        if request.execution_mode == ExecutionMode.BUNDLED:
-            with self.database.connection() as connection:
-                job_ids = [
-                    row["job_id"] for row in connection.execute(
-                        "SELECT job_id FROM task_jobs WHERE task_id=?", (task_id,)
-                    ).fetchall()
-                ]
-            self.executor.submit(self.run_bundled, task_id, job_ids)
         with self.database.lock, self.database.connection() as connection:
             connection.execute(
                 "UPDATE tasks SET status=?, started_at=? WHERE task_id=?",
                 (TaskStatus.RUNNING.value, timestamp(), task_id),
             )
+            job_ids = [
+                row["job_id"] for row in connection.execute(
+                    "SELECT job_id FROM task_jobs WHERE task_id=?", (task_id,)
+                ).fetchall()
+            ]
+        if request.execution_mode == ExecutionMode.BUNDLED:
+            self.executor.submit(self.run_bundled, task_id, job_ids)
+        else:
+            for job_id in job_ids:
+                self.executor.submit(self.run, job_id)
         return self.task(task_id)
 
     def task(self, task_id: str) -> dict[str, Any]:
@@ -438,17 +466,8 @@ class JobCoordinator:
             failed = statuses.count(JobStatus.FAILED.value)
             running = statuses.count(JobStatus.RUNNING.value)
             waiting = statuses.count(JobStatus.PENDING.value) + statuses.count(JobStatus.RETRYING.value)
-            if statuses and not waiting and not running:
-                task_status = (
-                    TaskStatus.CANCELLED.value
-                    if any(status == JobStatus.CANCELLED.value for status in statuses)
-                    else TaskStatus.FAILED.value if failed else TaskStatus.COMPLETED.value
-                )
-                connection.execute(
-                    "UPDATE tasks SET status=?, completed_at=COALESCE(completed_at,?) WHERE task_id=?",
-                    (task_status, timestamp(), task_id),
-                )
-                task = connection.execute("SELECT * FROM tasks WHERE task_id=?", (task_id,)).fetchone()
+            self._refresh_task_status(connection, task_id)
+            task = connection.execute("SELECT * FROM tasks WHERE task_id=?", (task_id,)).fetchone()
             return {
                 "task_id": task["task_id"], "name": task["name"], "status": task["status"],
                 "article_ids": json.loads(task["article_ids_json"]),
@@ -540,8 +559,63 @@ class JobCoordinator:
         self._finish(job_id, JobStatus.CANCELLED, "CANCEL_REQUESTED", "Cancellation requested after the active stage completed")
 
     def _finish(self, job_id: str, status: JobStatus, code: str | None = None, summary: str | None = None) -> None:
+        article_id: str | None = None
         with self.database.lock, self.database.connection() as connection:
-            connection.execute("UPDATE jobs SET status=?, completed_at=?, error_code=?, error_summary=? WHERE job_id=?", (status.value, timestamp(), code, summary, job_id))
+            row = connection.execute("SELECT article_id FROM jobs WHERE job_id=?", (job_id,)).fetchone()
+            article_id = row["article_id"] if row else None
+            connection.execute(
+                "UPDATE jobs SET status=?, current_stage=NULL, completed_at=?, "
+                "error_code=?, error_summary=? WHERE job_id=?",
+                (status.value, timestamp(), code, summary, job_id),
+            )
+            task = connection.execute(
+                "SELECT task_id FROM task_jobs WHERE job_id=?", (job_id,)
+            ).fetchone()
+            if task:
+                self._refresh_task_status(connection, task["task_id"])
+        if article_id:
+            final_status = {
+                JobStatus.COMPLETED: "COMPLETED",
+                JobStatus.FAILED: "FAILED",
+                JobStatus.CANCELLED: "CANCELLED",
+            }.get(status)
+            if final_status:
+                self._set_article_status(article_id, final_status)
+
+    @staticmethod
+    def _refresh_task_status(connection, task_id: str) -> None:
+        jobs = connection.execute(
+            """SELECT j.status FROM jobs j
+               JOIN task_jobs tj ON tj.job_id=j.job_id
+               WHERE tj.task_id=?""",
+            (task_id,),
+        ).fetchall()
+        if not jobs:
+            return
+        statuses = [row["status"] for row in jobs]
+        if any(status in {JobStatus.PENDING.value, JobStatus.RUNNING.value, JobStatus.RETRYING.value}
+               for status in statuses):
+            task_status = TaskStatus.RUNNING.value
+            completed_at = None
+        elif any(status == JobStatus.CANCELLED.value for status in statuses):
+            task_status = TaskStatus.CANCELLED.value
+            completed_at = timestamp()
+        elif any(status == JobStatus.FAILED.value for status in statuses):
+            task_status = TaskStatus.FAILED.value
+            completed_at = timestamp()
+        else:
+            task_status = TaskStatus.COMPLETED.value
+            completed_at = timestamp()
+        if completed_at is None:
+            connection.execute(
+                "UPDATE tasks SET status=?, completed_at=NULL WHERE task_id=?",
+                (task_status, task_id),
+            )
+        else:
+            connection.execute(
+                "UPDATE tasks SET status=?, completed_at=COALESCE(completed_at,?) WHERE task_id=?",
+                (task_status, completed_at, task_id),
+            )
 
     def _stage(
         self,

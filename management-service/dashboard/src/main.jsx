@@ -29,10 +29,17 @@ const pipelineStages = [
   ["citation_extraction", "Citation extraction", false],
   ["citation_refinement", "Citation refinement", true],
   ["extraction_persistence", "Citation persistence", false],
+  ["person_candidate_search", "Person candidate search", false],
+  ["person_resolution_decision", "Person resolution decisions", true],
   ["person_resolution", "Person resolution", false],
   ["citation_analysis", "Citation analysis", false],
+  ["speaker_analysis", "Speaker analysis / parallel LLM work", false],
+  ["topic_candidate_search", "Topic candidate search", false],
+  ["topic_resolution_decision", "Topic resolution decisions", true],
   ["topic_resolution", "Topic resolution", false],
+  ["topic_stance_reevaluation", "Topic stance reevaluation", true],
   ["attitude_persistence", "Attitude persistence", false],
+  ["historical_precheck", "Historical citation precheck", false],
   ["inconsistency_comparison", "Inconsistency analysis", true],
 ];
 
@@ -218,13 +225,13 @@ function JobDetail({ jobId, back, notify }) {
     if (log.status === "started") current.status = "RUNNING";
     if (log.status === "completed") {
       current.status = "COMPLETED";
-      current.duration_ms = log.duration_ms;
-      current.summary = log.attributes || {};
+      current.duration_ms = (current.duration_ms || 0) + (log.duration_ms || 0);
+      current.summary = { ...current.summary, ...(log.attributes || {}) };
     }
     if (log.status === "failed") {
       current.status = "FAILED";
-      current.duration_ms = log.duration_ms;
-      current.summary = log.attributes || {};
+      current.duration_ms = (current.duration_ms || 0) + (log.duration_ms || 0);
+      current.summary = { ...current.summary, ...(log.attributes || {}) };
     }
     telemetryStages.set(key, current);
   });
@@ -240,14 +247,61 @@ function JobDetail({ jobId, back, notify }) {
       duration_ms: persisted?.duration_ms ?? telemetry?.duration_ms,
       summary: { ...(telemetry?.summary || {}), ...(persisted?.summary || {}) },
       error_summary: persisted?.error_summary,
+      started_at: persisted?.started_at || telemetry?.started_at,
+      completed_at: persisted?.completed_at || telemetry?.completed_at,
     };
   });
+  const graphNodes = [
+    ["article_retrieval", 0, 1, 0],
+    ["citation_extraction", 1, 1, 0],
+    ["citation_refinement", 2, 1, 0],
+    ["extraction_persistence", 3, 1, 0],
+    ["person_candidate_search", 4, 2, -1],
+    ["topic_candidate_search", 4, 2, 1],
+    ["person_resolution_decision", 5, 2, -1],
+    ["topic_resolution_decision", 5, 2, 1],
+    ["person_resolution", 6, 2, -1],
+    ["topic_resolution", 6, 2, 1],
+    ["citation_analysis", 7, 1, 0],
+    ["speaker_analysis", 8, 1, 0],
+    ["topic_stance_reevaluation", 9, 1, 0],
+    ["attitude_persistence", 10, 1, 0],
+    ["historical_precheck", 11, 1, 0],
+    ["inconsistency_comparison", 12, 1, 0],
+  ];
+  const graphEdges = [
+    ["article_retrieval", "citation_extraction"], ["citation_extraction", "citation_refinement"],
+    ["citation_refinement", "extraction_persistence"], ["extraction_persistence", "person_candidate_search"],
+    ["extraction_persistence", "topic_candidate_search"], ["person_candidate_search", "person_resolution_decision"],
+    ["topic_candidate_search", "topic_resolution_decision"], ["person_resolution_decision", "person_resolution"],
+    ["topic_resolution_decision", "topic_resolution"], ["person_resolution", "citation_analysis"],
+    ["topic_resolution", "citation_analysis"], ["citation_analysis", "speaker_analysis"],
+    ["speaker_analysis", "topic_stance_reevaluation"], ["topic_stance_reevaluation", "attitude_persistence"],
+    ["attitude_persistence", "historical_precheck"], ["historical_precheck", "inconsistency_comparison"],
+  ];
+  const graphByKey = new Map(stageRows.map(stage => [stage.stage, stage]));
+  const graphLabel = key => graphByKey.get(key)?.label || key.replaceAll("_", " ");
+  const graphStatus = key => graphByKey.get(key)?.status || "PENDING";
+  const graphX = column => 34 + column * 116;
+  const graphY = lane => 54 + lane * 82;
+  const graphPoint = (key, edge = false) => {
+    const node = graphNodes.find(item => item[0] === key);
+    return node ? { x: graphX(node[1]) + (edge ? 0 : 92), y: graphY(node[3] + 1) + 25 } : null;
+  };
+  const stageGraph = <div className="pipeline-graph" role="img" aria-label="Pipeline execution graph">
+    <svg viewBox="0 0 1490 220" preserveAspectRatio="xMinYMin meet">
+      <defs><marker id="pipeline-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" /></marker></defs>
+      <g className="pipeline-edges">{graphEdges.map(([from, to]) => { const start = graphPoint(from); const end = graphPoint(to, true); return <line key={`${from}-${to}`} x1={start?.x} y1={start?.y} x2={end?.x} y2={end?.y} />; })}</g>
+      <g>{graphNodes.map(([key, column, , lane]) => { const stage = graphByKey.get(key); const status = graphStatus(key).toLowerCase().replaceAll("_", "-"); return <g className={`pipeline-node ${status}`} key={key} transform={`translate(${graphX(column)},${graphY(lane + 1)})`}><rect width="92" height="50" rx="6" /><text x="46" y="19">{graphLabel(key).split(" ").slice(0, 2).join(" ")}</text><text x="46" y="35" className="pipeline-node-status">{stage?.status || "PENDING"}</text></g>; })}</g>
+    </svg>
+    <div className="pipeline-legend"><span><i className="graph-dot completed" />Completed</span><span><i className="graph-dot running" />Running</span><span><i className="graph-dot failed" />Failed</span><span><i className="graph-dot pending" />Pending / skipped</span></div>
+  </div>;
   const elapsed = job.started_at ? Date.now() - new Date(job.started_at).getTime() : 0;
   const estimate = job.status === "COMPLETED" ? 0 : stages.filter(stage => stage.status !== "COMPLETED").reduce((sum, stage) => sum + (stage.duration_ms || 0), 0);
   return <Page title={`Job ${shortId(job.job_id)}`} subtitle={`Article ${job.article_id}`} refresh={load}><button className="secondary" onClick={back}>← Back to jobs</button>
     <section className="metric-grid compact"><MetricCard label="Input / output tokens" value={`${formatNumber(inputTokens)} / ${formatNumber(outputTokens)}`} /><MetricCard label="Tok/s" value={llmDuration ? `${formatNumber(outputTokens / (llmDuration / 1000), 1)}` : "Unavailable"} /><MetricCard label="Elapsed" value={formatDuration(elapsed)} /><MetricCard label="Estimated remaining" value={formatDuration(estimate)} /><MetricCard label="DB created / retrieved" value={`${createdRecords} / ${retrievedRecords}`} /></section>
     <div className="detail-grid"><Panel title="Lifecycle"><dl><dt>Status</dt><dd><Status value={job.status} /></dd><dt>Created</dt><dd>{formatDate(job.created_at)}</dd><dt>Started</dt><dd>{formatDate(job.started_at)}</dd><dt>Completed</dt><dd>{formatDate(job.completed_at)}</dd><dt>Correlation</dt><dd className="mono">{job.correlation_id}</dd><dt>Trace</dt><dd className="mono">{job.trace_id}</dd><dt>Error</dt><dd>{job.error_summary || "—"}</dd></dl></Panel>
-      <Panel title="Pipeline stages" kicker="Optional stages are shown when the analysis service executes them"><div className="stage-list">{stageRows.map(stage => <div className={`stage ${stage.optional ? "optional-stage" : ""}`} key={stage.stage}><Status value={stage.status} /><strong>{stage.label}</strong>{stage.optional && <em>optional</em>}<span>{formatDuration(stage.duration_ms)}</span><small>{stage.error_summary || JSON.stringify(stage.summary || {})}</small></div>)}</div></Panel></div>
+      <Panel title="Pipeline execution graph" kicker="Branches share a column when stages can execute in parallel; muted nodes are not started">{stageGraph}</Panel></div>
     <Panel title="Related LLM calls" kicker="Model calls correlated to this job"><CallTable calls={llmCalls} /></Panel><Panel title="Related logs" kicker="Structured records filtered by job correlation"><LogTable logs={logs} /></Panel>
   </Page>;
 }
@@ -325,14 +379,16 @@ function Tasks({ notify, openJob }) {
   const [detail, setDetail] = useState(null);
   const [analytics, setAnalytics] = useState(null);
   const [tab, setTab] = useState("create");
+  const [articleStatus, setArticleStatus] = useState("");
   const [error, setError] = useState(null);
   const load = async () => {
     try {
-      const [taskData, articleData] = await Promise.all([api("/tasks?limit=50"), api("/articles?limit=100")]);
+      const articleQuery = articleStatus ? `&status=${encodeURIComponent(articleStatus)}` : "";
+      const [taskData, articleData] = await Promise.all([api("/tasks?limit=50"), api(`/articles?limit=100${articleQuery}`)]);
       setTasks(taskData); setArticles(articleData);
     } catch (e) { setError(e); }
   };
-  useEffect(() => { load(); const timer = setInterval(load, 5000); return () => clearInterval(timer); }, []);
+  useEffect(() => { load(); const timer = setInterval(load, 5000); return () => clearInterval(timer); }, [articleStatus]);
   useEffect(() => {
     if (!detail?.task_id) { setAnalytics(null); return undefined; }
     const loadAnalytics = () => api(`/tasks/${detail.task_id}/analytics`).then(setAnalytics).catch(() => setAnalytics(null));
@@ -340,9 +396,9 @@ function Tasks({ notify, openJob }) {
     const timer = setInterval(loadAnalytics, 5000);
     return () => clearInterval(timer);
   }, [detail?.task_id]);
-  const create = async ids => {
+  const create = async (ids, redo = false) => {
     try {
-      const task = await api("/tasks", { method: "POST", body: JSON.stringify({ name, article_ids: ids }) });
+      const task = await api("/tasks", { method: "POST", body: JSON.stringify({ name, article_ids: ids, redo }) });
       notify(`Task queued: ${ids.length} articles`); setSelected([]); setDetail(task); load();
     } catch (e) { notify(e.message, true); }
   };
@@ -355,8 +411,8 @@ function Tasks({ notify, openJob }) {
   }, [detail]));
   return <Page title="Tasks" subtitle="Control multi-article processing and watch aggregate analytical KPIs." refresh={load}>
     <div className="browser-tabs"><button className={tab === "create" ? "active" : "secondary"} onClick={() => setTab("create")}>Create task</button><button className={tab === "history" ? "active" : "secondary"} onClick={() => setTab("history")}>Existing tasks</button></div>
-    {tab === "create" && <Panel title="Start processing" actions={<button onClick={fresh}>Process fresh articles</button>}>
-      <div className="form-row"><input value={name} onChange={e => setName(e.target.value)} placeholder="Task name" /><button disabled={!selected.length} onClick={() => create(selected)}>Process selected ({selected.length})</button></div>
+    {tab === "create" && <Panel title="Start processing" actions={<div className="filter-row"><select value={articleStatus} onChange={e => setArticleStatus(e.target.value)}><option value="">All statuses</option>{["NEW", "INGESTED", "CITATIONS_EXTRACTED", "ANALYZED", "COMPLETED", "FAILED", "CANCELLED"].map(value => <option key={value} value={value}>{value}</option>)}</select><button onClick={fresh}>Process new articles</button></div>}>
+      <div className="form-row"><input value={name} onChange={e => setName(e.target.value)} placeholder="Task name" /><button disabled={!selected.length} onClick={() => create(selected)}>Process selected ({selected.length})</button><button className="secondary" disabled={!selected.length} onClick={() => create(selected, true)}>Redo selected ({selected.length})</button></div>
       <div className="table-scroll"><table><thead><tr><th></th><th>Article</th><th>Title</th><th>Status</th></tr></thead><tbody>{articles.map(article => <tr key={article.article_id}><td><input type="checkbox" checked={selected.includes(article.article_id)} onChange={e => setSelected(e.target.checked ? [...selected, article.article_id] : selected.filter(id => id !== article.article_id))} /></td><td className="mono">{shortId(article.article_id)}</td><td>{article.article_title || "Untitled"}</td><td>{article.status || "NEW"}</td></tr>)}</tbody></table></div>
     </Panel>}
     {tab === "history" && <Panel title="Task history">{error ? <ErrorState error={error} retry={load} /> : tasks.length ? <div className="table-scroll"><table><thead><tr><th>Task</th><th>Status</th><th>Progress</th><th>KPIs</th><th>Created</th></tr></thead><tbody>{tasks.map(task => <tr key={task.task_id}><td><button className="link-button" onClick={() => setDetail(task)}>{task.name}</button><small className="mono">{shortId(task.task_id)}</small></td><td><Status value={task.status} /></td><td>{task.completed_articles}/{task.total_articles} complete · {task.failed_articles} failed</td><td>{task.citations} citations · {task.topics} topics · {task.attitudes} attitudes</td><td>{formatDate(task.created_at)}</td></tr>)}</tbody></table></div> : <Empty>No tasks have been created.</Empty>}</Panel>}
@@ -374,7 +430,7 @@ const dataResources = [
 ];
 
 const statusOptions = {
-  articles: ["NEW", "INGESTED", "CITATIONS_EXTRACTED", "ANALYZED", "COMPLETED", "FAILED"],
+  articles: ["NEW", "INGESTED", "CITATIONS_EXTRACTED", "ANALYZED", "COMPLETED", "FAILED", "CANCELLED"],
   citations: ["NEW", "EXTRACTED", "VALIDATED", "ANALYZED", "FAILED"],
   topics: ["NEW", "RESOLVED", "ANALYZED", "FAILED"],
   people: ["NEW", "RESOLVED", "FAILED"],

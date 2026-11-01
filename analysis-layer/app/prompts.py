@@ -117,11 +117,43 @@ class CitationExtractionCitation(BaseModel):
             return value / 5
         return value
 
+
+class ExtractionSpeakerKind(str, Enum):
+    PERSON = "PERSON"
+    ORGANIZATION = "ORGANIZATION"
+    GROUP = "GROUP"
+    ANONYMOUS_SOURCE = "ANONYMOUS_SOURCE"
+    UNRESOLVED = "UNRESOLVED"
+
+    @classmethod
+    def _missing_(cls, value: object) -> "ExtractionSpeakerKind | None":
+        if not isinstance(value, str):
+            return None
+        normalized = value.strip().upper().replace("-", "_").replace(" ", "_")
+        aliases = {
+            "INDIVIDUAL": cls.PERSON,
+            "HUMAN": cls.PERSON,
+            "EU_LEADER": cls.PERSON,
+            "GOVERNMENT_OFFICIAL": cls.PERSON,
+            "INTERNATIONAL_ORGANIZATION_OFFICIAL": cls.PERSON,
+            "OFFICIAL": cls.PERSON,
+            "COMPANY": cls.ORGANIZATION,
+            "CORPORATION": cls.ORGANIZATION,
+            "GOVERNMENT": cls.ORGANIZATION,
+            "GOVERNMENT_BODY": cls.ORGANIZATION,
+            "INTERNATIONAL_ORGANIZATION": cls.ORGANIZATION,
+            "COLLECTIVE": cls.GROUP,
+            "ANONYMOUS": cls.ANONYMOUS_SOURCE,
+            "UNKNOWN": cls.UNRESOLVED,
+        }
+        return aliases.get(normalized)
+
+
 class ExtractedSpeaker(BaseModel):
     speaker_name: str = Field(..., description="The name of the speaker")
     speaker_role: str = Field(..., description="The speaker's affiliation or role, stored separately from identity aliases")
     aliases: list[str] = Field(..., description="Name-like strings referring to the same real-world entity; never roles, affiliations, or type labels")
-    speaker_kind: str = Field(
+    speaker_kind: ExtractionSpeakerKind = Field(
         default="UNRESOLVED",
         description=(
             "One of PERSON, ORGANIZATION, GROUP, ANONYMOUS_SOURCE, UNRESOLVED."
@@ -207,7 +239,9 @@ COMBINED_CITATION_ANALYSIS_PROMPT = ModelCompatibleChatPromptTemplate.from_messa
         here when explicitly enabled by the workflow; GROUP and non-person sources
         must not be treated as canonical people.
 
-        topic_name must be concise and canonical. topic_description must be a
+        topic_name must be concise and canonical. Treat the topic as a stable
+        issue/frame, not as a person's wording or a conclusion about the person.
+        topic_description must be a
         proposition that can be meaningfully supported or opposed, including
         important scope, actor, object, or condition. Determine polarity from the
         proposition itself: stance > 0 means the speaker supports that proposition,
@@ -242,7 +276,7 @@ TOPIC_EXTRACTION_PROMPT = ModelCompatibleChatPromptTemplate.from_messages([
             topics and different stances. Judge what the speaker expresses, not truth.
 
             topic_name must be concise, specific, reusable, and free of article-specific
-            phrasing. topic_description must define the proposition being evaluated:
+            phrasing.             topic_description must define the issue/frame proposition being evaluated:
             what supporting or opposing it means in this context. Keep it factual and
             compact, retaining essential scope, actor, object, and condition.
             Do not use stock wording or copy the quote. Set stance_detected false and
@@ -349,6 +383,111 @@ class CombinedCitationAnalysisOutput(BaseModel):
     evaluated_citations: list[CombinedEvaluatedCitation]
 
 
+class TopicResolutionDecision(BaseModel):
+    same_topic: bool
+    reverse_polarity: bool = False
+    confidence: float = Field(ge=0, le=1)
+    reason: str = ""
+
+
+class PersonResolutionDecision(BaseModel):
+    same_person: bool
+    confidence: float = Field(ge=0, le=1)
+    reason: str = ""
+
+
+PERSON_RESOLUTION_PROMPT = ModelCompatibleChatPromptTemplate.from_messages([
+    (
+        "system",
+        """
+        Decide whether two records refer to the same real-world person or entity.
+        Compare the complete names, aliases, affiliation, and person type. Similar
+        names alone are not sufficient; small name differences may be different
+        people. Preserve ambiguity by returning false when evidence is insufficient.
+        """,
+    ),
+    (
+        "human",
+        """
+        Extracted record:
+        Name: {person_a_name}
+        Aliases: {person_a_aliases}
+        Affiliation: {person_a_affiliation}
+        Type: {person_a_type}
+
+        Candidate record:
+        Name: {person_b_name}
+        Aliases: {person_b_aliases}
+        Affiliation: {person_b_affiliation}
+        Type: {person_b_type}
+        """,
+    ),
+])
+
+
+TOPIC_RESOLUTION_PROMPT = ModelCompatibleChatPromptTemplate.from_messages([
+    (
+        "system",
+        """
+        Decide whether two topic records represent the same canonical issue/frame.
+        Compare scope, actor, object, condition, and level of abstraction. Similar
+        wording is not enough. If they are the same issue but one proposition is
+        formulated as the logical opposite of the other, set reverse_polarity true.
+        Do not merge broader/narrower or merely related issues.
+        """,
+    ),
+    (
+        "human",
+        """
+        Candidate topic A:
+        Name: {topic_a_name}
+        Description: {topic_a_description}
+        Field: {topic_a_field}
+
+        Candidate topic B:
+        Name: {topic_b_name}
+        Description: {topic_b_description}
+        Field: {topic_b_field}
+        """,
+    ),
+])
+
+
+class TopicStanceReevaluation(BaseModel):
+    stance: int | None = Field(default=None, ge=-10, le=10)
+    confidence: float = Field(ge=0, le=1)
+    reason: str = ""
+
+
+TOPIC_STANCE_REEVALUATION_PROMPT = ModelCompatibleChatPromptTemplate.from_messages([
+    (
+        "system",
+        """
+        Re-evaluate the speaker's stance toward the canonical issue/frame below.
+        The canonical description defines polarity. Use only the citation evidence.
+        Return null when the citation does not support a stance.
+        """,
+    ),
+    (
+        "human",
+        """
+        Canonical topic description: {topic_description}
+        Citation quote: {exact_quote}
+        Citation context: {context}
+        Previous proposed stance: {previous_stance}
+        """,
+    ),
+])
+
+
+class InconsistencySeverity(str, Enum):
+    NONE = "NONE"
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    CRITICAL = "CRITICAL"
+
+
 class InconsistencyComparison(BaseModel):
     classification: Literal[
         "CONSISTENT",
@@ -356,7 +495,14 @@ class InconsistencyComparison(BaseModel):
         "CONTRADICTION",
         "INSUFFICIENT_EVIDENCE",
     ] = Field(description="CONSISTENT, POSITION_CHANGE, CONTRADICTION, or INSUFFICIENT_EVIDENCE")
-    severity: str | None = None
+    severity: InconsistencySeverity = Field(
+        default=InconsistencySeverity.NONE,
+        description=(
+            "Use exactly one severity: NONE for consistent or insufficient evidence, "
+            "LOW for a minor difference, MEDIUM for a meaningful position change, "
+            "HIGH for a strong contradiction, or CRITICAL for a direct, consequential contradiction."
+        ),
+    )
     confidence: float = Field(ge=0, le=1)
     comment: str
 
@@ -365,6 +511,22 @@ class InconsistencyComparison(BaseModel):
     def normalize_classification(cls, value: object) -> object:
         if isinstance(value, str):
             return value.strip().upper().replace("-", "_").replace(" ", "_")
+        return value
+
+    @field_validator("severity", mode="before")
+    @classmethod
+    def normalize_severity(cls, value: object) -> object:
+        if value is None:
+            return InconsistencySeverity.NONE
+        if isinstance(value, str):
+            normalized = value.strip().upper().replace("-", "_").replace(" ", "_")
+            aliases = {
+                "NO_SEVERITY": "NONE",
+                "MINOR": "LOW",
+                "MODERATE": "MEDIUM",
+                "SEVERE": "HIGH",
+            }
+            return aliases.get(normalized, normalized)
         return value
 
     @field_validator("confidence", mode="before")
@@ -382,6 +544,9 @@ INCONSISTENCY_COMPARISON_PROMPT = ModelCompatibleChatPromptTemplate.from_message
         without logical incompatibility, CONTRADICTION only for mutually incompatible
         claims, and INSUFFICIENT_EVIDENCE when scope, context, attribution, or dates
         do not support a decision. A changed numeric stance alone is not a contradiction.
+        Assign severity using only this scale: NONE for CONSISTENT or INSUFFICIENT_EVIDENCE,
+        LOW for a minor difference, MEDIUM for a meaningful position change, HIGH for a
+        strong contradiction, and CRITICAL for a direct, consequential contradiction.
         Explain the decisive evidence briefly. Return only the structured assessment.
     """),
     ("human", """

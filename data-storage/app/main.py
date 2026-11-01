@@ -164,15 +164,19 @@ def _normalize_aliases(aliases: list[str] | None) -> list[str]:
 def _person_values(values: dict[str, Any]) -> dict[str, Any]:
     values = dict(values)
     values["aliases"] = _normalize_aliases(values.get("aliases"))
-    alias_text = _person_embedding_text(values["aliases"], values.get("affiliation"))
+    alias_text = _person_embedding_text(
+        values["aliases"], values.get("affiliation"), values.get("name")
+    )
     values["aliases_vector"] = (
         _embed_texts([alias_text])[0] if alias_text else None
     )
     return values
 
 
-def _person_embedding_text(aliases: list[str], affiliation: Any) -> str:
-    alias_text = "\n".join(aliases)
+def _person_embedding_text(
+    aliases: list[str], affiliation: Any, name: str | None = None
+) -> str:
+    alias_text = "\n".join(filter(None, [name, *aliases]))
     return f"{alias_text}\n{_affiliation_text(affiliation)}".strip()
 
 
@@ -190,6 +194,14 @@ def _with_generated_vector(
 
 def _as_dict(item: Any) -> dict[str, Any]:
     return {column.name: getattr(item, column.name) for column in item.__table__.columns}
+
+
+def _stance_polarity(value: Any) -> float | None:
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return None
+    return -1.0 if numeric < 0 else 1.0 if numeric > 0 else 0.0
 
 
 def _get(model: Any, key: Any) -> dict[str, Any]:
@@ -453,8 +465,16 @@ def create_article(payload: ArticlePayload) -> dict[str, Any]:
 
 
 @app.get("/articles", response_model=None, tags=["Articles"], summary="List articles")
-def list_articles(limit: int = Query(50, ge=1, le=500)) -> list[dict[str, Any]]:
-    return _list(DimArticle, limit)
+def list_articles(
+    limit: int = Query(50, ge=1, le=500),
+    status: str | None = Query(default=None, min_length=1),
+) -> list[dict[str, Any]]:
+    with get_session() as session:
+        statement = select(DimArticle)
+        if status:
+            statement = statement.where(DimArticle.status == status.strip().upper())
+        statement = statement.order_by(DimArticle.created_at.desc()).limit(limit)
+        return [_as_dict(item) for item in session.scalars(statement).all()]
 
 
 @app.get("/articles/search", response_model=None, tags=["Articles"], summary="Search articles")
@@ -472,12 +492,12 @@ def search_articles(
         return [_as_dict(item) for item in session.scalars(statement).all()]
 
 
-@app.get("/articles/{article_id}", response_model=None, tags=["Articles"], summary="Get an article")
+@app.get("/articles/{article_id:uuid}", response_model=None, tags=["Articles"], summary="Get an article")
 def get_article(article_id: UUID) -> dict[str, Any]:
     return _get(DimArticle, article_id)
 
 
-@app.put("/articles/{article_id}", response_model=None, tags=["Articles"], summary="Replace an article")
+@app.put("/articles/{article_id:uuid}", response_model=None, tags=["Articles"], summary="Replace an article")
 def update_article(article_id: UUID, payload: ArticleUpdate) -> dict[str, Any]:
     return _update(DimArticle, article_id, payload.model_dump(exclude_unset=True, exclude={"article_id"}))
 
@@ -487,7 +507,7 @@ def delete_articles_bulk(payload: BulkDeleteRequest) -> dict[str, int]:
     return _bulk_delete(DimArticle, "article_id", payload.ids)
 
 
-@app.delete("/articles/{article_id}", status_code=204, response_model=None, tags=["Articles"], summary="Delete an article")
+@app.delete("/articles/{article_id:uuid}", status_code=204, response_model=None, tags=["Articles"], summary="Delete an article")
 def delete_article(article_id: UUID) -> None:
     _delete(DimArticle, article_id)
 
@@ -556,7 +576,7 @@ def list_people(limit: int = Query(50, ge=1, le=500)) -> list[dict[str, Any]]:
     return _list(DimPerson, limit)
 
 
-@app.get("/people/{person_uuid}/aliases", response_model=None, tags=["People"], summary="List person aliases")
+@app.get("/people/{person_uuid:uuid}/aliases", response_model=None, tags=["People"], summary="List person aliases")
 def list_person_aliases(person_uuid: UUID) -> list[str]:
     with get_session() as session:
         person = session.get(DimPerson, person_uuid)
@@ -566,7 +586,7 @@ def list_person_aliases(person_uuid: UUID) -> list[str]:
 
 
 @app.post(
-    "/people/{person_uuid}/aliases/reembed",
+    "/people/{person_uuid:uuid}/aliases/reembed",
     response_model=None,
     tags=["People"],
     summary="Regenerate embeddings for a person's aliases",
@@ -576,19 +596,25 @@ def reembed_person_aliases(person_uuid: UUID) -> list[dict[str, Any]]:
         person = session.get(DimPerson, person_uuid)
         if person is None:
             raise HTTPException(status_code=404, detail="DimPerson not found")
-        values = _person_values({"aliases": person.aliases, "affiliation": person.affiliation})
+        values = _person_values(
+            {
+                "name": person.name,
+                "aliases": person.aliases,
+                "affiliation": person.affiliation,
+            }
+        )
         person.aliases = values["aliases"]
         person.aliases_vector = values["aliases_vector"]
         session.flush()
         return [_as_dict(person)]
 
 
-@app.get("/people/{person_uuid}", response_model=None, tags=["People"], summary="Get a person")
+@app.get("/people/{person_uuid:uuid}", response_model=None, tags=["People"], summary="Get a person")
 def get_person(person_uuid: UUID) -> dict[str, Any]:
     return _get(DimPerson, person_uuid)
 
 
-@app.put("/people/{person_uuid}", response_model=None, tags=["People"], summary="Replace a person")
+@app.put("/people/{person_uuid:uuid}", response_model=None, tags=["People"], summary="Replace a person")
 def update_person(person_uuid: UUID, payload: PersonUpdate) -> dict[str, Any]:
     values = payload.model_dump(exclude_unset=True)
     with get_session() as session:
@@ -610,7 +636,7 @@ def delete_people_bulk(payload: BulkDeleteRequest) -> dict[str, int]:
     return _bulk_delete(DimPerson, "person_uuid", payload.ids)
 
 
-@app.delete("/people/{person_uuid}", status_code=204, response_model=None, tags=["People"], summary="Delete a person")
+@app.delete("/people/{person_uuid:uuid}", status_code=204, response_model=None, tags=["People"], summary="Delete a person")
 def delete_person(person_uuid: UUID) -> None:
     _delete(DimPerson, person_uuid)
 
@@ -732,13 +758,12 @@ def search_citations(
         )
         return [_as_dict(item) for item in session.scalars(statement).all()]
 
-
-@app.get("/citations/{citation_uuid}", response_model=None, tags=["Citations"], summary="Get a citation")
+@app.get("/citations/{citation_uuid:uuid}", response_model=None, tags=["Citations"], summary="Get a citation")
 def get_citation(citation_uuid: UUID) -> dict[str, Any]:
     return _get(DimCitation, citation_uuid)
 
 
-@app.put("/citations/{citation_uuid}", response_model=None, tags=["Citations"], summary="Replace a citation")
+@app.put("/citations/{citation_uuid:uuid}", response_model=None, tags=["Citations"], summary="Replace a citation")
 def update_citation(citation_uuid: UUID, payload: CitationUpdate) -> dict[str, Any]:
     values = _with_generated_vector(
         payload.model_dump(exclude_unset=True),
@@ -753,7 +778,7 @@ def delete_citations_bulk(payload: BulkDeleteRequest) -> dict[str, int]:
     return _bulk_delete(DimCitation, "citation_uuid", payload.ids)
 
 
-@app.delete("/citations/{citation_uuid}", status_code=204, response_model=None, tags=["Citations"], summary="Delete a citation")
+@app.delete("/citations/{citation_uuid:uuid}", status_code=204, response_model=None, tags=["Citations"], summary="Delete a citation")
 def delete_citation(citation_uuid: UUID) -> None:
     _delete(DimCitation, citation_uuid)
 
@@ -921,12 +946,12 @@ def browse_topics(
     return {"items": items, "total": total, "offset": offset, "limit": limit}
 
 
-@app.get("/topics/{topic_uuid}", response_model=None, tags=["Topics"], summary="Get a topic")
+@app.get("/topics/{topic_uuid:uuid}", response_model=None, tags=["Topics"], summary="Get a topic")
 def get_topic(topic_uuid: UUID) -> dict[str, Any]:
     return _get(DimTopic, topic_uuid)
 
 
-@app.put("/topics/{topic_uuid}", response_model=None, tags=["Topics"], summary="Replace a topic")
+@app.put("/topics/{topic_uuid:uuid}", response_model=None, tags=["Topics"], summary="Replace a topic")
 def update_topic(topic_uuid: UUID, payload: TopicUpdate) -> dict[str, Any]:
     values = _with_generated_vector(
         payload.model_dump(exclude_unset=True),
@@ -941,7 +966,7 @@ def delete_topics_bulk(payload: BulkDeleteRequest) -> dict[str, int]:
     return _bulk_delete(DimTopic, "topic_uuid", payload.ids)
 
 
-@app.delete("/topics/{topic_uuid}", status_code=204, response_model=None, tags=["Topics"], summary="Delete a topic")
+@app.delete("/topics/{topic_uuid:uuid}", status_code=204, response_model=None, tags=["Topics"], summary="Delete a topic")
 def delete_topic(topic_uuid: UUID) -> None:
     _delete(DimTopic, topic_uuid)
 
@@ -1099,12 +1124,12 @@ def browse_attitudes(
     return {"items": items, "total": total, "offset": offset, "limit": limit, "stance_counts": {stance or "UNKNOWN": count for stance, count in stance_rows}}
 
 
-@app.get("/attitudes/{topic_uuid}/{citation_uuid}", response_model=None, tags=["Attitudes"], summary="Get an attitude")
+@app.get("/attitudes/{topic_uuid:uuid}/{citation_uuid:uuid}", response_model=None, tags=["Attitudes"], summary="Get an attitude")
 def get_attitude(topic_uuid: UUID, citation_uuid: UUID) -> dict[str, Any]:
     return _get(FctAttitude, (topic_uuid, citation_uuid))
 
 
-@app.put("/attitudes/{topic_uuid}/{citation_uuid}", response_model=None, tags=["Attitudes"], summary="Replace an attitude")
+@app.put("/attitudes/{topic_uuid:uuid}/{citation_uuid:uuid}", response_model=None, tags=["Attitudes"], summary="Replace an attitude")
 def update_attitude(topic_uuid: UUID, citation_uuid: UUID, payload: AttitudeUpdate) -> dict[str, Any]:
     return _update(FctAttitude, (topic_uuid, citation_uuid), payload.model_dump(exclude_unset=True))
 
@@ -1114,7 +1139,7 @@ def delete_attitudes_bulk(payload: BulkAttitudeDeleteRequest) -> dict[str, int]:
     return _bulk_delete_attitudes(payload.keys)
 
 
-@app.delete("/attitudes/{topic_uuid}/{citation_uuid}", status_code=204, response_model=None, tags=["Attitudes"], summary="Delete an attitude")
+@app.delete("/attitudes/{topic_uuid:uuid}/{citation_uuid:uuid}", status_code=204, response_model=None, tags=["Attitudes"], summary="Delete an attitude")
 def delete_attitude(topic_uuid: UUID, citation_uuid: UUID) -> None:
     _delete(FctAttitude, (topic_uuid, citation_uuid))
 
@@ -1269,7 +1294,7 @@ def browse_inconsistencies(
     return {"items": items, "total": total, "offset": offset, "limit": limit}
 
 
-@app.get("/inconsistencies/{inconsistency_uuid}", response_model=None, tags=["Inconsistencies"], summary="Get inconsistency assessment")
+@app.get("/inconsistencies/{inconsistency_uuid:uuid}", response_model=None, tags=["Inconsistencies"], summary="Get inconsistency assessment")
 def get_inconsistency(inconsistency_uuid: UUID) -> dict[str, Any]:
     record = _get(FctInconsistency, inconsistency_uuid)
     with get_session() as session:
@@ -1378,7 +1403,7 @@ def reembed_all_vectors() -> dict[str, int]:
         for person in people:
             person.aliases = _normalize_aliases(person.aliases)
             aliases = person.aliases
-            alias_text = _person_embedding_text(aliases, person.affiliation)
+            alias_text = _person_embedding_text(aliases, person.affiliation, person.name)
             if alias_text:
                 texts.append(alias_text)
                 targets.append((person, "aliases_vector"))
@@ -1514,6 +1539,7 @@ def search_citations_by_vector(
                 "distance": float(distance_value),
                 "cosine_similarity": float(similarity_value),
                 "stance": stance_value,
+                "stance_polarity": _stance_polarity(stance_value),
             }
             for citation, distance_value, similarity_value, stance_value in session.execute(statement).all()
         ]
@@ -1540,3 +1566,54 @@ def search_citations_by_text(
         window_days,
         exclude_citation_uuid,
     )
+
+
+@app.get(
+    "/citations/history",
+    response_model=None,
+    tags=["Citations"],
+    summary="List all topic citations for a person in a time window",
+)
+def citation_history(
+    person_uuid: UUID,
+    topic_uuid: UUID,
+    before: datetime | None = None,
+    window_days: int = Query(365, ge=1, le=3650),
+    exclude_citation_uuid: UUID | None = None,
+    limit: int = Query(500, ge=1, le=1000),
+) -> list[dict[str, Any]]:
+    effective_before = before or datetime.now(timezone.utc)
+    if effective_before.tzinfo is None:
+        effective_before = effective_before.replace(tzinfo=timezone.utc)
+    cutoff = effective_before - timedelta(days=window_days)
+    with get_session() as session:
+        statement = (
+            select(DimCitation, FctAttitude.stance)
+            .join(DimArticle, DimCitation.origin_article_id == DimArticle.article_id)
+            .join(
+                FctAttitude,
+                FctAttitude.citation_uuid == DimCitation.citation_uuid,
+            )
+            .where(DimCitation.person_uuid == person_uuid)
+            .where(FctAttitude.topic_uuid == topic_uuid)
+            .where(DimArticle.published_at >= cutoff)
+            .where(DimArticle.published_at <= effective_before)
+            .order_by(DimArticle.published_at.desc())
+            .limit(limit)
+        )
+        if exclude_citation_uuid is not None:
+            statement = statement.where(
+                DimCitation.citation_uuid != exclude_citation_uuid
+            )
+        return [
+            {
+                **_as_dict(citation),
+                "stance": stance,
+                "stance_polarity": _stance_polarity(stance),
+                "historical_date": article_date,
+            }
+            for citation, stance, article_date in (
+                (citation, stance, citation.article.published_at)
+                for citation, stance in session.execute(statement).all()
+            )
+        ]

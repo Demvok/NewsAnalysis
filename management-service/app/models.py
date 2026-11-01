@@ -78,6 +78,7 @@ class TaskCreateRequest(BaseModel):
     article_ids: list[UUID] = Field(min_length=1, max_length=500)
     inconsistency_window_days: int = Field(default=365, ge=1, le=3650)
     execution_mode: ExecutionMode = ExecutionMode.PER_ARTICLE
+    redo: bool = False
 
 
 class TaskResponse(BaseModel):

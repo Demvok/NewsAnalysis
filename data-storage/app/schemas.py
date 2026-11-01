@@ -117,6 +117,14 @@ class AttitudePayload(BaseModel):
     status: str = "NEW"
 
 
+class InconsistencySeverity(str, Enum):
+    NONE = "NONE"
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    CRITICAL = "CRITICAL"
+
+
 class InconsistencyPayload(BaseModel):
     person_uuid: UUID
     topic_uuid: UUID
@@ -125,7 +133,7 @@ class InconsistencyPayload(BaseModel):
     attitude_a: str | None = None
     attitude_b: str | None = None
     classification: Literal["CONSISTENT", "POSITION_CHANGE", "CONTRADICTION", "INSUFFICIENT_EVIDENCE"]
-    severity: str = "NONE"
+    severity: InconsistencySeverity = InconsistencySeverity.NONE
     confidence: float | None = Field(default=None, ge=0, le=1)
     inconsistency_comment: str | None = None
     detected_at: datetime | None = None

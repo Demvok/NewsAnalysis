@@ -1,5 +1,7 @@
 import httpx
 import time
+import os
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 from uuid import uuid4
 from fastapi import FastAPI, HTTPException, Request, Response
@@ -50,6 +52,18 @@ app = FastAPI(
 )
 
 logger = get_logger("main", "analysis")
+PARALLEL_ANALYSIS_WORKERS = max(1, int(os.getenv("PARALLEL_ANALYSIS_WORKERS", "4")))
+
+
+def _run_bulk[T](handler, requests: list[T]) -> list:
+    if len(requests) <= 1:
+        return [handler(request) for request in requests]
+    with ThreadPoolExecutor(
+        max_workers=min(PARALLEL_ANALYSIS_WORKERS, len(requests)),
+        thread_name_prefix="analysis-bulk",
+    ) as executor:
+        futures = [executor.submit(handler, request) for request in requests]
+        return [future.result() for future in futures]
 
 
 @app.middleware("http")
@@ -147,7 +161,7 @@ def run_extraction_stage(
 def run_extraction_stage_bulk(
     requests: list[models.ExtractionStageRequest],
 ) -> models.BulkStageResponse:
-    results = [run_extraction_stage(request) for request in requests]
+    results = _run_bulk(run_extraction_stage, requests)
     return models.BulkStageResponse(
         stage="citation_extraction",
         status="COMPLETED",
@@ -182,7 +196,7 @@ def run_extraction_persistence_stage(
 def run_extraction_persistence_stage_bulk(
     requests: list[models.ExtractionPersistenceRequest],
 ) -> models.BulkStageResponse:
-    results = [run_extraction_persistence_stage(request) for request in requests]
+    results = _run_bulk(run_extraction_persistence_stage, requests)
     return models.BulkStageResponse(
         stage="extraction_persistence",
         status="COMPLETED",
@@ -226,7 +240,7 @@ def run_citation_analysis_stage(
 def run_citation_analysis_stage_bulk(
     requests: list[models.CitationAnalysisStageRequest],
 ) -> models.BulkStageResponse:
-    results = [run_citation_analysis_stage(request) for request in requests]
+    results = _run_bulk(run_citation_analysis_stage, requests)
     return models.BulkStageResponse(
         stage="citation_analysis",
         status="COMPLETED",
@@ -269,7 +283,7 @@ def run_full_stage(request: models.ExtractionStageRequest) -> models.StageRespon
 def run_full_stage_bulk(
     requests: list[models.ExtractionStageRequest],
 ) -> models.BulkStageResponse:
-    results = [run_full_stage(request) for request in requests]
+    results = _run_bulk(run_full_stage, requests)
     return models.BulkStageResponse(
         stage="full_analysis",
         status="COMPLETED",

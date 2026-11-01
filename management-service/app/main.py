@@ -271,7 +271,7 @@ def create_job(
     return job_response(value)
 
 
-@app.get("/api/jobs/{job_id}", response_model=JobResponse, tags=["Jobs"])
+@app.get("/api/jobs/{job_id:uuid}", response_model=JobResponse, tags=["Jobs"])
 def get_job(job_id: UUID) -> JobResponse:
     try:
         return job_response(coordinator.get(str(job_id)))
@@ -279,12 +279,12 @@ def get_job(job_id: UUID) -> JobResponse:
         raise HTTPException(status_code=404, detail="Job not found") from None
 
 
-@app.get("/api/jobs/{job_id}/progress", response_model=JobResponse, tags=["Jobs"])
+@app.get("/api/jobs/{job_id:uuid}/progress", response_model=JobResponse, tags=["Jobs"])
 def job_progress(job_id: UUID) -> JobResponse:
     return get_job(job_id)
 
 
-@app.get("/api/jobs/{job_id}/stages", response_model=list[StageResponse], tags=["Jobs"])
+@app.get("/api/jobs/{job_id:uuid}/stages", response_model=list[StageResponse], tags=["Jobs"])
 def job_stages(job_id: UUID) -> list[StageResponse]:
     try:
         return [stage_response(item) for item in coordinator.stages(str(job_id))]
@@ -293,9 +293,12 @@ def job_stages(job_id: UUID) -> list[StageResponse]:
 
 
 @app.get("/api/articles", tags=["Tasks"])
-def available_articles(limit: int = Query(100, ge=1, le=500)) -> list[dict[str, Any]]:
+def available_articles(
+    limit: int = Query(100, ge=1, le=500),
+    status: str | None = Query(default=None, min_length=1),
+) -> list[dict[str, Any]]:
     try:
-        return client.articles(limit)
+        return client.articles(limit, status)
     except Exception as exc:
         logger.warning("article_listing_failed error_type=%s", type(exc).__name__)
         raise HTTPException(status_code=503, detail="Article storage is unavailable") from exc
@@ -606,6 +609,8 @@ def delete_data_record(resource: str, identifier: str) -> Response:
 def create_task(request: TaskCreateRequest) -> TaskResponse:
     try:
         return coordinator.create_task(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except Exception as exc:
         logger.exception("task_creation_failed")
         raise HTTPException(status_code=502, detail="Could not create processing task") from exc
@@ -617,7 +622,7 @@ def create_fresh_task(
     limit: int = Query(20, ge=1, le=100),
 ) -> TaskResponse:
     try:
-        articles = client.articles(limit)
+        articles = client.articles(limit, "NEW")
         with database.connection() as connection:
             existing = {
                 row["article_id"] for row in connection.execute(
@@ -640,7 +645,7 @@ def list_tasks(limit: int = Query(50, ge=1, le=200)) -> list[TaskResponse]:
     return [TaskResponse.model_validate(item) for item in coordinator.list_tasks(limit)]
 
 
-@app.get("/api/tasks/{task_id}", response_model=TaskResponse, tags=["Tasks"])
+@app.get("/api/tasks/{task_id:uuid}", response_model=TaskResponse, tags=["Tasks"])
 def get_task(task_id: UUID) -> TaskResponse:
     try:
         return TaskResponse.model_validate(coordinator.task(str(task_id)))
@@ -648,7 +653,7 @@ def get_task(task_id: UUID) -> TaskResponse:
         raise HTTPException(status_code=404, detail="Task not found") from None
 
 
-@app.get("/api/tasks/{task_id}/analytics", tags=["Tasks"])
+@app.get("/api/tasks/{task_id:uuid}/analytics", tags=["Tasks"])
 def task_analytics(task_id: UUID) -> dict[str, Any]:
     with database.connection() as connection:
         task = connection.execute("SELECT task_id FROM tasks WHERE task_id=?", (str(task_id),)).fetchone()
@@ -694,7 +699,7 @@ def task_analytics(task_id: UUID) -> dict[str, Any]:
     return {"stages": list(stage_map.values()), "llm": {"calls": llm_calls, "input_tokens": input_tokens, "output_tokens": output_tokens, "tok_per_second": output_tokens / max(sum(item["duration_ms"] for item in stage_map.values()) / 1000, 1)}, "totals": totals}
 
 
-@app.post("/api/tasks/{task_id}/cancel", response_model=TaskResponse, tags=["Tasks"])
+@app.post("/api/tasks/{task_id:uuid}/cancel", response_model=TaskResponse, tags=["Tasks"])
 def cancel_task(task_id: UUID) -> TaskResponse:
     try:
         return TaskResponse.model_validate(coordinator.cancel_task(str(task_id)))
@@ -702,7 +707,7 @@ def cancel_task(task_id: UUID) -> TaskResponse:
         raise HTTPException(status_code=404, detail="Task not found") from None
 
 
-@app.delete("/api/tasks/{task_id}", status_code=204, tags=["Tasks"])
+@app.delete("/api/tasks/{task_id:uuid}", status_code=204, tags=["Tasks"])
 def delete_task(task_id: UUID) -> Response:
     try:
         coordinator.delete_task(str(task_id))
@@ -713,7 +718,7 @@ def delete_task(task_id: UUID) -> Response:
     return Response(status_code=204)
 
 
-@app.post("/api/jobs/{job_id}/cancel", response_model=JobResponse, tags=["Jobs"])
+@app.post("/api/jobs/{job_id:uuid}/cancel", response_model=JobResponse, tags=["Jobs"])
 def cancel_job(job_id: UUID) -> JobResponse:
     try:
         return job_response(coordinator.cancel(str(job_id)))
@@ -721,7 +726,7 @@ def cancel_job(job_id: UUID) -> JobResponse:
         raise HTTPException(status_code=404, detail="Job not found") from None
 
 
-@app.post("/api/jobs/{job_id}/retry", response_model=JobResponse, status_code=202, tags=["Jobs"])
+@app.post("/api/jobs/{job_id:uuid}/retry", response_model=JobResponse, status_code=202, tags=["Jobs"])
 def retry_job(job_id: UUID) -> JobResponse:
     try:
         return job_response(coordinator.retry(str(job_id)))
@@ -731,7 +736,7 @@ def retry_job(job_id: UUID) -> JobResponse:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
-@app.delete("/api/jobs/{job_id}", status_code=204, tags=["Jobs"])
+@app.delete("/api/jobs/{job_id:uuid}", status_code=204, tags=["Jobs"])
 def delete_job(job_id: UUID) -> Response:
     try:
         coordinator.delete(str(job_id))
@@ -822,7 +827,7 @@ def list_experiments(limit: int = Query(50, ge=1, le=200)) -> list[ExperimentRes
         ).fetchone()) for row in rows]
 
 
-@app.get("/api/experiments/{experiment_id}", response_model=ExperimentResponse, tags=["Experiments"])
+@app.get("/api/experiments/{experiment_id:uuid}", response_model=ExperimentResponse, tags=["Experiments"])
 def get_experiment(experiment_id: UUID) -> ExperimentResponse:
     with database.lock, database.connection() as connection:
         _refresh_experiment_status(connection, str(experiment_id))
@@ -832,7 +837,7 @@ def get_experiment(experiment_id: UUID) -> ExperimentResponse:
         return experiment_response(connection, row)
 
 
-@app.post("/api/experiments/{experiment_id}/start", response_model=ExperimentResponse, status_code=202, tags=["Experiments"])
+@app.post("/api/experiments/{experiment_id:uuid}/start", response_model=ExperimentResponse, status_code=202, tags=["Experiments"])
 def start_experiment(experiment_id: UUID) -> ExperimentResponse:
     experiment_key = str(experiment_id)
     with database.lock, database.connection() as connection:
@@ -889,7 +894,7 @@ def compare_experiments(request: ExperimentComparisonRequest) -> dict[str, Any]:
         return {"experiments": result, "quality_metrics_note": "Quality metrics are included only when ground-truth evaluation data exists."}
 
 
-@app.post("/api/experiments/{experiment_id}/evaluation", response_model=ExperimentResponse, tags=["Experiments"])
+@app.post("/api/experiments/{experiment_id:uuid}/evaluation", response_model=ExperimentResponse, tags=["Experiments"])
 def add_evaluation(experiment_id: UUID, request: EvaluationCreateRequest) -> ExperimentResponse:
     if request.experiment_id != experiment_id:
         raise HTTPException(status_code=400, detail="Path and body experiment IDs differ")
@@ -911,7 +916,7 @@ def add_evaluation(experiment_id: UUID, request: EvaluationCreateRequest) -> Exp
         return experiment_response(connection, row)
 
 
-@app.get("/api/experiments/{experiment_id}/export", tags=["Experiments"])
+@app.get("/api/experiments/{experiment_id:uuid}/export", tags=["Experiments"])
 def export_experiment(experiment_id: UUID, format: str = Query("json", pattern="^(json|csv)$")):
     experiment = get_experiment(experiment_id).model_dump(mode="json")
     if format == "json":

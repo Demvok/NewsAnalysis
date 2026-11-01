@@ -30,6 +30,29 @@ llm_main = ChatOpenAI(
     )
 )
 
+LLM_REASONING_PARAMETER = os.getenv(
+    "LLM_REASONING_PARAMETER",
+    "chat_template_kwargs.enable_thinking",
+)
+
+
+def _set_extra_body_parameter(
+    extra_body: dict[str, Any],
+    parameter: str,
+    value: Any,
+) -> None:
+    """Set a possibly nested provider parameter without flattening its JSON path."""
+    parts = [part for part in parameter.split(".") if part]
+    if not parts:
+        return
+    target = extra_body
+    for part in parts[:-1]:
+        child = target.setdefault(part, {})
+        if not isinstance(child, dict):
+            raise ValueError(f"LLM_REASONING_PARAMETER path conflicts at {part!r}")
+        target = child
+    target[parts[-1]] = value
+
 
 logger = get_logger("llm", "analysis")
 _METRICS = defaultdict(lambda: {
@@ -518,8 +541,13 @@ def llm_invoke(
         configurable["temperature"] = temperature
         config["configurable"] = configurable
     extra_body = dict(kwargs.get("extra_body") or {})
-    extra_body["thinking"] = thinking
-    kwargs["extra_body"] = extra_body
+    _set_extra_body_parameter(
+        extra_body,
+        LLM_REASONING_PARAMETER,
+        thinking == "on",
+    )
+    if extra_body:
+        kwargs["extra_body"] = extra_body
 
     config["callbacks"] = [
         *config.get("callbacks", []),
@@ -606,7 +634,13 @@ def _structured_output(
             "citation_count": citation_count,
         },
     ).with_structured_output(output_model)
-    return structured_model.bind(extra_body={"thinking": thinking})
+    extra_body: dict[str, Any] = {}
+    _set_extra_body_parameter(
+        extra_body,
+        LLM_REASONING_PARAMETER,
+        thinking == "on",
+    )
+    return structured_model.bind(extra_body=extra_body) if extra_body else structured_model
 
 
 def _compact_topic_citations(citations: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -682,7 +716,7 @@ def extract_citations(article_title, article_content):
             stage="citation_extraction",
             citation_count=0,
         )
-        response_payload = response.model_dump()
+        response_payload = response.model_dump(mode="json")
         if _needs_citation_refinement(response_payload):
             logger.info("analysis_step status=started step=citation_refinement reason=deterministic_validation")
             refined_extraction_chain = (
@@ -822,6 +856,76 @@ def sentiment_analysis(speaker: prompts.ExtractedSpeaker):
     except Exception:
         logger.exception("analysis_step status=failed step=topic_and_stance speaker=%s duration=%.3fs", speaker["speaker_name"], time.perf_counter() - started)
         raise
+
+
+def decide_topic_resolution(topic_a: dict[str, Any], topic_b: dict[str, Any]) -> prompts.TopicResolutionDecision:
+    chain = prompts.TOPIC_RESOLUTION_PROMPT | _structured_output(
+        prompts.TopicResolutionDecision,
+        "topic_resolution",
+        thinking="off",
+        stage="topic_resolution",
+    )
+    return _invoke_chain(
+        chain,
+        {
+            "topic_a_name": topic_a.get("topic_name", ""),
+            "topic_a_description": topic_a.get("topic_description", ""),
+            "topic_a_field": topic_a.get("general_topic_field", ""),
+            "topic_b_name": topic_b.get("topic_name", ""),
+            "topic_b_description": topic_b.get("topic_description", ""),
+            "topic_b_field": topic_b.get("general_topic_field", ""),
+        },
+        stage="topic_resolution",
+    )
+
+
+def decide_person_resolution(
+    person_a: dict[str, Any], person_b: dict[str, Any]
+) -> prompts.PersonResolutionDecision:
+    chain = prompts.PERSON_RESOLUTION_PROMPT | _structured_output(
+        prompts.PersonResolutionDecision,
+        "person_resolution",
+        thinking="off",
+        stage="person_resolution",
+    )
+    return _invoke_chain(
+        chain,
+        {
+            "person_a_name": person_a.get("name", ""),
+            "person_a_aliases": person_a.get("aliases", []),
+            "person_a_affiliation": person_a.get("affiliation", ""),
+            "person_a_type": person_a.get("person_type", ""),
+            "person_b_name": person_b.get("name", ""),
+            "person_b_aliases": person_b.get("aliases", []),
+            "person_b_affiliation": person_b.get("affiliation", ""),
+            "person_b_type": person_b.get("person_type", ""),
+        },
+        stage="person_resolution",
+    )
+
+
+def reevaluate_topic_stance(
+    topic_description: str,
+    exact_quote: str,
+    context: str,
+    previous_stance: int | None,
+) -> prompts.TopicStanceReevaluation:
+    chain = prompts.TOPIC_STANCE_REEVALUATION_PROMPT | _structured_output(
+        prompts.TopicStanceReevaluation,
+        "topic_stance_reevaluation",
+        thinking="off",
+        stage="topic_stance_reevaluation",
+    )
+    return _invoke_chain(
+        chain,
+        {
+            "topic_description": topic_description,
+            "exact_quote": exact_quote,
+            "context": context,
+            "previous_stance": previous_stance,
+        },
+        stage="topic_stance_reevaluation",
+    )
 
 
 def compare_attitudes(

@@ -32,7 +32,9 @@ The Phase 1 API includes:
   `GET /api/metrics/jobs` for aggregate telemetry.
 - `GET /api/events/stream` for bounded Server-Sent Events delivery. Clients
   can resume using the `last_event_id` query parameter.
-- Management logs are written to both stdout and `LOG_DIR/management_service.log`.
+- Management logs are written to both stdout and
+  `logs/management-service/management_service.log` (the container path is
+  `/var/log/newsanalysis/management-service/management_service.log`).
   `LOG_LEVEL`, `LOG_LEVEL_MANAGEMENT_SERVICE`, and module-specific
   `LOG_LEVEL_MAIN`, `LOG_LEVEL_ORCHESTRATION`, and `LOG_LEVEL_CLIENTS` settings
   control verbosity. HTTP method, path, status, duration, request ID, job ID,

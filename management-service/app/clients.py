@@ -37,10 +37,13 @@ class ServiceClient:
         response.raise_for_status()
         return response.json()
 
-    def articles(self, limit: int = 100) -> list[dict[str, Any]]:
+    def articles(self, limit: int = 100, status: str | None = None) -> list[dict[str, Any]]:
+        params: dict[str, Any] = {"limit": limit}
+        if status:
+            params["status"] = status
         response = httpx.get(
             f"{self.settings.storage_url}/articles",
-            params={"limit": limit},
+            params=params,
             timeout=self.settings.request_timeout_seconds,
         )
         response.raise_for_status()
@@ -48,6 +51,18 @@ class ServiceClient:
         if not isinstance(payload, list):
             raise ValueError("storage articles response must be a list")
         return [item for item in payload if isinstance(item, dict)]
+
+    def update_article_status(self, article_id: str, status: str) -> dict[str, Any]:
+        response = httpx.put(
+            f"{self.settings.storage_url}/articles/{article_id}",
+            json={"status": status},
+            timeout=self.settings.request_timeout_seconds,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        if not isinstance(payload, dict):
+            raise ValueError("storage article update response must be an object")
+        return payload
 
     def knowledge_summary(self) -> dict[str, Any]:
         response = httpx.get(

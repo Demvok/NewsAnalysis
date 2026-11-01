@@ -137,6 +137,19 @@ class ManagementPhase1Tests(unittest.TestCase):
                 ],
             )
 
+    def test_task_status_is_persisted_after_fast_jobs_finish(self):
+        task = self.coordinator.create_task(
+            TaskCreateRequest(article_ids=[uuid4(), uuid4()])
+        )
+        self.coordinator.executor.shutdown(wait=True)
+        with self.database.connection() as connection:
+            row = connection.execute(
+                "SELECT status, completed_at FROM tasks WHERE task_id=?",
+                (task["task_id"],),
+            ).fetchone()
+        self.assertEqual(row["status"], "COMPLETED")
+        self.assertIsNotNone(row["completed_at"])
+
 
 if __name__ == "__main__":
     unittest.main()

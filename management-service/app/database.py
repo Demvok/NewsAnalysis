@@ -127,6 +127,37 @@ class ManagementDatabase:
                 "WHERE status IN ('PENDING','RUNNING','RETRYING')",
                 (datetime.now(timezone.utc).isoformat(),),
             )
+            connection.execute(
+                """UPDATE tasks
+                   SET status=CASE
+                       WHEN EXISTS (
+                           SELECT 1 FROM task_jobs tj JOIN jobs j ON j.job_id=tj.job_id
+                           WHERE tj.task_id=tasks.task_id
+                             AND j.status IN ('PENDING','RUNNING','RETRYING')
+                       ) THEN 'RUNNING'
+                       WHEN EXISTS (
+                           SELECT 1 FROM task_jobs tj JOIN jobs j ON j.job_id=tj.job_id
+                           WHERE tj.task_id=tasks.task_id AND j.status='CANCELLED'
+                       ) THEN 'CANCELLED'
+                       WHEN EXISTS (
+                           SELECT 1 FROM task_jobs tj JOIN jobs j ON j.job_id=tj.job_id
+                           WHERE tj.task_id=tasks.task_id AND j.status='FAILED'
+                       ) THEN 'FAILED'
+                       ELSE 'COMPLETED'
+                   END,
+                   completed_at=CASE
+                       WHEN EXISTS (
+                           SELECT 1 FROM task_jobs tj JOIN jobs j ON j.job_id=tj.job_id
+                           WHERE tj.task_id=tasks.task_id
+                             AND j.status IN ('PENDING','RUNNING','RETRYING')
+                       ) THEN NULL
+                       ELSE COALESCE(completed_at,?)
+                   END
+                   WHERE EXISTS (
+                       SELECT 1 FROM task_jobs tj WHERE tj.task_id=tasks.task_id
+                   )""",
+                (datetime.now(timezone.utc).isoformat(),),
+            )
 
     @staticmethod
     def _migrate_jobs(connection: sqlite3.Connection) -> None:

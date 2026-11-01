@@ -62,6 +62,29 @@ class SpeakerKind(str, Enum):
     ANONYMOUS_SOURCE = "ANONYMOUS_SOURCE"
     UNRESOLVED = "UNRESOLVED"
 
+    @classmethod
+    def _missing_(cls, value: object) -> "SpeakerKind | None":
+        if not isinstance(value, str):
+            return None
+        normalized = value.strip().upper().replace("-", "_").replace(" ", "_")
+        aliases = {
+            "INDIVIDUAL": cls.PERSON,
+            "HUMAN": cls.PERSON,
+            "EU_LEADER": cls.PERSON,
+            "GOVERNMENT_OFFICIAL": cls.PERSON,
+            "INTERNATIONAL_ORGANIZATION_OFFICIAL": cls.PERSON,
+            "OFFICIAL": cls.PERSON,
+            "COMPANY": cls.ORGANIZATION,
+            "CORPORATION": cls.ORGANIZATION,
+            "GOVERNMENT": cls.ORGANIZATION,
+            "GOVERNMENT_BODY": cls.ORGANIZATION,
+            "INTERNATIONAL_ORGANIZATION": cls.ORGANIZATION,
+            "COLLECTIVE": cls.GROUP,
+            "ANONYMOUS": cls.ANONYMOUS_SOURCE,
+            "UNKNOWN": cls.UNRESOLVED,
+        }
+        return aliases.get(normalized)
+
 
 class CitationCandidate(BaseModel):
     exact_quote: str = Field(min_length=1)
