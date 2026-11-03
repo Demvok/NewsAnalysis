@@ -135,7 +135,7 @@ function Overview({ notify }) {
       setHealth(h); setJobs(j); setMetrics(m); setStageMetrics(s);
     } catch (e) { setError(e); }
   };
-  useEffect(() => { load(); const timer = setInterval(load, 15000); return () => clearInterval(timer); }, [range]);
+  useEffect(() => { load(); }, [range]);
   const onEvent = React.useCallback(event => setLive(items => [...items.slice(-59), event]), []);
   useTelemetryStream(onEvent);
   const running = jobs.filter(job => job.status === "RUNNING").length;
@@ -168,6 +168,12 @@ function Overview({ notify }) {
 }
 
 function Page({ title, subtitle, children, refresh }) {
+  const refreshRef = useRef(refresh);
+  useEffect(() => { refreshRef.current = refresh; }, [refresh]);
+  useEffect(() => {
+    const timer = setInterval(() => refreshRef.current?.(), 15000);
+    return () => clearInterval(timer);
+  }, []);
   return <><header className="page-header"><div><h1>{title}</h1><p>{subtitle}</p></div>{refresh && <RefreshButton onClick={refresh} />}</header><div className="page-body">{children}</div></>;
 }
 
@@ -177,11 +183,13 @@ function Panel({ title, kicker, children, actions }) {
 
 function Jobs({ openJob, notify }) {
   const [jobs, setJobs] = useState([]);
+  const [selected, setSelected] = useState([]);
   const [status, setStatus] = useState("");
   const [article, setArticle] = useState("");
   const [error, setError] = useState(null);
   const load = () => api(`/jobs?limit=500${status ? `&status=${status}` : ""}${article ? `&article_id=${encodeURIComponent(article)}` : ""}`).then(setJobs).catch(setError);
   useEffect(() => { load(); }, [status]);
+  useEffect(() => { setSelected(current => current.filter(id => jobs.some(job => job.job_id === id))); }, [jobs]);
   const action = async (job, operation) => {
     if (!window.confirm(`${operation === "cancel" ? "Request cancellation" : "Retry"} for job ${shortId(job.job_id)}?`)) return;
     try { await api(`/jobs/${job.job_id}/${operation}`, { method: "POST" }); notify(`${operation} requested`); load(); } catch (e) { notify(e.message, true); }
@@ -190,14 +198,24 @@ function Jobs({ openJob, notify }) {
     if (!window.confirm(`Delete job ${shortId(job.job_id)} and its related telemetry?`)) return;
     try { await api(`/jobs/${job.job_id}`, { method: "DELETE" }); notify("Job deleted"); load(); } catch (e) { notify(e.message, true); }
   };
+  const bulk = async operation => {
+    if (!selected.length || !window.confirm(`${operation === "retry" ? "Retry" : "Delete"} ${selected.length} selected jobs?`)) return;
+    try { await api(`/jobs/bulk/${operation}`, { method: "POST", body: JSON.stringify(selected) }); setSelected([]); notify(`Bulk ${operation} requested`); load(); } catch (e) { notify(e.message, true); }
+  };
+  const grouped = jobs.reduce((groups, job) => {
+    const key = job.metadata?.task_id || "unassigned";
+    (groups[key] ||= []).push(job);
+    return groups;
+  }, {});
+  const rows = Object.entries(grouped);
   const create = async () => {
     if (!article) return;
     try { await api("/jobs", { method: "POST", body: JSON.stringify({ article_id: article }), headers: { "Idempotency-Key": crypto.randomUUID() } }); notify("Analysis job queued"); setArticle(""); load(); } catch (e) { notify(e.message, true); }
   };
   return <Page title="Jobs" subtitle="Queue and inspect durable article-analysis jobs." refresh={load}>
     <Panel title="Queue analysis"><div className="form-row"><input value={article} onChange={e => setArticle(e.target.value)} placeholder="Article UUID" /><button onClick={create} disabled={!article}>Queue job</button></div></Panel>
-    <Panel title="Job history" actions={<div className="filter-row"><select value={status} onChange={e => setStatus(e.target.value)}><option value="">All statuses</option>{["PENDING", "RUNNING", "COMPLETED", "FAILED", "CANCELLED", "RETRYING"].map(value => <option key={value}>{value}</option>)}</select><input value={article} onChange={e => setArticle(e.target.value)} placeholder="Filter article UUID" /><button className="secondary" onClick={load}>Apply</button></div>}>
-      {error ? <ErrorState error={error} retry={load} /> : jobs.length ? <div className="table-scroll"><table><thead><tr><th>Job</th><th>Article</th><th>Status</th><th>Stage</th><th>Created</th><th>Duration</th><th>Actions</th></tr></thead><tbody>{jobs.map(job => <tr key={job.job_id}><td><button className="link-button" onClick={() => openJob(job.job_id)}>{shortId(job.job_id)}</button></td><td title={job.article_id}>{shortId(job.article_id)}</td><td><Status value={job.status} /></td><td>{job.current_stage || "—"}</td><td>{formatDate(job.created_at)}</td><td>{job.started_at && job.completed_at ? formatDuration(new Date(job.completed_at) - new Date(job.started_at)) : "—"}</td><td className="actions">{job.status === "RUNNING" || job.status === "PENDING" ? <button className="danger" onClick={() => action(job, "cancel")}>Cancel</button> : null}{["FAILED", "CANCELLED"].includes(job.status) ? <button onClick={() => action(job, "retry")}>Retry</button> : null}{["COMPLETED", "FAILED", "CANCELLED"].includes(job.status) ? <button className="danger" onClick={() => remove(job)}>Delete</button> : null}</td></tr>)}</tbody></table></div> : <Empty>{error ? "Unable to load jobs." : "No jobs match the selected filters."}</Empty>}
+    <Panel title="Job history" actions={<div className="filter-row"><select value={status} onChange={e => setStatus(e.target.value)}><option value="">All statuses</option>{["PENDING", "RUNNING", "COMPLETED", "FAILED", "CANCELLED", "RETRYING"].map(value => <option key={value}>{value}</option>)}</select><input value={article} onChange={e => setArticle(e.target.value)} placeholder="Filter article UUID" /><button className="secondary" onClick={load}>Apply</button><button className="secondary" onClick={() => setSelected(jobs.map(job => job.job_id))}>Select all</button><button className="secondary" onClick={() => setSelected([])}>Clear</button><button onClick={() => bulk("retry")} disabled={!selected.length}>Retry selected</button><button className="danger" onClick={() => bulk("delete")} disabled={!selected.length}>Delete selected</button></div>}>
+      {error ? <ErrorState error={error} retry={load} /> : jobs.length ? rows.map(([taskId, taskJobs]) => <div className="table-scroll" key={taskId}><h3>{taskId === "unassigned" ? "Unassigned jobs" : `Task ${taskId}`}</h3><table><thead><tr><th></th><th>Job</th><th>Article</th><th>Status</th><th>Stage</th><th>Created</th><th>Duration</th><th>Actions</th></tr></thead><tbody>{taskJobs.map(job => <tr key={job.job_id}><td><input type="checkbox" checked={selected.includes(job.job_id)} onChange={e => setSelected(current => e.target.checked ? [...current, job.job_id] : current.filter(id => id !== job.job_id))} /></td><td><button className="link-button" onClick={() => openJob(job.job_id)}>{shortId(job.job_id)}</button></td><td title={job.article_id}>{shortId(job.article_id)}</td><td><Status value={job.status} /></td><td>{job.current_stage || "—"}</td><td>{formatDate(job.created_at)}</td><td>{job.started_at && job.completed_at ? formatDuration(new Date(job.completed_at) - new Date(job.started_at)) : "—"}</td><td className="actions">{job.status === "RUNNING" || job.status === "PENDING" ? <button className="danger" onClick={() => action(job, "cancel")}>Cancel</button> : null}{["FAILED", "CANCELLED"].includes(job.status) ? <button onClick={() => action(job, "retry")}>Retry</button> : null}{["COMPLETED", "FAILED", "CANCELLED"].includes(job.status) ? <button className="danger" onClick={() => remove(job)}>Delete</button> : null}</td></tr>)}</tbody></table></div>) : <Empty>{error ? "Unable to load jobs." : "No jobs match the selected filters."}</Empty>}
     </Panel>
   </Page>;
 }
@@ -312,7 +330,7 @@ function LLMMonitoring() {
   const [live, setLive] = useState([]);
   const [error, setError] = useState(null);
   const load = () => Promise.all([api("/metrics/llm"), api("/logs?limit=500")]).then(([m, l]) => { setMetrics(m); setCalls(l.filter(event => event.event_type === "llm_call")); }).catch(setError);
-  useEffect(() => { load(); const timer = setInterval(load, 15000); return () => clearInterval(timer); }, []);
+  useEffect(() => { load(); }, []);
   const onEvent = React.useCallback(event => { if (event.event_type === "llm_call") setLive(items => [...items.slice(-59), event]); }, []);
   useTelemetryStream(onEvent);
   if (error) return <ErrorState error={error} retry={load} />;
@@ -351,7 +369,7 @@ function Services() {
   const [health, setHealth] = useState(null);
   const [error, setError] = useState(null);
   const load = () => api("/health").then(setHealth).catch(setError);
-  useEffect(() => { load(); const timer = setInterval(load, 15000); return () => clearInterval(timer); }, []);
+  useEffect(() => { load(); }, []);
   return <Page title="Services" subtitle="Availability and readiness signals reported by the backend." refresh={load}>{error ? <ErrorState error={error} retry={load} /> : <Panel title="Dependencies">{health?.dependencies?.map(service => <div className="service-row" key={service.name}><Status value={service.status} /><strong>{service.name}</strong><span>{service.availability}</span><span>{service.latency_ms == null ? "Latency unavailable" : `${service.latency_ms} ms`}</span><small>{service.error || JSON.stringify(service.details || {})}</small></div>) || <Loading />}</Panel>}</Page>;
 }
 
@@ -368,7 +386,11 @@ function Configuration({ notify }) {
     catch (e) { notify(e.message, true); }
   };
   const importTemp = async () => { try { const result = await api("/data/import-temp", { method: "POST" }); notify(`Imported ${result.imported}, skipped ${result.skipped}`); } catch (e) { notify(e.message, true); } };
-  return <Page title="Configuration" subtitle="Runtime settings and testing database controls." refresh={load}>{error ? <ErrorState error={error} retry={load} /> : <><Panel title="Runtime settings" kicker="Effective values from the management API"><form onSubmit={save} className="settings-form"><label>Request timeout (seconds)<input type="number" min="0.1" max="120" step="0.1" value={form.request_timeout_seconds ?? ""} onChange={e => setForm({ ...form, request_timeout_seconds: e.target.value })} /></label><label>Analysis timeout (seconds)<input type="number" min="0.1" max="7200" step="0.1" value={form.analysis_timeout_seconds ?? ""} onChange={e => setForm({ ...form, analysis_timeout_seconds: e.target.value })} /></label><button type="submit">Save temporary settings</button></form><p className="muted">Secrets, credentials, environment variables, and model endpoints are intentionally not exposed.</p><p className="muted">Supported fields: {settings?.configurable_fields?.join(", ") || "Unavailable"}</p></Panel><Panel title="Testing database controls" kicker="Destructive operations are intended for the testing database"><div className="filter-row"><button onClick={() => runDatabase("create")}>Create missing tables</button><button className="danger" onClick={() => runDatabase("recreate")}>Drop & recreate database</button><button className="secondary" onClick={importTemp}>Import temporary articles</button></div></Panel></>}</Page>;
+  const flush = async () => {
+    if (!window.confirm("Delete all management tasks, jobs, telemetry, experiments, and logs?")) return;
+    try { await api("/database/flush", { method: "POST" }); notify("Management database flushed"); } catch (e) { notify(e.message, true); }
+  };
+  return <Page title="Configuration" subtitle="Runtime settings and testing database controls." refresh={load}>{error ? <ErrorState error={error} retry={load} /> : <><Panel title="Runtime settings" kicker="Effective values from the management API"><form onSubmit={save} className="settings-form"><label>Request timeout (seconds)<input type="number" min="0.1" max="120" step="0.1" value={form.request_timeout_seconds ?? ""} onChange={e => setForm({ ...form, request_timeout_seconds: e.target.value })} /></label><label>Analysis timeout (seconds)<input type="number" min="0.1" max="7200" step="0.1" value={form.analysis_timeout_seconds ?? ""} onChange={e => setForm({ ...form, analysis_timeout_seconds: e.target.value })} /></label><button type="submit">Save temporary settings</button></form><p className="muted">Secrets, credentials, environment variables, and model endpoints are intentionally not exposed.</p><p className="muted">Supported fields: {settings?.configurable_fields?.join(", ") || "Unavailable"}</p></Panel><Panel title="Testing database controls" kicker="Destructive operations are intended for the testing database"><div className="filter-row"><button onClick={() => runDatabase("create")}>Create missing tables</button><button className="danger" onClick={() => runDatabase("recreate")}>Drop & recreate database</button><button className="secondary" onClick={importTemp}>Import temporary articles</button><button className="danger" onClick={flush}>Flush management tasks, jobs, statistics, and logs</button></div></Panel></>}</Page>;
 }
 
 function Tasks({ notify, openJob }) {
@@ -388,7 +410,7 @@ function Tasks({ notify, openJob }) {
       setTasks(taskData); setArticles(articleData);
     } catch (e) { setError(e); }
   };
-  useEffect(() => { load(); const timer = setInterval(load, 5000); return () => clearInterval(timer); }, [articleStatus]);
+  useEffect(() => { load(); }, [articleStatus]);
   useEffect(() => {
     if (!detail?.task_id) { setAnalytics(null); return undefined; }
     const loadAnalytics = () => api(`/tasks/${detail.task_id}/analytics`).then(setAnalytics).catch(() => setAnalytics(null));
@@ -403,21 +425,32 @@ function Tasks({ notify, openJob }) {
     } catch (e) { notify(e.message, true); }
   };
   const fresh = async () => {
-    try { const task = await api("/tasks/fresh?limit=20", { method: "POST" }); notify("Fresh articles task queued"); setDetail(task); load(); }
+    try { const task = await api(`/tasks/fresh?status=${encodeURIComponent(articleStatus || "NEW")}&limit=500`, { method: "POST" }); notify("Fresh articles task queued"); setDetail(task); load(); }
     catch (e) { notify(e.message, true); }
   };
   useTelemetryStream(React.useCallback(event => {
     if (event.job_id && detail?.job_ids?.includes(event.job_id)) api(`/tasks/${detail.task_id}`).then(setDetail).catch(() => {});
   }, [detail]));
+  const toggleAll = checked => setSelected(checked ? articles.map(article => article.article_id) : []);
   return <Page title="Tasks" subtitle="Control multi-article processing and watch aggregate analytical KPIs." refresh={load}>
     <div className="browser-tabs"><button className={tab === "create" ? "active" : "secondary"} onClick={() => setTab("create")}>Create task</button><button className={tab === "history" ? "active" : "secondary"} onClick={() => setTab("history")}>Existing tasks</button></div>
-    {tab === "create" && <Panel title="Start processing" actions={<div className="filter-row"><select value={articleStatus} onChange={e => setArticleStatus(e.target.value)}><option value="">All statuses</option>{["NEW", "INGESTED", "CITATIONS_EXTRACTED", "ANALYZED", "COMPLETED", "FAILED", "CANCELLED"].map(value => <option key={value} value={value}>{value}</option>)}</select><button onClick={fresh}>Process new articles</button></div>}>
-      <div className="form-row"><input value={name} onChange={e => setName(e.target.value)} placeholder="Task name" /><button disabled={!selected.length} onClick={() => create(selected)}>Process selected ({selected.length})</button><button className="secondary" disabled={!selected.length} onClick={() => create(selected, true)}>Redo selected ({selected.length})</button></div>
-      <div className="table-scroll"><table><thead><tr><th></th><th>Article</th><th>Title</th><th>Status</th></tr></thead><tbody>{articles.map(article => <tr key={article.article_id}><td><input type="checkbox" checked={selected.includes(article.article_id)} onChange={e => setSelected(e.target.checked ? [...selected, article.article_id] : selected.filter(id => id !== article.article_id))} /></td><td className="mono">{shortId(article.article_id)}</td><td>{article.article_title || "Untitled"}</td><td>{article.status || "NEW"}</td></tr>)}</tbody></table></div>
+    {tab === "create" && <Panel title="Start processing" actions={<div className="filter-row"><select value={articleStatus} onChange={e => setArticleStatus(e.target.value)}><option value="">All statuses</option>{["NEW", "INGESTED", "CITATIONS_EXTRACTED", "ANALYZED", "COMPLETED", "FAILED", "CANCELLED"].map(value => <option key={value}>{value}</option>)}</select><button onClick={fresh}>Process all {articleStatus || "new"} articles</button></div>}>
+      <div className="form-row"><input value={name} onChange={e => setName(e.target.value)} placeholder="Task name" /><button className="secondary" onClick={() => toggleAll(true)}>Select all visible</button><button className="secondary" onClick={() => toggleAll(false)}>Clear selection</button><button disabled={!selected.length} onClick={() => create(selected)}>Process selected ({selected.length})</button><button className="secondary" disabled={!selected.length} onClick={() => create(selected, true)}>Redo selected ({selected.length})</button></div>
+      <div className="table-scroll"><table><thead><tr><th><input type="checkbox" checked={articles.length > 0 && selected.length === articles.length} onChange={e => toggleAll(e.target.checked)} /></th><th>Article</th><th>Title</th><th>Status</th></tr></thead><tbody>{articles.map(article => <tr key={article.article_id}><td><input type="checkbox" checked={selected.includes(article.article_id)} onChange={e => setSelected(e.target.checked ? [...selected, article.article_id] : selected.filter(id => id !== article.article_id))} /></td><td className="mono">{shortId(article.article_id)}</td><td>{article.article_title || "Untitled"}</td><td>{article.status || "NEW"}</td></tr>)}</tbody></table></div>
     </Panel>}
     {tab === "history" && <Panel title="Task history">{error ? <ErrorState error={error} retry={load} /> : tasks.length ? <div className="table-scroll"><table><thead><tr><th>Task</th><th>Status</th><th>Progress</th><th>KPIs</th><th>Created</th></tr></thead><tbody>{tasks.map(task => <tr key={task.task_id}><td><button className="link-button" onClick={() => setDetail(task)}>{task.name}</button><small className="mono">{shortId(task.task_id)}</small></td><td><Status value={task.status} /></td><td>{task.completed_articles}/{task.total_articles} complete · {task.failed_articles} failed</td><td>{task.citations} citations · {task.topics} topics · {task.attitudes} attitudes</td><td>{formatDate(task.created_at)}</td></tr>)}</tbody></table></div> : <Empty>No tasks have been created.</Empty>}</Panel>}
-    {detail && <Panel title={detail.name} actions={<div className="filter-row">{["PENDING", "RUNNING"].includes(detail.status) && <button className="danger" onClick={async () => { if (!window.confirm("Request cancellation for this task?")) return; try { setDetail(await api(`/tasks/${detail.task_id}/cancel`, { method: "POST" })); notify("Task cancellation requested"); } catch (e) { notify(e.message, true); } }}>Cancel task</button>}{!["PENDING", "RUNNING", "RETRYING"].includes(detail.status) && <button className="danger" onClick={async () => { if (!window.confirm("Delete this task and its job history?")) return; try { await api(`/tasks/${detail.task_id}`, { method: "DELETE" }); notify("Task deleted"); setDetail(null); load(); } catch (e) { notify(e.message, true); } }}>Delete task</button>}<button className="secondary" onClick={() => setDetail(null)}>Close</button></div>}><div className="metric-grid compact"><MetricCard label="Status" value={detail.status} /><MetricCard label="Articles" value={`${detail.completed_articles}/${detail.total_articles}`} /><MetricCard label="Citations" value={formatNumber(detail.citations)} /><MetricCard label="Speakers" value={formatNumber(detail.speakers)} /><MetricCard label="Topics" value={formatNumber(detail.topics)} /><MetricCard label="Attitudes" value={formatNumber(detail.attitudes)} /><MetricCard label="LLM tok/s" value={formatNumber(analytics?.llm?.tok_per_second, 1)} /><MetricCard label="DB created / retrieved" value={`${formatNumber(analytics?.totals?.created_records)} / ${formatNumber(analytics?.totals?.retrieved_records)}`} /></div><p className="muted">Live estimates update every five seconds from completed stage duration and observed analytical counts.</p><div className="timeline">{analytics?.stages?.map(stage => <div className="timeline-row" key={stage.stage}><strong>{stage.stage}</strong><span>{formatDuration(stage.duration_ms)}</span><span>{stage.events} events · {stage.citations} citations · {stage.topics} topics · {stage.people} people · {stage.attitudes} attitudes</span><small>{stage.created_records} created / {stage.retrieved_records} retrieved</small></div>) || <Empty>Stage analytics will appear when telemetry arrives.</Empty>}</div><p className="mono">Jobs: {detail.job_ids.map(jobId => <button className="link-button" key={jobId} onClick={() => openJob(jobId)}>{jobId}</button>)}</p></Panel>}
+    {detail && <Panel title={detail.name} actions={<div className="filter-row">{["PENDING", "RUNNING"].includes(detail.status) && <button className="danger" onClick={async () => { if (!window.confirm("Request cancellation for this task?")) return; try { setDetail(await api(`/tasks/${detail.task_id}/cancel`, { method: "POST" })); notify("Task cancellation requested"); } catch (e) { notify(e.message, true); } }}>Cancel task</button>}{!["PENDING", "RUNNING", "RETRYING"].includes(detail.status) && <button className="danger" onClick={async () => { if (!window.confirm("Delete this task and all related job attempts?")) return; try { await api(`/tasks/${detail.task_id}`, { method: "DELETE" }); notify("Task and related jobs deleted"); setDetail(null); load(); } catch (e) { notify(e.message, true); } }}>Delete task</button>}<button className="secondary" onClick={() => setDetail(null)}>Close</button></div>}><div className="metric-grid compact"><MetricCard label="Status" value={detail.status} /><MetricCard label="Articles" value={`${detail.completed_articles}/${detail.total_articles}`} /><MetricCard label="Retry rate" value={`${((detail.retry_rate || 0) * 100).toFixed(1)}%`} /><MetricCard label="Execution time" value={formatDuration(detail.execution_time_ms)} /><MetricCard label="Time / job" value={formatDuration(detail.execution_time_per_job_ms)} /><MetricCard label="Citations" value={formatNumber(detail.citations)} /><MetricCard label="Topics" value={formatNumber(detail.topics)} /><MetricCard label="Attitudes" value={formatNumber(detail.attitudes)} /></div><p className="muted">Live estimates update every five seconds from completed stage duration and observed analytical counts.</p><div className="timeline">{analytics?.stages?.map(stage => <div className="timeline-row" key={stage.stage}><strong>{stage.stage}</strong><span>{formatDuration(stage.duration_ms)}</span><span>{stage.events} events · {stage.citations} citations · {stage.topics} topics · {stage.people} people · {stage.attitudes} attitudes</span><small>{stage.created_records} created / {stage.retrieved_records} retrieved</small></div>) || <Empty>Stage analytics will appear when telemetry arrives.</Empty>}</div><TaskJobsTable taskId={detail.task_id} openJob={openJob} notify={notify} /></Panel>}
   </Page>;
+}
+
+function TaskJobsTable({ taskId, openJob, notify }) {
+  const [jobs, setJobs] = useState([]);
+  const load = () => api(`/jobs?task_id=${taskId}&limit=500`).then(setJobs).catch(error => notify(error.message, true));
+  useEffect(() => { load(); }, [taskId]);
+  const action = async (job, operation) => {
+    try { await api(`/jobs/${job.job_id}/${operation}`, { method: "POST" }); notify(`${operation} requested`); load(); } catch (e) { notify(e.message, true); }
+  };
+  return <div className="table-scroll"><h3>Jobs and retry attempts</h3><table><thead><tr><th>Job</th><th>Article</th><th>Status</th><th>Retries</th><th>Created</th><th>Actions</th></tr></thead><tbody>{jobs.map(job => <tr key={job.job_id}><td><button className="link-button" onClick={() => openJob(job.job_id)}>{shortId(job.job_id)}</button></td><td className="mono">{shortId(job.article_id)}</td><td><Status value={job.status} /></td><td>{job.retry_count}</td><td>{formatDate(job.created_at)}</td><td className="actions">{["FAILED", "CANCELLED"].includes(job.status) && <button onClick={() => action(job, "retry")}>Retry</button>}{["PENDING", "RUNNING"].includes(job.status) && <button className="danger" onClick={() => action(job, "cancel")}>Cancel</button>}</td></tr>)}</tbody></table>{!jobs.length && <Empty>No jobs are linked to this task.</Empty>}</div>;
 }
 
 const dataResources = [
@@ -487,6 +520,7 @@ function Related({ title, items, labelKey }) {
 function DataManager({ notify }) {
   const [resource, setResource] = useState("articles");
   const [query, setQuery] = useState("");
+  const [queryField, setQueryField] = useState("all");
   const [status, setStatus] = useState("");
   const [category, setCategory] = useState("");
   const [categoryValue, setCategoryValue] = useState("");
@@ -508,6 +542,7 @@ function DataManager({ notify }) {
       setError(null);
       const params = new URLSearchParams({ page: targetPage, page_size: 20 });
       if (query.trim()) params.set("query", query.trim());
+      if (queryField !== "all") params.set("query_field", queryField);
       if (semantic.query.trim() && ["citations", "topics"].includes(resource)) params.set("semantic_query", semantic.query.trim());
       if (semantic.query.trim() && ["citations", "topics"].includes(resource)) params.set("min_similarity", minSimilarity);
       if (status) params.set("status", status);
@@ -573,11 +608,19 @@ function DataManager({ notify }) {
   const topics = [...new Map(data.items.filter(item => item.topic_uuid).map(item => [item.topic_uuid, item.topic_name || item.topic_uuid])).entries()];
   const selectCategory = value => { setCategory(value); setCategoryValue(""); setPage(1); };
   const runSemanticSearch = () => { if (semantic.query.trim().length >= 2 && ["citations", "topics"].includes(resource)) load(1); };
+  const searchFields = {
+    articles: [["all", "All fields"], ["article_id", "Article UUID"], ["article_title", "Title"], ["url", "URL"]],
+    people: [["all", "All fields"], ["person_uuid", "Person UUID"], ["name", "Name"]],
+    citations: [["all", "All fields"], ["citation_uuid", "Citation UUID"], ["person_uuid", "Person UUID"], ["origin_article_id", "Article UUID"], ["exact_quote", "Exact quote"]],
+    topics: [["all", "All fields"], ["topic_uuid", "Topic UUID"], ["topic_name", "Topic name"]],
+    attitudes: [["all", "All fields"], ["topic_uuid", "Topic UUID"], ["citation_uuid", "Citation UUID"], ["person_uuid", "Person UUID"], ["origin_article_id", "Article UUID"], ["person_name", "Person name"], ["topic_name", "Topic name"]],
+    inconsistencies: [["all", "All fields"], ["inconsistency_uuid", "Inconsistency UUID"], ["person_uuid", "Person UUID"], ["topic_uuid", "Topic UUID"], ["citation_a_uuid", "Citation A UUID"], ["citation_b_uuid", "Citation B UUID"], ["person_name", "Person name"], ["topic_name", "Topic name"]],
+  };
   return <Page title="Data management" subtitle="Browse, inspect, and edit the analytical data." refresh={() => load(page)}>
     <section className="metric-grid compact">{dataResources.map(([key, label]) => <MetricCard key={key} label={label} value={formatNumber(summary?.entities?.[key])} detail="Stored records" />)}</section>
-    <Panel title="Use case" kicker="Choose the entity you want to inspect"><div className="resource-tabs">{dataResources.map(([key, label]) => <button className={resource === key ? "active" : "secondary"} key={key} onClick={() => { loadSequence.current += 1; setResource(key); setDetail(null); setStatus(""); setCategory(""); setCategoryValue(""); setPersonFilter(""); setTopicFilter(""); setQuery(""); setSemantic(current => ({ ...current, query: "" })); }}>{label}</button>)}</div></Panel>
+    <Panel title="Use case" kicker="Choose the entity you want to inspect"><div className="resource-tabs">{dataResources.map(([key, label]) => <button className={resource === key ? "active" : "secondary"} key={key} onClick={() => { loadSequence.current += 1; setResource(key); setDetail(null); setStatus(""); setCategory(""); setCategoryValue(""); setPersonFilter(""); setTopicFilter(""); setQuery(""); setQueryField("all"); setSemantic(current => ({ ...current, query: "" })); }}>{label}</button>)}</div></Panel>
     {["attitudes", "inconsistencies"].includes(resource) && <div className="filter-row relation-filters"><input value={personFilter} onChange={e => setPersonFilter(e.target.value)} placeholder="Search person…" /><input value={topicFilter} onChange={e => setTopicFilter(e.target.value)} placeholder="Search topic…" /><button className="secondary" onClick={() => { setPersonFilter(""); setTopicFilter(""); load(1); }}>Clear relation filters</button></div>}
-    <Panel title={`${resourceLabel(resource)} browser`} actions={<div className="filter-row"><input value={query} onChange={e => setQuery(e.target.value)} placeholder={`Search ${resourceLabel(resource).toLowerCase()}`} /><button onClick={() => load(1)}>Search</button>{["citations", "topics"].includes(resource) && <><input value={semantic.query} onChange={e => setSemantic(current => ({ ...current, query: e.target.value }))} onKeyDown={e => e.key === "Enter" && runSemanticSearch()} placeholder={`Semantic ${resource === "citations" ? "citation" : "topic"} search`} /><input type="number" min="-1" max="1" step="0.01" value={minSimilarity} onChange={e => setMinSimilarity(e.target.value)} title="Minimum cosine similarity" /><button onClick={runSemanticSearch} disabled={semantic.query.trim().length < 2}>Search meaning</button></>}</div>}>
+    <Panel title={`${resourceLabel(resource)} browser`} actions={<div className="filter-row"><select value={queryField} onChange={e => setQueryField(e.target.value)} aria-label="Search field">{searchFields[resource].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><input value={query} onChange={e => setQuery(e.target.value)} placeholder={`Search ${resourceLabel(resource).toLowerCase()}`} /><button onClick={() => load(1)}>Search</button>{["citations", "topics"].includes(resource) && <><input value={semantic.query} onChange={e => setSemantic(current => ({ ...current, query: e.target.value }))} onKeyDown={e => e.key === "Enter" && runSemanticSearch()} placeholder={`Semantic ${resource === "citations" ? "citation" : "topic"} search`} /><input type="number" min="-1" max="1" step="0.01" value={minSimilarity} onChange={e => setMinSimilarity(e.target.value)} title="Minimum cosine similarity" /><button onClick={runSemanticSearch} disabled={semantic.query.trim().length < 2}>Search meaning</button></>}</div>}>
       {error ? <ErrorState error={error} retry={() => load(page)} /> : data.items.length ? <><div className="table-scroll"><table><thead><tr>{columns.map(column => <th key={column}>{categoryFields[resource].includes(column) ? (category === column ? <select value={categoryValue} onChange={e => setCategoryValue(e.target.value)} onClick={e => e.stopPropagation()}><option value="">All {column.replaceAll("_", " ")}</option>{categoryValues.map(value => <option key={value} value={value}>{value}</option>)}</select> : <button className="table-sort" onClick={() => selectCategory(column)}>{column.replaceAll("_", " ")}{category === column && categoryValue ? `: ${categoryValue}` : ""}</button>) : <button className="table-sort" onClick={() => toggleSort(column)}>{column.replaceAll("_", " ")}{sortIndicator(column)}</button>}</th>)}<th>Action</th></tr></thead><tbody>{sortedItems.map((record, index) => <tr key={dataId(resource, record) || index}>{columns.map(column => { const numericStance = ["stance_average", "stance_std", "stance_median"].includes(column); const value = record[column]; const scoreClass = column === "stance_std" ? "variability" : Number(value) < 0 ? "negative" : Number(value) > 0 ? "positive" : "neutral"; return <td key={column} title={String(value ?? "")} className={numericStance && value != null ? `stance-score ${scoreClass}` : ""}>{resource === "inconsistencies" && column.endsWith("_uuid") && value ? <CopyIdentifier value={value} notify={notify} /> : numericStance ? formatNumber(value, 2) : String(value ?? "—").slice(0, 180)}</td>; })}<td><button className="link-button" onClick={() => open(record)}>View / edit</button></td></tr>)}</tbody></table></div><div className="pagination"><button disabled={page <= 1} onClick={() => load(page - 1)}>Previous</button><span>Page {page} of {Math.max(data.pages, 1)} · {data.total} records</span><button disabled={page >= data.pages} onClick={() => load(page + 1)}>Next</button></div></> : <Empty>No {resource} records found.</Empty>}
     </Panel>
     {resource === "attitudes" && <Panel title="Attitude stance KPIs"><section className="metric-grid compact">{Object.entries(data.stance_counts || {}).map(([stance, count]) => <MetricCard key={stance} label={stance} value={formatNumber(count)} detail="Matching attitudes" />)}</section></Panel>}

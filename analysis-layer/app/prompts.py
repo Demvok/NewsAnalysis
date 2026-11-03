@@ -40,6 +40,10 @@ CITATION_EXTRACTION_PROMPT = ModelCompatibleChatPromptTemplate.from_messages([
         score means the evidence should be preserved but processed as lower priority.
         Set uncertain and explain uncertainty_reason when attribution or evidence is
         ambiguous. confidence_level and extraction_confidence are numbers from 0 to 1.
+        When a citation is vague, indirect, or marked uncertain, the citation context
+        and summarized quote must explicitly include the speaker's name. Do not return
+        an unattributed vague citation whose reader cannot tell who expressed the
+        position. Keep the source wording unchanged in exact_quote.
         Return the complete structured result, including an empty speakers list when
         no attributable statements exist.
         """
@@ -193,7 +197,10 @@ CITATION_EXTRACTION_REFINING_PROMPT = ModelCompatibleChatPromptTemplate.from_mes
         Direct quotes must match the article character-for-character apart from
         surrounding quotation marks. Never fabricate or silently strengthen evidence.
         Preserve valid items and all schema fields. If evidence is insufficient,
-        omit the citation rather than guessing.
+        omit the citation rather than guessing. For vague, indirect, or uncertain
+        citations, ensure the context and summarized quote explicitly name the
+        speaker so the evidence remains useful. Keep exact_quote limited to the
+        source wording.
         """
     ),
     (
@@ -219,10 +226,13 @@ COMBINED_CITATION_ANALYSIS_PROMPT = ModelCompatibleChatPromptTemplate.from_messa
         "system",
         """
         Analyze all citations for this speaker in one pass. For every citation,
-        identify only topics that are actually supported by an attributable position,
+        identify only topics that are actually supported by the actual speaker's own
+        expressed position,
         define each topic as a reusable proposition, and assign the speaker's stance
         from -10 (strongly against) to +10 (strongly supports). Do not infer a
-        position from a bare mention. Preserve citation fields exactly.
+        position from a bare mention. Analyze the speaker's attitude, not the general
+        sentiment of the article, the journalist's framing, public sentiment, or
+        another person's opinion. Preserve citation fields exactly.
 
         This is a batch-analysis identity, not necessarily a real-world identity.
         For PERSON, all citations in this batch belong to the same person.
@@ -249,8 +259,8 @@ COMBINED_CITATION_ANALYSIS_PROMPT = ModelCompatibleChatPromptTemplate.from_messa
         indeterminate. Do not reverse polarity because the quote uses a negative
         verb; define the proposition first, then judge for/against it.
         relevancy_score and stance_confidence are 0..1. stance_summary must briefly
-        explain the speaker's position toward the proposition using only the
-        citation evidence. stance_detected is false and stance is null when
+        explain only the named speaker's position toward the proposition using only
+        the citation evidence. stance_detected is false and stance is null when
         evidence is inadequate. Return one result for every input citation.
         """
     ),

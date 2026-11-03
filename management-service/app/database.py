@@ -142,7 +142,10 @@ class ManagementDatabase:
                        WHEN EXISTS (
                            SELECT 1 FROM task_jobs tj JOIN jobs j ON j.job_id=tj.job_id
                            WHERE tj.task_id=tasks.task_id AND j.status='FAILED'
-                       ) THEN 'FAILED'
+                       ) THEN CASE WHEN EXISTS (
+                           SELECT 1 FROM task_jobs tj JOIN jobs j ON j.job_id=tj.job_id
+                           WHERE tj.task_id=tasks.task_id AND j.status='COMPLETED'
+                       ) THEN 'PARTIAL' ELSE 'FAILED' END
                        ELSE 'COMPLETED'
                    END,
                    completed_at=CASE

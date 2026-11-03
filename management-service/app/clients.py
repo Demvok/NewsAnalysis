@@ -52,6 +52,29 @@ class ServiceClient:
             raise ValueError("storage articles response must be a list")
         return [item for item in payload if isinstance(item, dict)]
 
+    def all_articles(self, status: str | None = None) -> list[dict[str, Any]]:
+        page_size = 500
+        offset = 0
+        results: list[dict[str, Any]] = []
+        while True:
+            params: dict[str, Any] = {"limit": page_size, "offset": offset}
+            if status:
+                params["status"] = status
+            response = httpx.get(
+                f"{self.settings.storage_url}/articles",
+                params=params,
+                timeout=self.settings.request_timeout_seconds,
+            )
+            response.raise_for_status()
+            payload = response.json()
+            if not isinstance(payload, list):
+                raise ValueError("storage articles response must be a list")
+            page = [item for item in payload if isinstance(item, dict)]
+            results.extend(page)
+            if len(page) < page_size:
+                return results
+            offset += page_size
+
     def update_article_status(self, article_id: str, status: str) -> dict[str, Any]:
         response = httpx.put(
             f"{self.settings.storage_url}/articles/{article_id}",

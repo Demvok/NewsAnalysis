@@ -31,6 +31,7 @@ class TaskStatus(StrEnum):
     RUNNING = "RUNNING"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
+    PARTIAL = "PARTIAL"
     CANCELLED = "CANCELLED"
 
 
@@ -75,7 +76,7 @@ class TaskCreateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str = Field(default="Article processing task", min_length=1, max_length=200)
-    article_ids: list[UUID] = Field(min_length=1, max_length=500)
+    article_ids: list[UUID] = Field(min_length=1, max_length=10000)
     inconsistency_window_days: int = Field(default=365, ge=1, le=3650)
     execution_mode: ExecutionMode = ExecutionMode.PER_ARTICLE
     redo: bool = False
@@ -100,6 +101,9 @@ class TaskResponse(BaseModel):
     created_at: datetime
     started_at: datetime | None
     completed_at: datetime | None
+    retry_rate: float = 0
+    execution_time_ms: int | None = None
+    execution_time_per_job_ms: float | None = None
 
 
 class StageResponse(BaseModel):

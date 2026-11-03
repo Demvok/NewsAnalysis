@@ -168,6 +168,11 @@ app = FastAPI(
 )
 
 
+@app.on_event("startup")
+def recover_jobs() -> None:
+    coordinator.recover()
+
+
 @app.middleware("http")
 async def request_logging_middleware(request: Request, call_next):
     request_id = request.headers.get("x-request-id") or str(uuid4())
@@ -253,9 +258,10 @@ def service_status(service_name: str) -> ServiceDependency:
 def list_jobs(
     status: JobStatus | None = None,
     article_id: UUID | None = None,
+    task_id: UUID | None = None,
     limit: int = Query(50, ge=1, le=500),
 ) -> list[JobResponse]:
-    return [job_response(item) for item in coordinator.list(status.value if status else None, str(article_id) if article_id else None, limit)]
+    return [job_response(item) for item in coordinator.list(status.value if status else None, str(article_id) if article_id else None, str(task_id) if task_id else None, limit)]
 
 
 @app.post("/api/jobs", response_model=JobResponse, status_code=202, tags=["Jobs"])
@@ -317,6 +323,7 @@ def knowledge_summary() -> KnowledgeSummaryResponse:
 def knowledge_records(
     resource: str,
     query: str | None = Query(default=None, min_length=1),
+    query_field: str = Query("all", min_length=1),
     limit: int = Query(100, ge=1, le=500),
 ) -> list[dict[str, Any]]:
     try:
@@ -480,7 +487,7 @@ def data_records(
                     "pages": 1,
                     "stance_counts": {},
                 }
-        if resource == "topics" and not semantic_query:
+        if resource == "topics" and not semantic_query and query_field in {"all", "topic_name"}:
             browse = client.browse_topics(
                 limit=page_size,
                 offset=(page - 1) * page_size,
@@ -523,7 +530,10 @@ def data_records(
             stance_counts = {}
         if query:
             needle = query.casefold()
-            records = [item for item in records if needle in json.dumps(item, default=str).casefold()]
+            if query_field == "all":
+                records = [item for item in records if needle in json.dumps(item, default=str).casefold()]
+            else:
+                records = [item for item in records if needle in str(item.get(query_field, "")).casefold()]
         if status and resource not in {"attitudes", "inconsistencies"}:
             records = [item for item in records if str(item.get("status", "")).casefold() == status.casefold()]
         if category and category_value and resource not in {"attitudes", "inconsistencies"}:
@@ -619,10 +629,10 @@ def create_task(request: TaskCreateRequest) -> TaskResponse:
 @app.post("/api/tasks/fresh", response_model=TaskResponse, status_code=202, tags=["Tasks"])
 def create_fresh_task(
     name: str = Query("Fresh articles", min_length=1, max_length=200),
-    limit: int = Query(20, ge=1, le=100),
+    status: str = Query("NEW", min_length=1, max_length=40),
 ) -> TaskResponse:
     try:
-        articles = client.articles(limit, "NEW")
+        articles = client.all_articles(status.strip().upper())
         with database.connection() as connection:
             existing = {
                 row["article_id"] for row in connection.execute(
@@ -747,6 +757,27 @@ def delete_job(job_id: UUID) -> Response:
     return Response(status_code=204)
 
 
+@app.post("/api/jobs/bulk/retry", response_model=list[JobResponse], status_code=202, tags=["Jobs"])
+def retry_jobs(job_ids: list[UUID] = Body(..., min_length=1, max_length=500)) -> list[JobResponse]:
+    results = []
+    for job_id in job_ids:
+        try:
+            results.append(job_response(coordinator.retry(str(job_id))))
+        except (KeyError, ValueError) as exc:
+            logger.warning("bulk_retry_skipped job_id=%s error=%s", job_id, type(exc).__name__)
+    return results
+
+
+@app.post("/api/jobs/bulk/delete", status_code=204, tags=["Jobs"])
+def delete_jobs(job_ids: list[UUID] = Body(..., min_length=1, max_length=500)) -> Response:
+    for job_id in job_ids:
+        try:
+            coordinator.delete(str(job_id))
+        except (KeyError, ValueError):
+            continue
+    return Response(status_code=204)
+
+
 @app.get("/api/settings", response_model=RuntimeSettingsResponse, tags=["Settings"])
 def get_settings() -> RuntimeSettingsResponse:
     return RuntimeSettingsResponse(
@@ -765,6 +796,15 @@ def update_settings(request: RuntimeSettingsUpdate) -> RuntimeSettingsResponse:
         settings.analysis_timeout_seconds = updates["analysis_timeout_seconds"]
     logger.info("runtime_settings_updated fields=%s", sorted(updates))
     return get_settings()
+
+
+@app.post("/api/database/flush", status_code=204, tags=["Settings"])
+def flush_management_database() -> Response:
+    with database.lock, database.connection() as connection:
+        for table in ("telemetry_events", "events", "job_stages", "task_jobs", "jobs", "tasks", "experiment_evaluations", "experiment_jobs", "experiments"):
+            connection.execute(f"DELETE FROM {table}")
+    logger.warning("management_database_flushed")
+    return Response(status_code=204)
 
 
 def _safe_snapshot(value: Any) -> Any:

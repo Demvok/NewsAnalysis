@@ -12,10 +12,6 @@ from langchain_core.runnables import ConfigurableField
 from . import prompts
 from .logger import get_logger
 from .telemetry import current_context, emit_event, sanitized_error
-from dotenv import load_dotenv
-
-load_dotenv()  # Load environment variables from .env file
-
 llm_main = ChatOpenAI(
     # base_url="http://host.docker.internal:1234/v1",
     base_url=os.getenv("LLM_URL"),

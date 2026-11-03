@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import time
 from uuid import uuid4
@@ -9,9 +10,11 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import FastAPI, HTTPException, Query, Request, Response, status
+from fastapi.responses import JSONResponse
 from openai import OpenAI
 from pydantic import ValidationError
 from sqlalchemy import Float, cast, delete, exists, func, or_, select
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import aliased
 
@@ -115,6 +118,26 @@ async def log_api_request(request: Request, call_next) -> Response:
     )
     response.headers["x-request-id"] = request_id
     return response
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception(request: Request, exc: Exception) -> JSONResponse:
+    request_id = request.headers.get("x-request-id", str(uuid4()))
+    logger.exception(
+        "api_request status=unhandled_error request_id=%s method=%s path=%s",
+        request_id,
+        request.method,
+        request.url.path,
+    )
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "Internal server error",
+            "request_id": request_id,
+            "error_type": type(exc).__name__,
+        },
+        headers={"x-request-id": request_id},
+    )
 
 
 @app.on_event("startup")
@@ -467,13 +490,14 @@ def create_article(payload: ArticlePayload) -> dict[str, Any]:
 @app.get("/articles", response_model=None, tags=["Articles"], summary="List articles")
 def list_articles(
     limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     status: str | None = Query(default=None, min_length=1),
 ) -> list[dict[str, Any]]:
     with get_session() as session:
         statement = select(DimArticle)
         if status:
             statement = statement.where(DimArticle.status == status.strip().upper())
-        statement = statement.order_by(DimArticle.created_at.desc()).limit(limit)
+        statement = statement.order_by(DimArticle.created_at.desc()).offset(offset).limit(limit)
         return [_as_dict(item) for item in session.scalars(statement).all()]
 
 
@@ -1617,3 +1641,222 @@ def citation_history(
                 for citation, stance in session.execute(statement).all()
             )
         ]
+
+
+@app.get(
+    "/visualization/query",
+    response_model=None,
+    tags=["Visualization"],
+    summary="Query speaker attitudes for the visualization",
+)
+def visualization_query(
+    phrase: str | None = Query(None, min_length=1, max_length=512),
+    general_topic_field: str | None = Query(None, min_length=1, max_length=128),
+    min_similarity: float = Query(0.55, ge=-1, le=1),
+    limit: int = Query(5000, ge=1, le=20000),
+) -> dict[str, Any]:
+    """Return one traceable row per citation matching any relevant topic."""
+    started = time.perf_counter()
+    if not phrase and not general_topic_field:
+        logger.info("visualization_query status=unfiltered")
+    try:
+        query_vector = _embed_texts([phrase])[0] if phrase else None
+    except Exception as exc:
+        logger.exception("visualization_query status=embedding_failed phrase_length=%d", len(phrase or ""))
+        raise HTTPException(status_code=503, detail="Topic similarity search is temporarily unavailable") from exc
+    with get_session() as session:
+        similarity = None
+        article_tags = session.execute(select(DimArticle.tags)).scalars().all()
+        topic_fields: dict[str, int] = {}
+        for raw_tags in article_tags:
+            values = raw_tags if isinstance(raw_tags, list) else [raw_tags] if isinstance(raw_tags, str) else []
+            for value in values:
+                if isinstance(value, str) and value.strip():
+                    topic_fields[value.strip()] = topic_fields.get(value.strip(), 0) + 1
+        statement = (
+            select(
+                DimPerson,
+                DimTopic,
+                DimCitation,
+                DimArticle,
+                DimArticle.published_at,
+                FctAttitude,
+                FctInconsistency,
+            )
+            .join(DimCitation, DimCitation.person_uuid == DimPerson.person_uuid)
+            .join(DimArticle, DimCitation.origin_article_id == DimArticle.article_id)
+            .join(FctAttitude, FctAttitude.citation_uuid == DimCitation.citation_uuid)
+            .join(DimTopic, FctAttitude.topic_uuid == DimTopic.topic_uuid)
+            .outerjoin(
+                FctInconsistency,
+                or_(
+                    FctInconsistency.citation_a_uuid == DimCitation.citation_uuid,
+                    FctInconsistency.citation_b_uuid == DimCitation.citation_uuid,
+                ),
+            )
+            .where(DimCitation.person_uuid.is_not(None))
+            .order_by(DimArticle.published_at.asc().nulls_last())
+            .limit(limit)
+        )
+        if general_topic_field:
+            tags = cast(DimArticle.tags, JSONB)
+            statement = statement.where(
+                or_(
+                    tags.contains([general_topic_field]),
+                    tags == cast(json.dumps(general_topic_field), JSONB),
+                )
+            )
+        if query_vector:
+            distance = DimTopic.topic_description_vector.cosine_distance(query_vector)
+            similarity = (1 - distance).label("topic_similarity")
+            statement = (
+                statement.add_columns(similarity)
+                .where(DimTopic.topic_description_vector.is_not(None))
+                .where(similarity >= min_similarity)
+            )
+        rows = session.execute(statement).all()
+
+    def numeric_stance(value: Any) -> float | None:
+        if value is None:
+            return None
+        normalized = str(value).strip().upper()
+        try:
+            return max(-1.0, min(1.0, float(value)))
+        except (TypeError, ValueError):
+            pass
+        return {
+            "STRONGLY OPPOSE": -1.0,
+            "OPPOSE": -0.75,
+            "AGAINST": -0.75,
+            "NEGATIVE": -0.75,
+            "DISAGREE": -0.75,
+            "NEUTRAL": 0.0,
+            "UNKNOWN": 0.0,
+            "SUPPORT": 0.75,
+            "FOR": 0.75,
+            "POSITIVE": 0.75,
+            "AGREE": 0.75,
+            "STRONGLY SUPPORT": 1.0,
+        }.get(normalized)
+
+    def serialize(value: Any) -> Any:
+        return value.isoformat() if isinstance(value, datetime) else str(value) if isinstance(value, UUID) else value
+
+    citations: list[dict[str, Any]] = []
+    speaker_rows: dict[UUID, dict[str, Any]] = {}
+    topic_ids: set[UUID] = set()
+    inconsistency_ids: set[UUID] = set()
+    invalid_rows: list[dict[str, str]] = []
+    seen_citation_topics: set[tuple[UUID, UUID]] = set()
+    for row in rows:
+        person, topic, citation, article, published_at, attitude, inconsistency = row[:7]
+        citation_topic = (citation.citation_uuid, topic.topic_uuid)
+        if citation_topic in seen_citation_topics:
+            continue
+        seen_citation_topics.add(citation_topic)
+        topic_similarity = float(row[7]) if len(row) > 7 and row[7] is not None else None
+        stance_value = numeric_stance(attitude.stance)
+        if not person.name.strip():
+            invalid_rows.append({"citation_uuid": serialize(citation.citation_uuid), "reason": "speaker name is empty"})
+            continue
+        if not topic.topic_name.strip():
+            invalid_rows.append({"citation_uuid": serialize(citation.citation_uuid), "reason": "topic name is empty"})
+            continue
+        if stance_value is None or not math.isfinite(stance_value):
+            invalid_rows.append({"citation_uuid": serialize(citation.citation_uuid), "reason": "stance is missing or not numeric"})
+            continue
+        if published_at is None:
+            invalid_rows.append({"citation_uuid": serialize(citation.citation_uuid), "reason": "publication date is missing"})
+            continue
+        topic_ids.add(topic.topic_uuid)
+        if inconsistency and inconsistency.classification in {"CONTRADICTION", "POSITION_CHANGE"}:
+            inconsistency_ids.add(inconsistency.inconsistency_uuid)
+        speaker = speaker_rows.setdefault(
+            person.person_uuid,
+            {
+                "person_uuid": serialize(person.person_uuid),
+                "name": person.name,
+                "image_url": person.image_url,
+                "person_type": person.person_type,
+                "citations": 0,
+                "stances": [],
+            },
+        )
+        speaker["citations"] += 1
+        speaker["stances"].append(stance_value)
+        if inconsistency and inconsistency.classification in {"CONTRADICTION", "POSITION_CHANGE"}:
+            if inconsistency.citation_a_uuid == inconsistency.citation_b_uuid:
+                invalid_rows.append({"citation_uuid": serialize(citation.citation_uuid), "reason": "inconsistency links the same citation"})
+                continue
+        citations.append(
+            {
+                "citation_uuid": serialize(citation.citation_uuid),
+                "person_uuid": serialize(person.person_uuid),
+                "person_name": person.name,
+                "person_type": person.person_type,
+                "topic_uuid": serialize(topic.topic_uuid),
+                "topic_name": topic.topic_name,
+                "general_topic_field": topic.general_topic_field,
+                "published_at": serialize(published_at),
+                "stance": attitude.stance,
+                "stance_value": stance_value,
+                "relevancy_score": attitude.relevancy_score,
+                "stance_confidence": attitude.stance_confidence,
+                "quote": citation.exact_quote or citation.summarized_quote,
+                "article_title": article.article_title,
+                "article_url": article.url,
+                "topic_similarity": topic_similarity,
+                "inconsistency": {
+                    "id": serialize(inconsistency.inconsistency_uuid),
+                    "classification": inconsistency.classification,
+                    "severity": inconsistency.severity,
+                    "comment": inconsistency.inconsistency_comment,
+                    "citation_a_uuid": serialize(inconsistency.citation_a_uuid),
+                    "citation_b_uuid": serialize(inconsistency.citation_b_uuid),
+                } if inconsistency else None,
+            }
+        )
+    for speaker in speaker_rows.values():
+        values = speaker.pop("stances")
+        speaker["average_stance"] = sum(values) / len(values)
+        speaker["std_stance"] = (sum((value - speaker["average_stance"]) ** 2 for value in values) / len(values)) ** 0.5
+    speakers = sorted(speaker_rows.values(), key=lambda item: item["citations"], reverse=True)
+    values = [item["stance_value"] for item in citations]
+    values.sort()
+    mean = sum(values) / len(values) if values else None
+    median = values[len(values) // 2] if values and len(values) % 2 else ((values[len(values) // 2 - 1] + values[len(values) // 2]) / 2 if values else None)
+    std = (sum((value - mean) ** 2 for value in values) / len(values)) ** 0.5 if values and mean is not None else None
+    result = {
+        "filters": {"phrase": phrase, "general_topic_field": general_topic_field, "min_similarity": min_similarity},
+        "speakers": speakers,
+        "citations": citations,
+        "kpis": {"average_stance": mean, "median_stance": median, "std_stance": std, "inconsistency_frequency": len(inconsistency_ids) / len(citations) if citations else 0},
+        "matched_topic_count": len(topic_ids),
+        "general_topic_fields": [
+            {"name": name, "article_count": count}
+            for name, count in sorted(topic_fields.items(), key=lambda item: (-item[1], item[0].lower()))
+        ],
+        "data_quality": {
+            "excluded_row_count": len(invalid_rows),
+            "excluded_rows": invalid_rows[:50],
+            "truncated": len(invalid_rows) > 50,
+        },
+    }
+    logger.info(
+        "visualization_query status=completed citations=%d speakers=%d topics=%d excluded_rows=%d duration_ms=%d",
+        len(citations),
+        len(speakers),
+        len(topic_ids),
+        len(invalid_rows),
+        int((time.perf_counter() - started) * 1000),
+    )
+    emit_event(
+        "visualization_query_completed",
+        duration_ms=int((time.perf_counter() - started) * 1000),
+        attributes={
+            "citation_count": len(citations),
+            "speaker_count": len(speakers),
+            "excluded_row_count": len(invalid_rows),
+        },
+    )
+    return result

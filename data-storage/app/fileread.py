@@ -7,7 +7,7 @@ import pandas as pd
 df = pd.read_csv(Path(__file__).with_name('dimArticle.csv'), index_col=0).reset_index('article_id')
 
 
-TEMP_ARTICLES_DIR = Path(__file__).with_name("_tmp")
+TEMP_ARTICLES_DIR = Path(__file__).with_name("_tmp2")
 
 
 def read_temp_articles() -> list[dict[str, Any]]:

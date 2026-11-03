@@ -15,6 +15,7 @@ from .logger import get_logger
 from .models import ExecutionMode, JobCreateRequest, JobStatus, StageStatus, TaskCreateRequest, TaskStatus
 
 logger = get_logger("orchestration")
+MAX_AUTOMATIC_RETRIES = 2
 
 
 def timestamp() -> str:
@@ -40,6 +41,42 @@ class JobCoordinator:
         self.database = database
         self.client = client
         self.executor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="management-job")
+        self.max_workers = max_workers
+
+    def recover(self) -> None:
+        """Resume durable queued work and retry jobs interrupted by a restart."""
+        with self.database.lock, self.database.connection() as connection:
+            interrupted = connection.execute(
+                "SELECT job_id FROM jobs WHERE status='FAILED' AND error_code='MANAGEMENT_RESTART' "
+                "AND retry_count < ?",
+                (MAX_AUTOMATIC_RETRIES,),
+            ).fetchall()
+            queued = connection.execute(
+                "SELECT job_id FROM jobs WHERE status='PENDING'"
+            ).fetchall()
+            for row in interrupted:
+                connection.execute(
+                    "UPDATE jobs SET status='RETRYING', retry_count=retry_count+1, "
+                    "completed_at=NULL WHERE job_id=? AND status='FAILED'",
+                    (row["job_id"],),
+                )
+            job_ids = [row["job_id"] for row in interrupted] + [row["job_id"] for row in queued]
+            task_ids = {
+                row["task_id"]
+                for row in connection.execute(
+                    "SELECT DISTINCT task_id FROM task_jobs WHERE job_id IN (%s)"
+                    % ",".join("?" for _ in job_ids),
+                    job_ids,
+                ).fetchall()
+            } if job_ids else set()
+            for task_id in task_ids:
+                self._refresh_task_status(connection, task_id)
+        for job_id in job_ids:
+            self._submit(job_id)
+
+    def _submit(self, job_id: str) -> None:
+        """Submit work to the worker pool; run() performs the durable claim."""
+        self.executor.submit(self.run, job_id)
 
     def create(
         self,
@@ -96,7 +133,7 @@ class JobCoordinator:
         assert row is not None
         job = self.database.decode(row)
         if schedule:
-            self.executor.submit(self.run, job_id)
+            self._submit(job_id)
         return job
 
     def run(self, job_id: str) -> None:
@@ -199,11 +236,59 @@ class JobCoordinator:
             logger.info("job_completed job_id=%s", job_id)
         except Exception as exc:
             logger.exception("job_failed job_id=%s error_type=%s", job_id, type(exc).__name__)
+            summary = safe_error_summary(exc)
             if current_stage:
-                summary = safe_error_summary(exc)
-                self._stage(job_id, current_stage, StageStatus.FAILED, error_code=type(exc).__name__, error_summary=summary)
-                self._finish(job_id, JobStatus.FAILED, type(exc).__name__, summary)
+                try:
+                    self._stage(job_id, current_stage, StageStatus.FAILED, error_code=type(exc).__name__, error_summary=summary)
+                except Exception:
+                    logger.exception("job_failure_stage_persist_failed job_id=%s", job_id)
+            self._schedule_retry_or_finish(job_id, type(exc).__name__, summary)
+            if current_stage:
                 logger.error("job_failed job_id=%s stage=%s error_type=%s", job_id, current_stage, type(exc).__name__)
+
+    def _schedule_retry_or_finish(self, job_id: str, code: str, summary: str) -> None:
+        should_retry = False
+        final_status: JobStatus | None = None
+        with self.database.lock, self.database.connection() as connection:
+            row = connection.execute(
+                "SELECT retry_count, cancel_requested, status FROM jobs WHERE job_id=?",
+                (job_id,),
+            ).fetchone()
+            if row is None or row["status"] != JobStatus.RUNNING.value:
+                return
+            if not row["cancel_requested"] and row["retry_count"] < MAX_AUTOMATIC_RETRIES:
+                updated = connection.execute(
+                    "UPDATE jobs SET status=?, retry_count=retry_count+1, completed_at=NULL, "
+                    "error_code=?, error_summary=? WHERE job_id=? AND status=? AND cancel_requested=0",
+                    (JobStatus.RETRYING.value, code, summary, job_id, JobStatus.RUNNING.value),
+                )
+                should_retry = updated.rowcount == 1
+            else:
+                final_status = JobStatus.CANCELLED if row["cancel_requested"] else JobStatus.FAILED
+                connection.execute(
+                    "UPDATE jobs SET status=?, current_stage=NULL, completed_at=?, "
+                    "error_code=?, error_summary=? WHERE job_id=? AND status=?",
+                    (
+                        final_status.value,
+                        timestamp(),
+                        code,
+                        summary,
+                        job_id,
+                        JobStatus.RUNNING.value,
+                    ),
+                )
+                task = connection.execute(
+                    "SELECT task_id FROM task_jobs WHERE job_id=?",
+                    (job_id,),
+                ).fetchone()
+                if task:
+                    self._refresh_task_status(connection, task["task_id"])
+        if should_retry:
+            self._submit(job_id)
+            logger.warning("job_retry_scheduled job_id=%s", job_id)
+        elif final_status is not None:
+            row = self.get(job_id)
+            self._set_article_status(row["article_id"], final_status.value)
 
     def run_bundled(self, task_id: str, job_ids: list[str]) -> None:
         """Run independently persisted analysis stages in reserve batch mode.
@@ -307,11 +392,14 @@ class JobCoordinator:
             summary = safe_error_summary(exc)
             logger.exception("bundled_task_failed task_id=%s error_type=%s", task_id, type(exc).__name__)
             for job_id in job_ids:
-                current = self.get(job_id)
-                if current["status"] in {JobStatus.RUNNING.value, JobStatus.PENDING.value, JobStatus.RETRYING.value}:
-                    self._stage(job_id, current.get("current_stage") or "bundled_analysis", StageStatus.FAILED,
-                                error_code=type(exc).__name__, error_summary=summary)
-                    self._finish(job_id, JobStatus.FAILED, type(exc).__name__, summary)
+                try:
+                    current = self.get(job_id)
+                    if current["status"] in {JobStatus.RUNNING.value, JobStatus.PENDING.value, JobStatus.RETRYING.value}:
+                        self._stage(job_id, current.get("current_stage") or "bundled_analysis", StageStatus.FAILED,
+                                    error_code=type(exc).__name__, error_summary=summary)
+                        self._schedule_retry_or_finish(job_id, type(exc).__name__, summary)
+                except Exception:
+                    logger.exception("bundled_job_failure_persist_failed job_id=%s", job_id)
 
     def _run_bundled_stage(self, job_ids: list[str], stage: str) -> None:
         for job_id in job_ids:
@@ -330,6 +418,11 @@ class JobCoordinator:
                 connection.execute("UPDATE jobs SET status=?, completed_at=? WHERE job_id=?", (JobStatus.CANCELLED.value, timestamp(), job_id))
             elif row["status"] == JobStatus.RUNNING.value:
                 connection.execute("UPDATE jobs SET cancel_requested=1 WHERE job_id=?", (job_id,))
+            elif row["status"] == JobStatus.RETRYING.value:
+                connection.execute(
+                    "UPDATE jobs SET status=?, completed_at=?, cancel_requested=1 WHERE job_id=?",
+                    (JobStatus.CANCELLED.value, timestamp(), job_id),
+                )
             task = connection.execute(
                 "SELECT task_id FROM task_jobs WHERE job_id=?", (job_id,)
             ).fetchone()
@@ -341,20 +434,17 @@ class JobCoordinator:
         current = self.get(job_id)
         if current["status"] not in {JobStatus.FAILED.value, JobStatus.CANCELLED.value}:
             raise ValueError("Only FAILED or CANCELLED jobs can be retried")
-        request = JobCreateRequest.model_validate(current["config"])
-        retry = self.create(
-            request,
-            f"retry:{job_id}:{current['retry_count'] + 1}",
-            initial_status=JobStatus.RETRYING,
-            schedule=False,
-        )
         with self.database.lock, self.database.connection() as connection:
-            connection.execute(
-                "UPDATE jobs SET status=?, retry_count=? WHERE job_id=?",
-                (JobStatus.RETRYING.value, current["retry_count"] + 1, retry["job_id"]),
+            updated = connection.execute(
+                "UPDATE jobs SET status=?, retry_count=retry_count+1, cancel_requested=0, "
+                "completed_at=NULL, error_code=NULL, error_summary=NULL "
+                "WHERE job_id=? AND status IN (?,?)",
+                (JobStatus.RETRYING.value, job_id, JobStatus.FAILED.value, JobStatus.CANCELLED.value),
             )
-        self.executor.submit(self.run, retry["job_id"])
-        return self.get(retry["job_id"])
+        if updated.rowcount != 1:
+            raise ValueError("Job changed state before retry could be scheduled")
+        self._submit(job_id)
+        return self.get(job_id)
 
     def _set_article_status(self, article_id: str, status: str) -> None:
         update = getattr(self.client, "update_article_status", None)
@@ -368,30 +458,39 @@ class JobCoordinator:
             raise KeyError(job_id)
         return self.database.decode(row)
 
-    def list(self, status: str | None, article_id: str | None, limit: int) -> list[dict[str, Any]]:
+    def list(self, status: str | None, article_id: str | None, task_id: str | None, limit: int) -> list[dict[str, Any]]:
         query, params = "SELECT * FROM jobs WHERE 1=1", []
         if status:
             query += " AND status=?"; params.append(status)
         if article_id:
             query += " AND article_id=?"; params.append(article_id)
+        if task_id:
+            query += " AND metadata_json LIKE ?"; params.append(f'%"task_id": "{task_id}"%')
         query += " ORDER BY created_at DESC LIMIT ?"; params.append(limit)
         with self.database.connection() as connection:
             return [self.database.decode(row) for row in connection.execute(query, params)]
 
     def create_task(self, request: TaskCreateRequest) -> dict[str, Any]:
+        with self.database.lock:
+            return self._create_task(request)
+
+    def _create_task(self, request: TaskCreateRequest) -> dict[str, Any]:
         task_id = str(uuid4())
         created = timestamp()
         article_ids = [str(item) for item in request.article_ids]
         with self.database.connection() as connection:
             blocked_statuses = "('PENDING','RUNNING','RETRYING')" if request.redo else "('PENDING','RUNNING','RETRYING','COMPLETED')"
-            existing = {
-                row["article_id"] for row in connection.execute(
-                    """SELECT DISTINCT article_id FROM jobs
-                       WHERE article_id IN (%s)
-                       AND status IN %s"""
-                    % (",".join("?" for _ in article_ids), blocked_statuses), article_ids
-                ).fetchall()
-            }
+            existing: set[str] = set()
+            for start in range(0, len(article_ids), 500):
+                batch = article_ids[start:start + 500]
+                existing.update(
+                    row["article_id"] for row in connection.execute(
+                        """SELECT DISTINCT article_id FROM jobs
+                           WHERE article_id IN (%s)
+                           AND status IN %s"""
+                        % (",".join("?" for _ in batch), blocked_statuses), batch
+                    ).fetchall()
+                )
         article_ids = [item for item in article_ids if item not in existing]
         if not article_ids:
             raise ValueError("All selected articles already have active or completed jobs")
@@ -402,26 +501,37 @@ class JobCoordinator:
                 (task_id, request.name, TaskStatus.PENDING.value,
                  json.dumps(article_ids), created, request.execution_mode.value),
             )
-        for article_id in article_ids:
-            job = self.create(
-                JobCreateRequest(
-                    article_id=article_id,
-                    inconsistency_window_days=request.inconsistency_window_days,
-                    execution_mode=request.execution_mode,
-                ),
-                f"task:{task_id}:article:{article_id}",
-                schedule=False,
-                metadata={"source": "management-task", "task_id": task_id, "execution_mode": request.execution_mode.value},
-            )
+        created_job_ids: list[str] = []
+        try:
+            for article_id in article_ids:
+                job = self.create(
+                    JobCreateRequest(
+                        article_id=article_id,
+                        inconsistency_window_days=request.inconsistency_window_days,
+                        execution_mode=request.execution_mode,
+                    ),
+                    f"task:{task_id}:article:{article_id}",
+                    schedule=False,
+                    metadata={"source": "management-task", "task_id": task_id, "execution_mode": request.execution_mode.value},
+                )
+                created_job_ids.append(job["job_id"])
+                with self.database.lock, self.database.connection() as connection:
+                    connection.execute(
+                        "INSERT INTO task_jobs(task_id,job_id,article_id) VALUES(?,?,?)",
+                        (task_id, job["job_id"], str(article_id)),
+                    )
+                    connection.execute(
+                        "UPDATE jobs SET metadata_json=? WHERE job_id=?",
+                        (json.dumps({"source": "management-task", "task_id": task_id, "execution_mode": request.execution_mode.value}), job["job_id"]),
+                    )
+        except Exception:
+            logger.exception("task_job_creation_failed task_id=%s", task_id)
             with self.database.lock, self.database.connection() as connection:
-                connection.execute(
-                    "INSERT INTO task_jobs(task_id,job_id,article_id) VALUES(?,?,?)",
-                    (task_id, job["job_id"], str(article_id)),
-                )
-                connection.execute(
-                    "UPDATE jobs SET metadata_json=? WHERE job_id=?",
-                    (json.dumps({"source": "management-task", "task_id": task_id, "execution_mode": request.execution_mode.value}), job["job_id"]),
-                )
+                for job_id in created_job_ids:
+                    connection.execute("DELETE FROM task_jobs WHERE job_id=?", (job_id,))
+                    connection.execute("DELETE FROM jobs WHERE job_id=?", (job_id,))
+                connection.execute("DELETE FROM tasks WHERE task_id=?", (task_id,))
+            raise
         with self.database.lock, self.database.connection() as connection:
             connection.execute(
                 "UPDATE tasks SET status=?, started_at=? WHERE task_id=?",
@@ -436,7 +546,7 @@ class JobCoordinator:
             self.executor.submit(self.run_bundled, task_id, job_ids)
         else:
             for job_id in job_ids:
-                self.executor.submit(self.run, job_id)
+                self._submit(job_id)
         return self.task(task_id)
 
     def task(self, task_id: str) -> dict[str, Any]:
@@ -445,8 +555,10 @@ class JobCoordinator:
             if task is None:
                 raise KeyError(task_id)
             jobs = connection.execute(
-                """SELECT j.* FROM jobs j JOIN task_jobs tj ON tj.job_id=j.job_id
-                   WHERE tj.task_id=? ORDER BY j.created_at""", (task_id,)
+                """SELECT DISTINCT j.* FROM jobs j
+                   LEFT JOIN task_jobs tj ON tj.job_id=j.job_id
+                   WHERE tj.task_id=? OR j.metadata_json LIKE ?
+                   ORDER BY j.created_at""", (task_id, f'%"task_id": "{task_id}"%')
             ).fetchall()
             citations = speakers = topics = attitudes = 0
             for job in jobs:
@@ -468,6 +580,10 @@ class JobCoordinator:
             waiting = statuses.count(JobStatus.PENDING.value) + statuses.count(JobStatus.RETRYING.value)
             self._refresh_task_status(connection, task_id)
             task = connection.execute("SELECT * FROM tasks WHERE task_id=?", (task_id,)).fetchone()
+            elapsed_ms = None
+            if task["started_at"] and task["completed_at"]:
+                elapsed_ms = max(0, int((datetime.fromisoformat(task["completed_at"]) - datetime.fromisoformat(task["started_at"])).total_seconds() * 1000))
+            retry_rate = sum(job["retry_count"] > 0 for job in jobs) / len(jobs) if jobs else 0
             return {
                 "task_id": task["task_id"], "name": task["name"], "status": task["status"],
                 "article_ids": json.loads(task["article_ids_json"]),
@@ -479,6 +595,9 @@ class JobCoordinator:
                 "topics": topics, "attitudes": attitudes,
                 "created_at": task["created_at"], "started_at": task["started_at"],
                 "completed_at": task["completed_at"],
+                "retry_rate": retry_rate,
+                "execution_time_ms": elapsed_ms,
+                "execution_time_per_job_ms": elapsed_ms / len(jobs) if elapsed_ms is not None and jobs else None,
             }
 
     def list_tasks(self, limit: int) -> list[dict[str, Any]]:
@@ -506,7 +625,7 @@ class JobCoordinator:
             job_ids = [
                 row["job_id"]
                 for row in connection.execute(
-                    "SELECT job_id FROM task_jobs WHERE task_id=?", (task_id,)
+                    "SELECT job_id FROM jobs WHERE metadata_json LIKE ?", (f'%"task_id": "{task_id}"%',)
                 ).fetchall()
             ]
             connection.execute(
@@ -561,12 +680,25 @@ class JobCoordinator:
     def _finish(self, job_id: str, status: JobStatus, code: str | None = None, summary: str | None = None) -> None:
         article_id: str | None = None
         with self.database.lock, self.database.connection() as connection:
-            row = connection.execute("SELECT article_id FROM jobs WHERE job_id=?", (job_id,)).fetchone()
+            row = connection.execute(
+                "SELECT article_id, cancel_requested, status FROM jobs WHERE job_id=?",
+                (job_id,),
+            ).fetchone()
             article_id = row["article_id"] if row else None
+            if row is None or row["status"] not in {
+                JobStatus.RUNNING.value,
+                JobStatus.RETRYING.value,
+            }:
+                return
+            effective_status = (
+                JobStatus.CANCELLED
+                if row["cancel_requested"] and status == JobStatus.COMPLETED
+                else status
+            )
             connection.execute(
                 "UPDATE jobs SET status=?, current_stage=NULL, completed_at=?, "
                 "error_code=?, error_summary=? WHERE job_id=?",
-                (status.value, timestamp(), code, summary, job_id),
+                (effective_status.value, timestamp(), code, summary, job_id),
             )
             task = connection.execute(
                 "SELECT task_id FROM task_jobs WHERE job_id=?", (job_id,)
@@ -578,7 +710,7 @@ class JobCoordinator:
                 JobStatus.COMPLETED: "COMPLETED",
                 JobStatus.FAILED: "FAILED",
                 JobStatus.CANCELLED: "CANCELLED",
-            }.get(status)
+            }.get(effective_status)
             if final_status:
                 self._set_article_status(article_id, final_status)
 
@@ -601,7 +733,7 @@ class JobCoordinator:
             task_status = TaskStatus.CANCELLED.value
             completed_at = timestamp()
         elif any(status == JobStatus.FAILED.value for status in statuses):
-            task_status = TaskStatus.FAILED.value
+            task_status = TaskStatus.PARTIAL.value if any(status == JobStatus.COMPLETED.value for status in statuses) else TaskStatus.FAILED.value
             completed_at = timestamp()
         else:
             task_status = TaskStatus.COMPLETED.value
@@ -635,12 +767,17 @@ class JobCoordinator:
                 (job_id, name, StageStatus.RUNNING.value),
             ).fetchone()
             if existing is None:
+                attempt = connection.execute(
+                    "SELECT COALESCE(MAX(attempt), 0) + 1 AS next_attempt "
+                    "FROM job_stages WHERE job_id=? AND stage=?",
+                    (job_id, name),
+                ).fetchone()["next_attempt"]
                 connection.execute(
                     """INSERT INTO job_stages
                        (stage_id,job_id,stage,status,attempt,started_at,completed_at,
                         duration_ms,summary_json,error_code,error_summary)
                        VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
-                    (str(uuid4()), job_id, name, status.value, 1, started, completed, duration_ms, json.dumps(summary or {}), error_code, error_summary),
+                    (str(uuid4()), job_id, name, status.value, attempt, started, completed, duration_ms, json.dumps(summary or {}), error_code, error_summary),
                 )
             else:
                 running = connection.execute(
