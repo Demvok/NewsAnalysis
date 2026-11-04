@@ -113,6 +113,14 @@ class FctAttitude(Base):
     __table_args__ = (
         CheckConstraint("relevancy_score IS NULL OR relevancy_score BETWEEN 0 AND 1", name="ck_attitude_relevancy"),
         CheckConstraint("stance_confidence IS NULL OR stance_confidence BETWEEN 0 AND 1", name="ck_attitude_stance_confidence"),
+        CheckConstraint("endorsement BETWEEN 1 AND 4", name="ck_attitude_endorsement"),
+        CheckConstraint("commitment BETWEEN 1 AND 4", name="ck_attitude_commitment"),
+        CheckConstraint("conditionality BETWEEN 0 AND 2", name="ck_attitude_conditionality"),
+        CheckConstraint("stance IS NULL OR stance BETWEEN -1 AND 1", name="ck_attitude_stance"),
+        CheckConstraint(
+            "direction IN ('SUPPORT', 'OPPOSE', 'NEUTRAL', 'INSUFFICIENT')",
+            name="ck_attitude_direction",
+        ),
     )
 
     topic_uuid: Mapped[UUID] = mapped_column(
@@ -121,7 +129,11 @@ class FctAttitude(Base):
     citation_uuid: Mapped[UUID] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("dimCitation.citation_uuid", ondelete="CASCADE"), primary_key=True
     )
-    stance: Mapped[str | None] = mapped_column(String(64))
+    direction: Mapped[str] = mapped_column(String(16), nullable=False)
+    endorsement: Mapped[int] = mapped_column(nullable=False)
+    commitment: Mapped[int] = mapped_column(nullable=False)
+    conditionality: Mapped[int] = mapped_column(nullable=False)
+    stance: Mapped[float | None] = mapped_column(Float)
     relevancy_score: Mapped[float | None] = mapped_column(Float)
     stance_confidence: Mapped[float | None] = mapped_column(Float)
     stance_summary: Mapped[str | None] = mapped_column(Text)
@@ -232,6 +244,30 @@ def create_database() -> None:
         )
         connection.execute(
             text(
+                'ALTER TABLE "fctAttitude" ADD COLUMN IF NOT EXISTS '
+                'direction VARCHAR(16) NOT NULL DEFAULT \'INSUFFICIENT\''
+            )
+        )
+        connection.execute(
+            text(
+                'ALTER TABLE "fctAttitude" ADD COLUMN IF NOT EXISTS '
+                'endorsement INTEGER NOT NULL DEFAULT 1'
+            )
+        )
+        connection.execute(
+            text(
+                'ALTER TABLE "fctAttitude" ADD COLUMN IF NOT EXISTS '
+                'commitment INTEGER NOT NULL DEFAULT 1'
+            )
+        )
+        connection.execute(
+            text(
+                'ALTER TABLE "fctAttitude" ADD COLUMN IF NOT EXISTS '
+                'conditionality INTEGER NOT NULL DEFAULT 0'
+            )
+        )
+        connection.execute(
+            text(
                 'DO $$ BEGIN '
                 'ALTER TABLE "fctAttitude" ADD CONSTRAINT '
                 'ck_attitude_stance_confidence CHECK '
@@ -239,6 +275,26 @@ def create_database() -> None:
                 'EXCEPTION WHEN duplicate_object THEN NULL; END $$'
             )
         )
+        connection.execute(text(
+            'CREATE INDEX IF NOT EXISTS ix_dim_article_status_created '
+            'ON "dimArticle" (status, created_at DESC)'
+        ))
+        connection.execute(text(
+            'CREATE INDEX IF NOT EXISTS ix_dim_article_published '
+            'ON "dimArticle" (published_at)'
+        ))
+        connection.execute(text(
+            'CREATE INDEX IF NOT EXISTS ix_dim_citation_article_person '
+            'ON "dimCitation" (origin_article_id, person_uuid)'
+        ))
+        connection.execute(text(
+            'CREATE INDEX IF NOT EXISTS ix_fct_attitude_citation_topic '
+            'ON "fctAttitude" (citation_uuid, topic_uuid)'
+        ))
+        connection.execute(text(
+            'CREATE INDEX IF NOT EXISTS ix_fct_inconsistency_citations '
+            'ON "fctInconsistency" (citation_a_uuid, citation_b_uuid)'
+        ))
 
 
 def _migrate_lifecycle_columns(connection) -> None:

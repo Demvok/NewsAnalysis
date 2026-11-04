@@ -110,11 +110,25 @@ class TopicPayload(BaseModel):
 class AttitudePayload(BaseModel):
     topic_uuid: UUID
     citation_uuid: UUID
-    stance: str | None = None
+    direction: Literal["SUPPORT", "OPPOSE", "NEUTRAL", "INSUFFICIENT"]
+    endorsement: int = Field(ge=1, le=4)
+    commitment: int = Field(ge=1, le=4)
+    conditionality: int = Field(ge=0, le=2)
+    stance: float | None = Field(default=None, ge=-1, le=1)
     relevancy_score: float | None = Field(default=None, ge=0, le=1)
     stance_confidence: float | None = Field(default=None, ge=0, le=1)
     stance_summary: str | None = None
     status: str = "NEW"
+
+    @model_validator(mode="after")
+    def validate_stance_direction(self) -> "AttitudePayload":
+        if self.direction == "INSUFFICIENT" and self.stance is not None:
+            raise ValueError("INSUFFICIENT evaluations cannot have a numerical stance")
+        if self.direction == "NEUTRAL" and self.stance != 0:
+            raise ValueError("NEUTRAL evaluations must have stance 0")
+        if self.direction in {"SUPPORT", "OPPOSE"} and self.stance is None:
+            raise ValueError("directional evaluations require a numerical stance")
+        return self
 
 
 class InconsistencySeverity(str, Enum):
@@ -205,7 +219,11 @@ class TopicUpdate(BaseModel):
 
 
 class AttitudeUpdate(BaseModel):
-    stance: str | None = None
+    direction: Literal["SUPPORT", "OPPOSE", "NEUTRAL", "INSUFFICIENT"] | None = None
+    endorsement: int | None = Field(default=None, ge=1, le=4)
+    commitment: int | None = Field(default=None, ge=1, le=4)
+    conditionality: int | None = Field(default=None, ge=0, le=2)
+    stance: float | None = Field(default=None, ge=-1, le=1)
     relevancy_score: float | None = None
     stance_confidence: float | None = Field(default=None, ge=0, le=1)
     stance_summary: str | None = None

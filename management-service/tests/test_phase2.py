@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 import tempfile
+import threading
+import time
 import unittest
 from pathlib import Path
 from uuid import uuid4
@@ -79,6 +81,43 @@ class ManagementPhase2Tests(unittest.TestCase):
         self.assertEqual(response.json()[0]["trace_id"], trace_id)
         errors = self.client.get("/api/logs/errors").json()
         self.assertEqual(errors[0]["error_key"], "timeout")
+
+    def test_telemetry_reads_do_not_block_during_event_write(self):
+        writer_ready = threading.Event()
+        release_writer = threading.Event()
+        writer_error = []
+
+        def hold_write_transaction():
+            try:
+                with main.database.connection() as connection:
+                    connection.execute("BEGIN IMMEDIATE")
+                    connection.execute(
+                        "INSERT INTO telemetry_events "
+                        "(event_id,timestamp,service,level,event_type,attributes_json) "
+                        "VALUES(?,?,?,?,?,?)",
+                        (str(uuid4()), "2026-01-01T00:00:00+00:00", "test",
+                         "INFO", "test", "{}"),
+                    )
+                    writer_ready.set()
+                    release_writer.wait(timeout=5)
+            except Exception as error:
+                writer_error.append(error)
+                writer_ready.set()
+
+        writer = threading.Thread(target=hold_write_transaction)
+        writer.start()
+        self.assertTrue(writer_ready.wait(timeout=5))
+        try:
+            started = time.monotonic()
+            with main.database.connection() as connection:
+                connection.execute(
+                    "SELECT sequence FROM telemetry_events ORDER BY sequence LIMIT 1"
+                ).fetchall()
+            self.assertLess(time.monotonic() - started, 1)
+        finally:
+            release_writer.set()
+            writer.join(timeout=5)
+        self.assertFalse(writer_error)
 
 
 

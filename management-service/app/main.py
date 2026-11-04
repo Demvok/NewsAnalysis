@@ -4,7 +4,7 @@ import json
 import logging
 import re
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -171,6 +171,11 @@ app = FastAPI(
 @app.on_event("startup")
 def recover_jobs() -> None:
     coordinator.recover()
+
+
+@app.on_event("shutdown")
+def shutdown_coordinator() -> None:
+    coordinator.shutdown()
 
 
 @app.middleware("http")
@@ -444,6 +449,7 @@ def _knowledge_detail(resource: str, identifier: str) -> dict[str, Any]:
 def data_records(
     resource: str,
     query: str | None = Query(default=None, min_length=1),
+    query_field: str = Query("all", min_length=1),
     semantic_query: str | None = Query(default=None, min_length=2),
     status: str | None = Query(default=None, min_length=1),
     category: str | None = Query(default=None, min_length=1),
@@ -459,6 +465,7 @@ def data_records(
     page_size: int = Query(25, ge=1, le=100),
 ) -> dict[str, Any]:
     try:
+        paged_storage = resource in {"articles", "people", "citations", "attitudes", "inconsistencies"}
         if query and resource in {"articles", "people", "citations", "topics", "inconsistencies"}:
             try:
                 direct = client.knowledge_detail(resource, query.strip())
@@ -503,10 +510,11 @@ def data_records(
                 "pages": (browse["total"] + page_size - 1) // page_size,
                 "stance_counts": {},
             }
-        if resource in {"attitudes", "inconsistencies"}:
-            browse = client.browse_knowledge(resource, 500, 0, {
+        if resource in {"articles", "people", "citations", "attitudes", "inconsistencies"}:
+            browse = client.browse_knowledge(resource, page_size, (page - 1) * page_size, {
                 key: value for key, value in (
-                    ("status", category_value if category == "status" else (status if resource in {"attitudes", "inconsistencies"} else None)),
+                    ("query", query if resource in {"articles", "people", "citations"} else None),
+                    ("status", category_value if category == "status" else status),
                     ("stance", category_value if resource == "attitudes" and category == "stance" else None),
                     ("classification", category_value if resource == "inconsistencies" and category == "classification" else None),
                     ("person_uuid", person_uuid),
@@ -534,14 +542,16 @@ def data_records(
                 records = [item for item in records if needle in json.dumps(item, default=str).casefold()]
             else:
                 records = [item for item in records if needle in str(item.get(query_field, "")).casefold()]
-        if status and resource not in {"attitudes", "inconsistencies"}:
+        if status and not paged_storage and resource not in {"attitudes", "inconsistencies"}:
             records = [item for item in records if str(item.get("status", "")).casefold() == status.casefold()]
-        if category and category_value and resource not in {"attitudes", "inconsistencies"}:
+        if category and category_value and not paged_storage and resource not in {"attitudes", "inconsistencies"}:
             records = [item for item in records if str(item.get(category, "")).casefold() == category_value.casefold()]
-        total = len(records) if query or semantic_query or (
-            resource not in {"attitudes", "inconsistencies"} and (category or status)
+        total = len(records) if (query and not paged_storage) or semantic_query or (
+            not paged_storage and resource not in {"attitudes", "inconsistencies"} and (category or status)
         ) else total_from_storage
         start = (page - 1) * page_size
+        if resource in {"articles", "people", "citations", "attitudes", "inconsistencies"}:
+            start = 0
         return {
             "items": records[start:start + page_size],
             "total": total,
@@ -669,44 +679,58 @@ def task_analytics(task_id: UUID) -> dict[str, Any]:
         task = connection.execute("SELECT task_id FROM tasks WHERE task_id=?", (str(task_id),)).fetchone()
         if task is None:
             raise HTTPException(status_code=404, detail="Task not found")
-        jobs = connection.execute("SELECT job_id FROM task_jobs WHERE task_id=?", (str(task_id),)).fetchall()
-        job_ids = [row["job_id"] for row in jobs]
-        if not job_ids:
-            return {"stages": [], "llm": {}, "totals": {}}
-        placeholders = ",".join("?" for _ in job_ids)
-        rows = connection.execute(
-            f"SELECT * FROM telemetry_events WHERE job_id IN ({placeholders}) ORDER BY timestamp",
-            job_ids,
+        stages = connection.execute(
+            """SELECT COALESCE(te.stage, 'Unspecified') AS stage,
+                      COUNT(*) AS events, COALESCE(SUM(te.duration_ms), 0) AS duration_ms,
+                      SUM(te.status='completed') AS completed,
+                      COALESCE(SUM(json_extract(te.attributes_json, '$.citation_count')), 0) AS citations,
+                      COALESCE(SUM(json_extract(te.attributes_json, '$.topic_count')), 0) AS topics,
+                      COALESCE(SUM(json_extract(te.attributes_json, '$.speaker_count')), 0) AS people,
+                      COALESCE(SUM(json_extract(te.attributes_json, '$.attitude_count')), 0) AS attitudes,
+                      COALESCE(SUM(json_extract(te.attributes_json, '$.created_records') +
+                                  json_extract(te.attributes_json, '$.created_new')), 0) AS created_records,
+                      COALESCE(SUM(json_extract(te.attributes_json, '$.retrieved_records') +
+                                  json_extract(te.attributes_json, '$.retrieved_from_db')), 0) AS retrieved_records
+               FROM telemetry_events te JOIN task_jobs tj ON tj.job_id=te.job_id
+               WHERE tj.task_id=? AND te.event_type='pipeline_stage'
+               GROUP BY te.stage ORDER BY MIN(te.timestamp)""", (str(task_id),)
         ).fetchall()
-    stage_map: dict[str, dict[str, Any]] = {}
-    totals = {"events": len(rows), "citations": 0, "topics": 0, "people": 0, "attitudes": 0, "created_records": 0, "retrieved_records": 0}
-    llm_calls = 0
-    output_tokens = 0
-    input_tokens = 0
-    for row in rows:
-        attributes = json.loads(row["attributes_json"] or "{}")
-        if row["event_type"] == "llm_call":
-            llm_calls += 1
-            input_tokens += row["input_tokens"] or row["input_tokens_estimated"] or 0
-            output_tokens += row["output_tokens"] or row["output_tokens_estimated"] or 0
-        if row["event_type"] != "pipeline_stage":
-            continue
-        stage_name = row["stage"] or "Unspecified"
-        stage = stage_map.setdefault(stage_name, {"stage": stage_name, "events": 0, "duration_ms": 0, "citations": 0, "topics": 0, "people": 0, "attitudes": 0, "created_records": 0, "retrieved_records": 0, "completed": 0})
-        stage["events"] += 1
-        stage["duration_ms"] += row["duration_ms"] or 0
-        stage["completed"] += row["status"] == "completed"
-        for key in ("citation_count", "topic_count", "speaker_count", "attitude_count"):
-            output_key = {"citation_count": "citations", "topic_count": "topics", "speaker_count": "people", "attitude_count": "attitudes"}[key]
-            value = attributes.get(key, 0) or 0
-            stage[output_key] += value
-            totals[output_key] += value
-        for key in ("created_records", "created_new", "retrieved_records", "retrieved_from_db"):
-            value = attributes.get(key, 0) or 0
-            target = "created_records" if key in {"created_records", "created_new"} else "retrieved_records"
-            stage[target] += value
-            totals[target] += value
-    return {"stages": list(stage_map.values()), "llm": {"calls": llm_calls, "input_tokens": input_tokens, "output_tokens": output_tokens, "tok_per_second": output_tokens / max(sum(item["duration_ms"] for item in stage_map.values()) / 1000, 1)}, "totals": totals}
+        totals = connection.execute(
+            """SELECT COUNT(*) AS events,
+                      COALESCE(SUM(CASE WHEN te.event_type='llm_call' THEN 1 ELSE 0 END), 0) AS calls,
+                      COALESCE(SUM(CASE WHEN te.event_type='llm_call'
+                               THEN COALESCE(te.input_tokens, te.input_tokens_estimated, 0) ELSE 0 END), 0) AS input_tokens,
+                      COALESCE(SUM(CASE WHEN te.event_type='llm_call'
+                               THEN COALESCE(te.output_tokens, te.output_tokens_estimated, 0) ELSE 0 END), 0) AS output_tokens
+               FROM telemetry_events te JOIN task_jobs tj ON tj.job_id=te.job_id
+               WHERE tj.task_id=?""", (str(task_id),)
+        ).fetchone()
+        if not stages and not totals["events"]:
+            return {"stages": [], "llm": {}, "totals": {}}
+    stage_values = [dict(row) for row in stages]
+    return {
+        "stages": stage_values,
+        "llm": {
+            "calls": totals["calls"],
+            "input_tokens": totals["input_tokens"],
+            "output_tokens": totals["output_tokens"],
+            "tok_per_second": totals["output_tokens"] / max(sum(item["duration_ms"] for item in stage_values) / 1000, 1),
+        },
+        "totals": {
+            "events": totals["events"],
+            "citations": sum(item["citations"] for item in stage_values),
+            "topics": sum(item["topics"] for item in stage_values),
+            "people": sum(item["people"] for item in stage_values),
+            "attitudes": sum(item["attitudes"] for item in stage_values),
+            "created_records": sum(item["created_records"] for item in stage_values),
+            "retrieved_records": sum(item["retrieved_records"] for item in stage_values),
+        },
+    }
+
+
+@app.post("/api/jobs/cancel-all", tags=["Jobs"])
+def cancel_all_jobs() -> dict[str, int]:
+    return coordinator.cancel_all()
 
 
 @app.post("/api/tasks/{task_id:uuid}/cancel", response_model=TaskResponse, tags=["Tasks"])
@@ -1141,19 +1165,42 @@ def delete_logs(
 
 @app.get("/api/metrics/llm", tags=["Telemetry"])
 def llm_metrics(
-    since: datetime | None = None,
-    until: datetime | None = None,
+    since: str | None = None,
+    until: str | None = None,
     model: str | None = None,
     job_id: UUID | None = None,
     article_id: UUID | None = None,
     stage: str | None = None,
 ) -> dict[str, Any]:
-    query = "SELECT * FROM telemetry_events WHERE event_type='llm_call' AND status IN ('completed','failed')"
+    def parse_time(value: str | None, parameter: str) -> datetime | None:
+        if not value:
+            return None
+        shorthand = {"15m": timedelta(minutes=15), "1h": timedelta(hours=1),
+                     "24h": timedelta(hours=24), "7d": timedelta(days=7)}
+        if value in shorthand:
+            return datetime.now(timezone.utc) - shorthand[value]
+        try:
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            raise HTTPException(
+                status_code=422,
+                detail=f"{parameter} must be an ISO datetime or one of: {', '.join(shorthand)}",
+            ) from None
+
+    since_time = parse_time(since, "since")
+    until_time = parse_time(until, "until")
+    query = (
+        "SELECT status, retry_count, duration_ms, time_to_first_token_ms, "
+        "throughput_tokens_per_second, input_tokens, output_tokens, "
+        "input_tokens_estimated, output_tokens_estimated, model, job_id, article_id, stage "
+        "FROM telemetry_events WHERE event_type='llm_call' AND status IN ('completed','failed')"
+    )
     params: list[Any] = []
-    if since:
-        query += " AND timestamp>=?"; params.append(since.isoformat())
-    if until:
-        query += " AND timestamp<=?"; params.append(until.isoformat())
+    if since_time:
+        query += " AND timestamp>=?"; params.append(since_time.isoformat())
+    if until_time:
+        query += " AND timestamp<=?"; params.append(until_time.isoformat())
+    query += " ORDER BY timestamp DESC LIMIT 20000"
     for column, value in (("model", model), ("job_id", str(job_id) if job_id else None),
                           ("article_id", str(article_id) if article_id else None), ("stage", stage)):
         if value:
@@ -1171,10 +1218,10 @@ def llm_metrics(
             "(SELECT job_id FROM jobs WHERE status='RUNNING'))"
         )
         active_params: list[Any] = []
-        if since:
-            active_query += " AND timestamp>=?"; active_params.append(since.isoformat())
-        if until:
-            active_query += " AND timestamp<=?"; active_params.append(until.isoformat())
+        if since_time:
+            active_query += " AND timestamp>=?"; active_params.append(since_time.isoformat())
+        if until_time:
+            active_query += " AND timestamp<=?"; active_params.append(until_time.isoformat())
         for column, value in (("model", model), ("job_id", str(job_id) if job_id else None),
                               ("article_id", str(article_id) if article_id else None), ("stage", stage)):
             if value:

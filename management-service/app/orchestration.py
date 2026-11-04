@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import threading
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
@@ -42,6 +43,8 @@ class JobCoordinator:
         self.client = client
         self.executor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="management-job")
         self.max_workers = max_workers
+        self._shutting_down = False
+        self._task_run_lock = threading.Lock()
 
     def recover(self) -> None:
         """Resume durable queued work and retry jobs interrupted by a restart."""
@@ -76,7 +79,38 @@ class JobCoordinator:
 
     def _submit(self, job_id: str) -> None:
         """Submit work to the worker pool; run() performs the durable claim."""
-        self.executor.submit(self.run, job_id)
+        if self._shutting_down:
+            return
+        with self.database.connection() as connection:
+            row = connection.execute(
+                "SELECT metadata_json FROM jobs WHERE job_id=?", (job_id,)
+            ).fetchone()
+        task_id = json.loads(row["metadata_json"] or "{}").get("task_id") if row else None
+        if task_id:
+            self.executor.submit(self._run_task_job, job_id)
+        else:
+            self.executor.submit(self.run, job_id)
+
+    def _run_task_job(self, job_id: str) -> None:
+        with self._task_run_lock:
+            self.run(job_id)
+
+    def shutdown(self) -> None:
+        """Stop accepting work and request cooperative cancellation of active work."""
+        self._shutting_down = True
+        with self.database.lock, self.database.connection() as connection:
+            now = timestamp()
+            connection.execute(
+                "UPDATE jobs SET status='CANCELLED', completed_at=?, cancel_requested=1 "
+                "WHERE status IN ('PENDING','RETRYING')", (now,)
+            )
+            connection.execute("UPDATE jobs SET cancel_requested=1 WHERE status='RUNNING'")
+            for row in connection.execute(
+                "SELECT DISTINCT task_id FROM task_jobs tj JOIN jobs j ON j.job_id=tj.job_id "
+                "WHERE j.status IN ('PENDING','RUNNING','RETRYING')"
+            ).fetchall():
+                self._refresh_task_status(connection, row["task_id"])
+        self.executor.shutdown(wait=False, cancel_futures=True)
 
     def create(
         self,
@@ -479,6 +513,11 @@ class JobCoordinator:
         created = timestamp()
         article_ids = [str(item) for item in request.article_ids]
         with self.database.connection() as connection:
+            active_task = connection.execute(
+                "SELECT task_id FROM tasks WHERE status IN ('PENDING','RUNNING') LIMIT 1"
+            ).fetchone()
+            if active_task:
+                raise ValueError("Only one processing task can run at a time")
             blocked_statuses = "('PENDING','RUNNING','RETRYING')" if request.redo else "('PENDING','RUNNING','RETRYING','COMPLETED')"
             existing: set[str] = set()
             for start in range(0, len(article_ids), 500):
@@ -543,56 +582,65 @@ class JobCoordinator:
                 ).fetchall()
             ]
         if request.execution_mode == ExecutionMode.BUNDLED:
-            self.executor.submit(self.run_bundled, task_id, job_ids)
+            self.executor.submit(self._run_bundled_task, task_id, job_ids)
         else:
             for job_id in job_ids:
                 self._submit(job_id)
         return self.task(task_id)
 
-    def task(self, task_id: str) -> dict[str, Any]:
+    def _run_bundled_task(self, task_id: str, job_ids: list[str]) -> None:
+        with self._task_run_lock:
+            self.run_bundled(task_id, job_ids)
+
+    def task(self, task_id: str, include_job_ids: bool = True) -> dict[str, Any]:
         with self.database.lock, self.database.connection() as connection:
             task = connection.execute("SELECT * FROM tasks WHERE task_id=?", (task_id,)).fetchone()
             if task is None:
                 raise KeyError(task_id)
             jobs = connection.execute(
-                """SELECT DISTINCT j.* FROM jobs j
-                   LEFT JOIN task_jobs tj ON tj.job_id=j.job_id
-                   WHERE tj.task_id=? OR j.metadata_json LIKE ?
-                   ORDER BY j.created_at""", (task_id, f'%"task_id": "{task_id}"%')
+                """SELECT j.job_id FROM jobs j JOIN task_jobs tj ON tj.job_id=j.job_id
+                   WHERE tj.task_id=? ORDER BY j.created_at""", (task_id,)
             ).fetchall()
-            citations = speakers = topics = attitudes = 0
-            for job in jobs:
-                events = connection.execute(
-                    """SELECT attributes_json FROM telemetry_events
-                       WHERE job_id=? AND event_type='pipeline_stage' AND status='completed'""",
-                    (job["job_id"],),
-                ).fetchall()
-                for event in events:
-                    attributes = json.loads(event["attributes_json"] or "{}")
-                    citations += attributes.get("citation_count", 0) or 0
-                    speakers += attributes.get("speaker_count", 0) or 0
-                    topics += attributes.get("topic_count", 0) or 0
-                    attitudes += attributes.get("attitude_count", 0) or 0
-            statuses = [job["status"] for job in jobs]
-            completed = statuses.count(JobStatus.COMPLETED.value)
-            failed = statuses.count(JobStatus.FAILED.value)
-            running = statuses.count(JobStatus.RUNNING.value)
-            waiting = statuses.count(JobStatus.PENDING.value) + statuses.count(JobStatus.RETRYING.value)
+            summary = connection.execute(
+                """WITH task_job_summary AS (
+                       SELECT COUNT(*) AS total,
+                              SUM(j.status='COMPLETED') AS completed,
+                              SUM(j.status='FAILED') AS failed,
+                              SUM(j.status='RUNNING') AS running,
+                              SUM(j.status IN ('PENDING','RETRYING')) AS waiting,
+                              SUM(j.retry_count > 0) AS retried
+                       FROM task_jobs tj JOIN jobs j ON j.job_id=tj.job_id
+                       WHERE tj.task_id=?
+                   ),
+                   telemetry_summary AS (
+                       SELECT COALESCE(SUM(json_extract(te.attributes_json, '$.citation_count')), 0) AS citations,
+                              COALESCE(SUM(json_extract(te.attributes_json, '$.speaker_count')), 0) AS speakers,
+                              COALESCE(SUM(json_extract(te.attributes_json, '$.topic_count')), 0) AS topics,
+                              COALESCE(SUM(json_extract(te.attributes_json, '$.attitude_count')), 0) AS attitudes
+                       FROM telemetry_events te JOIN task_jobs tj ON tj.job_id=te.job_id
+                       WHERE tj.task_id=? AND te.event_type='pipeline_stage'
+                         AND te.status='completed'
+                   )
+                   SELECT * FROM task_job_summary CROSS JOIN telemetry_summary""",
+                (task_id, task_id),
+            ).fetchone()
             self._refresh_task_status(connection, task_id)
             task = connection.execute("SELECT * FROM tasks WHERE task_id=?", (task_id,)).fetchone()
             elapsed_ms = None
             if task["started_at"] and task["completed_at"]:
                 elapsed_ms = max(0, int((datetime.fromisoformat(task["completed_at"]) - datetime.fromisoformat(task["started_at"])).total_seconds() * 1000))
-            retry_rate = sum(job["retry_count"] > 0 for job in jobs) / len(jobs) if jobs else 0
+            total = summary["total"] or 0
+            retry_rate = (summary["retried"] or 0) / total if total else 0
             return {
                 "task_id": task["task_id"], "name": task["name"], "status": task["status"],
-                "article_ids": json.loads(task["article_ids_json"]),
-                "job_ids": [job["job_id"] for job in jobs],
-                "total_articles": len(jobs), "completed_articles": completed,
-                "failed_articles": failed, "running_articles": running,
-                "waiting_articles": waiting, "citations": citations, "speakers": speakers,
-                "execution_mode": task["execution_mode"], "citations": citations, "speakers": speakers,
-                "topics": topics, "attitudes": attitudes,
+                "article_ids": json.loads(task["article_ids_json"]) if include_job_ids else [],
+                "job_ids": [job["job_id"] for job in jobs] if include_job_ids else [],
+                "total_articles": total, "completed_articles": summary["completed"] or 0,
+                "failed_articles": summary["failed"] or 0, "running_articles": summary["running"] or 0,
+                "waiting_articles": summary["waiting"] or 0,
+                "execution_mode": task["execution_mode"], "citations": summary["citations"] or 0,
+                "speakers": summary["speakers"] or 0, "topics": summary["topics"] or 0,
+                "attitudes": summary["attitudes"] or 0,
                 "created_at": task["created_at"], "started_at": task["started_at"],
                 "completed_at": task["completed_at"],
                 "retry_rate": retry_rate,
@@ -605,7 +653,7 @@ class JobCoordinator:
             ids = [row["task_id"] for row in connection.execute(
                 "SELECT task_id FROM tasks ORDER BY created_at DESC LIMIT ?", (limit,)
             ).fetchall()]
-        return [self.task(task_id) for task_id in ids]
+        return [self.task(task_id, include_job_ids=False) for task_id in ids]
 
     def cancel_task(self, task_id: str) -> dict[str, Any]:
         task = self.task(task_id)
@@ -615,6 +663,24 @@ class JobCoordinator:
             except KeyError:
                 continue
         return self.task(task_id)
+
+    def cancel_all(self) -> dict[str, int]:
+        """Request cancellation for every queued or active job."""
+        with self.database.lock, self.database.connection() as connection:
+            now = timestamp()
+            queued = connection.execute(
+                "UPDATE jobs SET status='CANCELLED', completed_at=?, cancel_requested=1 "
+                "WHERE status IN ('PENDING','RETRYING')", (now,)
+            ).rowcount
+            running = connection.execute(
+                "UPDATE jobs SET cancel_requested=1 WHERE status='RUNNING'"
+            ).rowcount
+            for row in connection.execute(
+                "SELECT DISTINCT task_id FROM task_jobs WHERE job_id IN "
+                "(SELECT job_id FROM jobs WHERE status='CANCELLED' OR cancel_requested=1)"
+            ).fetchall():
+                self._refresh_task_status(connection, row["task_id"])
+        return {"queued_cancelled": queued, "running_cancel_requested": running}
 
     def delete_task(self, task_id: str) -> None:
         task = self.task(task_id)

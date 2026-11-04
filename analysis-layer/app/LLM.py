@@ -904,7 +904,6 @@ def reevaluate_topic_stance(
     topic_description: str,
     exact_quote: str,
     context: str,
-    previous_stance: int | None,
 ) -> prompts.TopicStanceReevaluation:
     chain = prompts.TOPIC_STANCE_REEVALUATION_PROMPT | _structured_output(
         prompts.TopicStanceReevaluation,
@@ -918,7 +917,6 @@ def reevaluate_topic_stance(
             "topic_description": topic_description,
             "exact_quote": exact_quote,
             "context": context,
-            "previous_stance": previous_stance,
         },
         stage="topic_stance_reevaluation",
     )

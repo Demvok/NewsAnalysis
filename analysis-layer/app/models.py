@@ -7,6 +7,7 @@ from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+from .stance import Commitment, Conditionality, Endorsement, StanceDirection
 
 
 def parse_datetime(value: object) -> object:
@@ -191,7 +192,11 @@ class TopicAttitude(BaseModel):
     topic_name: str
     topic_description: str | None = None
     general_topic_field: str = "UNCLASSIFIED"
-    stance: str | None = None
+    direction: StanceDirection
+    endorsement: Endorsement
+    commitment: Commitment
+    conditionality: Conditionality
+    stance: float | None = Field(default=None, ge=-1, le=1)
     relevancy_score: float = Field(ge=0, le=1)
     stance_summary: str | None = None
     stance_confidence: float | None = Field(default=None, ge=0, le=1)

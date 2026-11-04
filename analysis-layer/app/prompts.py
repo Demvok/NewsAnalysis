@@ -3,6 +3,13 @@ from pydantic import BaseModel, Field, field_validator
 import json
 from enum import Enum
 from typing import Literal
+from .stance import (
+    Commitment,
+    Conditionality,
+    Endorsement,
+    StanceDirection,
+    StanceEvaluation,
+)
 
 
 class ModelCompatibleChatPromptTemplate(ChatPromptTemplate):
@@ -226,13 +233,20 @@ COMBINED_CITATION_ANALYSIS_PROMPT = ModelCompatibleChatPromptTemplate.from_messa
         "system",
         """
         Analyze all citations for this speaker in one pass. For every citation,
-        identify only topics that are actually supported by the actual speaker's own
-        expressed position,
-        define each topic as a reusable proposition, and assign the speaker's stance
-        from -10 (strongly against) to +10 (strongly supports). Do not infer a
-        position from a bare mention. Analyze the speaker's attitude, not the general
-        sentiment of the article, the journalist's framing, public sentiment, or
-        another person's opinion. Preserve citation fields exactly.
+        identify only topics that are actually supported by the named speaker's own
+        expressed position, define each topic as a reusable proposition, and evaluate
+        that position with direction, endorsement, commitment, and conditionality.
+        Do not infer a position from a bare mention. Analyze the named speaker's
+        attitude, not the general topic field, article sentiment, the journalist's
+        framing, public sentiment, or another person's opinion. Preserve citation
+        fields exactly.
+
+        Before scoring, identify the proposition and the evidence that the named
+        speaker accepts, rejects, recommends, criticizes, or conditionally supports.
+        The speaker must be the source of the attitude: a journalist's description
+        of the speaker, a quote from somebody else, or an event involving the
+        speaker is not by itself the speaker's stance. If attribution or the
+        speaker's attitude is unclear, set stance_detected false and return no topic.
 
         This is a batch-analysis identity, not necessarily a real-world identity.
         For PERSON, all citations in this batch belong to the same person.
@@ -254,13 +268,23 @@ COMBINED_CITATION_ANALYSIS_PROMPT = ModelCompatibleChatPromptTemplate.from_messa
         topic_description must be a
         proposition that can be meaningfully supported or opposed, including
         important scope, actor, object, or condition. Determine polarity from the
-        proposition itself: stance > 0 means the speaker supports that proposition,
-        stance < 0 means the speaker opposes it, and stance = 0 means neutral or
-        indeterminate. Do not reverse polarity because the quote uses a negative
+        proposition itself. Do not reverse polarity because the quote uses a negative
         verb; define the proposition first, then judge for/against it.
+        Use the full scale, but calibrate it to the strength and scope of the
+        expressed position. Direction is SUPPORT, OPPOSE, NEUTRAL, or INSUFFICIENT.
+        Endorsement is 1 (weak), 2 (moderate), 3 (strong), or 4 (absolute) and
+        measures the position's intensity, not emotion or confidence. Commitment is
+        1 (tentative), 2 (moderate), 3 (firm), or 4 (definitive) and is separate from
+        endorsement. Conditionality is 0 (none), 1 (limited), or 2 (high).
+        Evaluate the position, not emotional or aggressive wording. Do not infer
+        absolute endorsement merely because no condition is stated. Treat
+        conditionality independently from uncertainty. Use INSUFFICIENT when the
+        quote and context cannot establish direction. The application calculates the
+        numerical stance; never return a numerical score.
         relevancy_score and stance_confidence are 0..1. stance_summary must briefly
         explain only the named speaker's position toward the proposition using only
-        the citation evidence. stance_detected is false and stance is null when
+        the citation evidence. It must state the direction and any material
+        condition or limitation. stance_detected is false and stance is null when
         evidence is inadequate. Return one result for every input citation.
         """
     ),
@@ -293,7 +317,7 @@ TOPIC_EXTRACTION_PROMPT = ModelCompatibleChatPromptTemplate.from_messages([
             return no topic when no position is supported.
 
             relevancy_score: 0 means no meaningful position, 0.5 partial, 1 clear.
-            Use only the -10..10 stance scale in the next evaluation stage.
+            Use the categorical direction and factor fields defined by the evaluation schema.
         """
     ),
     (
@@ -331,12 +355,13 @@ CITATION_EVALUATION_PROMPT = ModelCompatibleChatPromptTemplate.from_messages([
     (
         "system",
         """
-            Assign a numeric stance to each evaluated topic using its proposition and
-            the citation evidence. -10 is strongly against, 0 is neutral/unclear, and
-            +10 is strongly in favor; use intermediate values. Set stance to null when
-            stance_detected is false or evidence is inadequate. Do not change citation
-            text or topics. Keep topic descriptions specific to the proposition, not a
-            generic summary. Return only the structured output.
+            Evaluate the named speaker's expressed position toward each topic, not
+            general sentiment, emotional intensity, or the journalist's wording.
+            Return direction (SUPPORT, OPPOSE, NEUTRAL, or INSUFFICIENT), endorsement
+            (1-4), commitment (1-4), and conditionality (0-2). Distinguish
+            endorsement from commitment and conditionality from uncertainty. Use
+            INSUFFICIENT when the evidence cannot establish direction. The
+            application calculates the numerical stance; never return one.
         """
     ),
     (
@@ -355,11 +380,10 @@ CITATION_EVALUATION_PROMPT = ModelCompatibleChatPromptTemplate.from_messages([
 ])
 
 class CitationEvaluatedTopic(CitationTopic):
-    stance: int | None = Field(None, ge=-10, le=10, description=(
-        """The speaker's stance toward the topic, from -10 to 10.
-        -10 means strongly against, 0 means neutral or no identifiable stance,
-        and 10 means strongly in favor."""
-    ))
+    direction: StanceDirection
+    endorsement: Endorsement
+    commitment: Commitment
+    conditionality: Conditionality
     stance_confidence: float | None = Field(
         None,
         ge=0,
@@ -464,7 +488,10 @@ TOPIC_RESOLUTION_PROMPT = ModelCompatibleChatPromptTemplate.from_messages([
 
 
 class TopicStanceReevaluation(BaseModel):
-    stance: int | None = Field(default=None, ge=-10, le=10)
+    direction: StanceDirection
+    endorsement: Endorsement
+    commitment: Commitment
+    conditionality: Conditionality
     confidence: float = Field(ge=0, le=1)
     reason: str = ""
 
@@ -473,9 +500,15 @@ TOPIC_STANCE_REEVALUATION_PROMPT = ModelCompatibleChatPromptTemplate.from_messag
     (
         "system",
         """
-        Re-evaluate the speaker's stance toward the canonical issue/frame below.
-        The canonical description defines polarity. Use only the citation evidence.
-        Return null when the citation does not support a stance.
+        Re-evaluate only the named speaker's stance toward the canonical
+        issue/frame below. The canonical description defines polarity. Use only
+        the speaker's own words and the attribution context. Ignore general
+        sentiment, the topic field, the journalist's framing, and other people's
+        opinions.
+
+        Return only direction (SUPPORT, OPPOSE, NEUTRAL, or INSUFFICIENT),
+        endorsement (1-4), commitment (1-4), and conditionality (0-2).
+        Confidence measures evidence quality and must not change these factors.le.
         """,
     ),
     (
@@ -484,7 +517,6 @@ TOPIC_STANCE_REEVALUATION_PROMPT = ModelCompatibleChatPromptTemplate.from_messag
         Canonical topic description: {topic_description}
         Citation quote: {exact_quote}
         Citation context: {context}
-        Previous proposed stance: {previous_stance}
         """,
     ),
 ])

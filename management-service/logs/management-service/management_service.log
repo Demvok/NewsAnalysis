@@ -452,3 +452,105 @@ RuntimeError: permanent
 2026-11-03T21:19:38+0200 INFO [httpx] HTTP Request: POST http://testserver/api/experiments/56950df4-496d-4544-bcfa-2b8837c3589a/evaluation "HTTP/1.1 200 OK"
 2026-11-03T21:19:47+0200 INFO [newsanalysis.management_service.orchestration] job_started job_id=225b00b2-da35-42a0-b96a-6eb2c2cdb1c9 article_id=33333333-3333-3333-3333-333333333333 mode=per_article
 2026-11-03T21:19:47+0200 INFO [newsanalysis.management_service.orchestration] job_completed job_id=225b00b2-da35-42a0-b96a-6eb2c2cdb1c9
+2026-11-03T22:51:42+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-03T22:51:42+0200 INFO [newsanalysis.management_service.main] http_request method=POST path=/internal/events status=202 duration_ms=72 request_id=ac0f5f8f-2575-4b3f-bf0f-3a716540b21e
+2026-11-03T22:51:42+0200 INFO [httpx] HTTP Request: POST http://testserver/internal/events "HTTP/1.1 202 Accepted"
+2026-11-03T22:51:42+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-03T22:51:42+0200 INFO [newsanalysis.management_service.main] http_request method=POST path=/internal/events status=202 duration_ms=55 request_id=8e307672-8a72-4347-80fb-c9cb0c85601a
+2026-11-03T22:51:42+0200 INFO [httpx] HTTP Request: POST http://testserver/internal/events "HTTP/1.1 202 Accepted"
+2026-11-03T22:51:42+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-03T22:51:42+0200 INFO [newsanalysis.management_service.main] http_request method=GET path=/api/metrics/llm status=200 duration_ms=41 request_id=b072e805-4864-415f-bb27-19658943cbc2
+2026-11-03T22:51:42+0200 INFO [httpx] HTTP Request: GET http://testserver/api/metrics/llm "HTTP/1.1 200 OK"
+2026-11-03T22:51:42+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-03T22:51:42+0200 INFO [newsanalysis.management_service.main] http_request method=POST path=/internal/events status=202 duration_ms=75 request_id=2d87b38a-3062-4597-8d23-2318d596ce3d
+2026-11-03T22:51:42+0200 INFO [httpx] HTTP Request: POST http://testserver/internal/events "HTTP/1.1 202 Accepted"
+2026-11-03T22:51:42+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-03T22:51:42+0200 INFO [newsanalysis.management_service.main] http_request method=GET path=/api/logs status=200 duration_ms=53 request_id=67978e7b-56c5-459f-bd16-3c3f5431ecd7
+2026-11-03T22:51:42+0200 INFO [httpx] HTTP Request: GET http://testserver/api/logs?trace_id=8669113c-77e6-43ee-b2e3-700e11b89806 "HTTP/1.1 200 OK"
+2026-11-03T22:51:42+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-03T22:51:42+0200 INFO [newsanalysis.management_service.main] http_request method=GET path=/api/logs/errors status=200 duration_ms=7 request_id=ea11c929-3676-436c-b17a-e63d171f2f0a
+2026-11-03T22:51:42+0200 INFO [httpx] HTTP Request: GET http://testserver/api/logs/errors "HTTP/1.1 200 OK"
+2026-11-03T22:51:42+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-03T22:51:42+0200 INFO [newsanalysis.management_service.main] http_request method=POST path=/internal/events status=202 duration_ms=53 request_id=375af0e5-6e47-42bf-877f-f38667627a03
+2026-11-03T22:51:42+0200 INFO [httpx] HTTP Request: POST http://testserver/internal/events "HTTP/1.1 202 Accepted"
+2026-11-03T22:51:42+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-03T22:51:42+0200 INFO [newsanalysis.management_service.main] http_request method=GET path=/api/metrics/llm status=200 duration_ms=39 request_id=9cff3db2-2c0b-4e10-9cf7-7b7716fe30f0
+2026-11-03T22:51:42+0200 INFO [httpx] HTTP Request: GET http://testserver/api/metrics/llm "HTTP/1.1 200 OK"
+2026-11-03T22:51:48+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-03T22:51:48+0200 INFO [newsanalysis.management_service.main] http_request method=GET path=/health status=200 duration_ms=4 request_id=f125b865-6621-4c49-a8a2-ccc5d09ac9f2
+2026-11-03T22:51:48+0200 INFO [httpx] HTTP Request: GET http://testserver/health "HTTP/1.1 200 OK"
+2026-11-03T22:51:48+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-03T22:51:48+0200 INFO [newsanalysis.management_service.main] http_request method=POST path=/api/jobs status=422 duration_ms=2 request_id=78a6468f-0cc0-41df-b99e-222e9825a23f
+2026-11-03T22:51:48+0200 INFO [httpx] HTTP Request: POST http://testserver/api/jobs "HTTP/1.1 422 Unprocessable Entity"
+2026-11-03T22:51:48+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-03T22:51:48+0200 INFO [newsanalysis.management_service.main] http_request method=GET path=/api/knowledge/summary status=200 duration_ms=2 request_id=26f382ad-e911-455a-9421-ea2fec6748c7
+2026-11-03T22:51:48+0200 INFO [httpx] HTTP Request: GET http://testserver/api/knowledge/summary "HTTP/1.1 200 OK"
+2026-11-03T22:51:48+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-03T22:51:48+0200 INFO [newsanalysis.management_service.main] http_request method=GET path=/api/knowledge/topics status=200 duration_ms=2 request_id=e53c1315-b3c2-4f26-b034-3894e0994859
+2026-11-03T22:51:48+0200 INFO [httpx] HTTP Request: GET http://testserver/api/knowledge/topics?limit=10 "HTTP/1.1 200 OK"
+2026-11-03T22:51:48+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-03T22:51:48+0200 INFO [newsanalysis.management_service.main] runtime_settings_updated fields=['request_timeout_seconds']
+2026-11-03T22:51:48+0200 INFO [newsanalysis.management_service.main] http_request method=PATCH path=/api/settings status=200 duration_ms=2 request_id=b4f59261-466c-48dc-ae44-e18d61055a5a
+2026-11-03T22:51:48+0200 INFO [httpx] HTTP Request: PATCH http://testserver/api/settings "HTTP/1.1 200 OK"
+2026-11-03T22:51:48+0200 INFO [newsanalysis.management_service.orchestration] bundled_task_started task_id=ce087817-ba6c-4150-9c7c-b2b23d06a6c4 job_count=2
+2026-11-03T22:51:49+0200 INFO [newsanalysis.management_service.orchestration] bundled_task_completed task_id=ce087817-ba6c-4150-9c7c-b2b23d06a6c4 job_count=2
+2026-11-03T22:51:50+0200 INFO [newsanalysis.management_service.orchestration] job_started job_id=48e2c44b-2fb9-4108-89cc-f1d8e0934a1a article_id=de7d1738-fb07-4744-9235-ec18561402ff mode=per_article
+2026-11-03T22:51:50+0200 INFO [newsanalysis.management_service.orchestration] job_completed job_id=48e2c44b-2fb9-4108-89cc-f1d8e0934a1a
+2026-11-03T22:51:50+0200 INFO [newsanalysis.management_service.orchestration] job_started job_id=92a8b360-219a-488c-b71e-de147730c061 article_id=ba75b109-b53e-4780-9ceb-e69b769ee7c2 mode=per_article
+2026-11-03T22:51:50+0200 INFO [newsanalysis.management_service.orchestration] job_completed job_id=92a8b360-219a-488c-b71e-de147730c061
+2026-11-03T22:51:51+0200 INFO [newsanalysis.management_service.orchestration] job_started job_id=20fb501f-4e9e-47e8-9e7f-72d4edfd46d0 article_id=adfd594a-995f-4f94-9b01-51a95347d260 mode=per_article
+2026-11-03T22:51:51+0200 INFO [newsanalysis.management_service.orchestration] job_completed job_id=20fb501f-4e9e-47e8-9e7f-72d4edfd46d0
+2026-11-03T22:51:51+0200 INFO [newsanalysis.management_service.orchestration] job_started job_id=a32c6192-9f6c-461b-ad4f-e7c34a72a28f article_id=7c838ae9-d021-4d8c-ada4-5b3079c4f5e2 mode=per_article
+2026-11-03T22:51:51+0200 INFO [newsanalysis.management_service.orchestration] job_completed job_id=a32c6192-9f6c-461b-ad4f-e7c34a72a28f
+2026-11-03T22:51:52+0200 INFO [newsanalysis.management_service.orchestration] job_started job_id=4550c866-011d-4f6c-af9d-313c7cafa606 article_id=c1d5eb00-38ef-4bc1-9ecf-c19068e4347d mode=per_article
+2026-11-03T22:51:52+0200 INFO [newsanalysis.management_service.orchestration] job_completed job_id=4550c866-011d-4f6c-af9d-313c7cafa606
+2026-11-03T22:51:52+0200 INFO [newsanalysis.management_service.orchestration] job_started job_id=78a888e0-1d97-4577-8232-26118b8a5151 article_id=8b4fd5fe-64a1-492a-8385-288bec1226b3 mode=per_article
+2026-11-03T22:51:52+0200 INFO [newsanalysis.management_service.orchestration] job_completed job_id=78a888e0-1d97-4577-8232-26118b8a5151
+2026-11-03T22:51:52+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-03T22:51:52+0200 INFO [newsanalysis.management_service.main] http_request method=POST path=/internal/events status=202 duration_ms=47 request_id=19a05092-265e-4a49-b13e-4b4f69552087
+2026-11-03T22:51:52+0200 INFO [httpx] HTTP Request: POST http://testserver/internal/events "HTTP/1.1 202 Accepted"
+2026-11-03T22:51:52+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-03T22:51:52+0200 INFO [newsanalysis.management_service.main] http_request method=POST path=/internal/events status=202 duration_ms=44 request_id=b00a2371-e2ff-4013-a976-471bdfb5cc78
+2026-11-03T22:51:52+0200 INFO [httpx] HTTP Request: POST http://testserver/internal/events "HTTP/1.1 202 Accepted"
+2026-11-03T22:51:52+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-03T22:51:52+0200 INFO [newsanalysis.management_service.main] http_request method=GET path=/api/metrics/llm status=200 duration_ms=37 request_id=d56cfe37-8d30-4e91-ad38-5d2b340bcc9c
+2026-11-03T22:51:52+0200 INFO [httpx] HTTP Request: GET http://testserver/api/metrics/llm "HTTP/1.1 200 OK"
+2026-11-03T22:51:52+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-03T22:51:52+0200 INFO [newsanalysis.management_service.main] http_request method=POST path=/internal/events status=202 duration_ms=61 request_id=df3b9d41-737f-417b-a387-d49335995de0
+2026-11-03T22:51:52+0200 INFO [httpx] HTTP Request: POST http://testserver/internal/events "HTTP/1.1 202 Accepted"
+2026-11-03T22:51:52+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-03T22:51:53+0200 INFO [newsanalysis.management_service.main] http_request method=GET path=/api/logs status=200 duration_ms=42 request_id=7763b1fc-73fe-47ba-a70a-ba78feaddace
+2026-11-03T22:51:53+0200 INFO [httpx] HTTP Request: GET http://testserver/api/logs?trace_id=39fb905e-99f5-4e3f-9742-77189522b4ea "HTTP/1.1 200 OK"
+2026-11-03T22:51:53+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-03T22:51:53+0200 INFO [newsanalysis.management_service.main] http_request method=GET path=/api/logs/errors status=200 duration_ms=7 request_id=1a1f4e10-b7f4-420e-9a12-779376f87feb
+2026-11-03T22:51:53+0200 INFO [httpx] HTTP Request: GET http://testserver/api/logs/errors "HTTP/1.1 200 OK"
+2026-11-03T22:51:53+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-03T22:51:53+0200 INFO [newsanalysis.management_service.main] http_request method=POST path=/internal/events status=202 duration_ms=51 request_id=a6dcd346-42e4-4acd-8804-03b1a1e8081e
+2026-11-03T22:51:53+0200 INFO [httpx] HTTP Request: POST http://testserver/internal/events "HTTP/1.1 202 Accepted"
+2026-11-03T22:51:53+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-03T22:51:53+0200 INFO [newsanalysis.management_service.main] http_request method=GET path=/api/metrics/llm status=200 duration_ms=35 request_id=5ccf2049-6334-44c9-b55a-3cceb6db5238
+2026-11-03T22:51:53+0200 INFO [httpx] HTTP Request: GET http://testserver/api/metrics/llm "HTTP/1.1 200 OK"
+2026-11-03T22:51:53+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-03T22:51:53+0200 INFO [newsanalysis.management_service.main] http_request method=POST path=/api/experiments status=201 duration_ms=53 request_id=cfe52b39-0a66-405c-8b06-ed9b7b3878ef
+2026-11-03T22:51:53+0200 INFO [httpx] HTTP Request: POST http://testserver/api/experiments "HTTP/1.1 201 Created"
+2026-11-03T22:51:53+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-03T22:51:53+0200 INFO [newsanalysis.management_service.main] http_request method=POST path=/api/experiments status=201 duration_ms=47 request_id=c4f9f1fc-24d6-4d6e-84c5-59b0c832f694
+2026-11-03T22:51:53+0200 INFO [httpx] HTTP Request: POST http://testserver/api/experiments "HTTP/1.1 201 Created"
+2026-11-03T22:51:53+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-03T22:51:53+0200 INFO [newsanalysis.management_service.main] http_request method=POST path=/api/experiments/compare status=200 duration_ms=32 request_id=3e792efe-1f6f-4e19-a933-aa7853511a88
+2026-11-03T22:51:53+0200 INFO [httpx] HTTP Request: POST http://testserver/api/experiments/compare "HTTP/1.1 200 OK"
+2026-11-03T22:51:53+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-03T22:51:53+0200 INFO [newsanalysis.management_service.main] http_request method=POST path=/api/experiments status=201 duration_ms=43 request_id=dff54bb3-e39c-40dc-8880-f567e996633c
+2026-11-03T22:51:53+0200 INFO [httpx] HTTP Request: POST http://testserver/api/experiments "HTTP/1.1 201 Created"
+2026-11-03T22:51:53+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-03T22:51:53+0200 INFO [newsanalysis.management_service.main] http_request method=GET path=/api/experiments/111c6796-e203-4341-88d7-0ba41a9968c4 status=200 duration_ms=36 request_id=bd281304-c98d-4e07-9ffd-aea60032e572
+2026-11-03T22:51:53+0200 INFO [httpx] HTTP Request: GET http://testserver/api/experiments/111c6796-e203-4341-88d7-0ba41a9968c4 "HTTP/1.1 200 OK"
+2026-11-03T22:51:53+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-03T22:51:53+0200 INFO [newsanalysis.management_service.main] http_request method=GET path=/api/experiments/111c6796-e203-4341-88d7-0ba41a9968c4/export status=200 duration_ms=9 request_id=b75be056-c7ca-4fc7-98a9-881bee55b121
+2026-11-03T22:51:53+0200 INFO [httpx] HTTP Request: GET http://testserver/api/experiments/111c6796-e203-4341-88d7-0ba41a9968c4/export?format=csv "HTTP/1.1 200 OK"
+2026-11-03T22:51:53+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-03T22:51:53+0200 INFO [newsanalysis.management_service.main] http_request method=POST path=/api/experiments status=201 duration_ms=73 request_id=b69cacef-fd47-4202-86e2-9ed945e1328b
+2026-11-03T22:51:53+0200 INFO [httpx] HTTP Request: POST http://testserver/api/experiments "HTTP/1.1 201 Created"
+2026-11-03T22:51:53+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-03T22:51:53+0200 INFO [newsanalysis.management_service.main] http_request method=POST path=/api/experiments/1e3f0d47-bd00-45c8-b35f-b9bf83bb04d9/evaluation status=200 duration_ms=51 request_id=44d70c0a-1923-4fbc-ac7d-c10c36f28274
+2026-11-03T22:51:53+0200 INFO [httpx] HTTP Request: POST http://testserver/api/experiments/1e3f0d47-bd00-45c8-b35f-b9bf83bb04d9/evaluation "HTTP/1.1 200 OK"

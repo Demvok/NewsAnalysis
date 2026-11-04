@@ -12,16 +12,16 @@ const citations = dates.map((date, index) => {
   const [personId, personName, personType] = people[index % people.length];
   const stanceValue = stances[index];
   const citationUuid = `mock-citation-${index + 1}`;
-  const inconsistency = index === 4 || index === 5
-    ? { id: "mock-inconsistency-1", classification: "CONTRADICTION", severity: "HIGH", comment: "The later statement reverses the earlier position on the same proposal.", citation_a_uuid: "mock-citation-5", citation_b_uuid: "mock-citation-6" }
-    : index === 8 || index === 9
-      ? { id: "mock-inconsistency-2", classification: "CONSISTENT", severity: "NONE", comment: "These statements remain compatible after considering their different scopes.", citation_a_uuid: "mock-citation-9", citation_b_uuid: "mock-citation-10" }
-      : index === 10 || index === 11
-        ? { id: "mock-inconsistency-3", classification: "POSITION_CHANGE", severity: "MEDIUM", comment: "The speaker moved from limited support to a broader implementation after new evidence.", citation_a_uuid: "mock-citation-11", citation_b_uuid: "mock-citation-12" }
-        : index === 14 || index === 15
-          ? { id: "mock-inconsistency-4", classification: "CONTRADICTION", severity: "CRITICAL", comment: "The two claims make mutually exclusive commitments about the same funding decision.", citation_a_uuid: "mock-citation-15", citation_b_uuid: "mock-citation-16" }
-          : index === 18 || index === 19
-            ? { id: "mock-inconsistency-5", classification: "CONTRADICTION", severity: "LOW", comment: "The wording is in tension, but the available context leaves a modest contradiction signal.", citation_a_uuid: "mock-citation-19", citation_b_uuid: "mock-citation-20" }
+  const inconsistency = index === 4 || index === 8
+    ? { id: "mock-inconsistency-1", classification: "CONTRADICTION", severity: "HIGH", comment: "The later statement reverses the earlier position on the same proposal.", citation_a_uuid: "mock-citation-5", citation_b_uuid: "mock-citation-9" }
+    : index === 5 || index === 9
+      ? { id: "mock-inconsistency-2", classification: "CONSISTENT", severity: "NONE", comment: "These statements remain compatible after considering their different scopes.", citation_a_uuid: "mock-citation-6", citation_b_uuid: "mock-citation-10" }
+      : index === 10 || index === 14
+        ? { id: "mock-inconsistency-3", classification: "POSITION_CHANGE", severity: "MEDIUM", comment: "The speaker moved from limited support to a broader implementation after new evidence.", citation_a_uuid: "mock-citation-11", citation_b_uuid: "mock-citation-15" }
+        : index === 11 || index === 15
+          ? { id: "mock-inconsistency-4", classification: "CONTRADICTION", severity: "CRITICAL", comment: "The two claims make mutually exclusive commitments about the same funding decision.", citation_a_uuid: "mock-citation-12", citation_b_uuid: "mock-citation-16" }
+          : index === 18 || index === 22
+            ? { id: "mock-inconsistency-5", classification: "CONTRADICTION", severity: "LOW", comment: "The wording is in tension, but the available context leaves a modest contradiction signal.", citation_a_uuid: "mock-citation-19", citation_b_uuid: "mock-citation-23" }
       : null;
   return {
     citation_uuid: citationUuid,
@@ -37,6 +37,7 @@ const citations = dates.map((date, index) => {
     relevancy_score: 0.55 + (index % 5) * 0.1,
     stance_confidence: 0.6 + (index % 4) * 0.1,
     quote: `Mock evidence statement ${index + 1} about the policy direction.`,
+    summarized_quote: `Summary: statement ${index + 1} expresses a ${stanceValue >= 0 ? "supportive" : "critical"} position on the topic.`,
     article_title: `Mock article ${index + 1}`,
     article_url: "https://example.com/newsanalysis-mock",
     inconsistency,

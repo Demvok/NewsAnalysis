@@ -13,7 +13,7 @@ from fastapi import FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.responses import JSONResponse
 from openai import OpenAI
 from pydantic import ValidationError
-from sqlalchemy import Float, cast, delete, exists, func, or_, select
+from sqlalchemy import Float, String, cast, delete, exists, func, or_, select
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import aliased
@@ -501,6 +501,54 @@ def list_articles(
         return [_as_dict(item) for item in session.scalars(statement).all()]
 
 
+def _browse_compact(
+    model: Any,
+    query: str | None,
+    limit: int,
+    offset: int,
+    status: str | None = None,
+) -> dict[str, Any]:
+    searchable = {
+        DimArticle: (DimArticle.article_title, DimArticle.article_content),
+        DimPerson: (DimPerson.name,),
+        DimCitation: (DimCitation.exact_quote, DimCitation.summarized_quote),
+    }.get(model)
+    with get_session() as session:
+        statement = select(model)
+        count_statement = select(func.count()).select_from(model)
+        if query and searchable:
+            pattern = f"%{query.strip()}%"
+            condition = or_(*(column.ilike(pattern) for column in searchable))
+            statement = statement.where(condition)
+            count_statement = count_statement.where(condition)
+        if status and hasattr(model, "status"):
+            condition = model.status == status.strip().upper()
+            statement = statement.where(condition)
+            count_statement = count_statement.where(condition)
+        total = session.scalar(count_statement) or 0
+        rows = session.scalars(
+            statement.order_by(model.created_at.desc()).offset(offset).limit(limit)
+        ).all()
+        items = []
+        for item in rows:
+            value = _as_dict(item)
+            value.pop("article_content", None)
+            value.pop("aliases_vector", None)
+            value.pop("summarized_quote_vector", None)
+            items.append(value)
+    return {"items": items, "total": total, "offset": offset, "limit": limit}
+
+
+@app.get("/articles/browse", response_model=None, tags=["Articles"], summary="Browse compact articles")
+def browse_articles(
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    query: str | None = Query(default=None, min_length=1),
+    status: str | None = Query(default=None, min_length=1),
+) -> dict[str, Any]:
+    return _browse_compact(DimArticle, query, limit, offset, status)
+
+
 @app.get("/articles/search", response_model=None, tags=["Articles"], summary="Search articles")
 def search_articles(
     query: str = Query(min_length=1),
@@ -598,6 +646,16 @@ def create_person(payload: PersonPayload) -> dict[str, Any]:
 @app.get("/people", response_model=None, tags=["People"], summary="List people")
 def list_people(limit: int = Query(50, ge=1, le=500)) -> list[dict[str, Any]]:
     return _list(DimPerson, limit)
+
+
+@app.get("/people/browse", response_model=None, tags=["People"], summary="Browse compact people")
+def browse_people(
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    query: str | None = Query(default=None, min_length=1),
+    status: str | None = Query(default=None, min_length=1),
+) -> dict[str, Any]:
+    return _browse_compact(DimPerson, query, limit, offset, status)
 
 
 @app.get("/people/{person_uuid:uuid}/aliases", response_model=None, tags=["People"], summary="List person aliases")
@@ -768,6 +826,16 @@ def list_citations(limit: int = Query(50, ge=1, le=500)) -> list[dict[str, Any]]
     return _list(DimCitation, limit)
 
 
+@app.get("/citations/browse", response_model=None, tags=["Citations"], summary="Browse compact citations")
+def browse_citations(
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    query: str | None = Query(default=None, min_length=1),
+    status: str | None = Query(default=None, min_length=1),
+) -> dict[str, Any]:
+    return _browse_compact(DimCitation, query, limit, offset, status)
+
+
 @app.get("/citations/search", response_model=None, tags=["Citations"], summary="Search citations")
 def search_citations(
     query: str = Query(min_length=1),
@@ -909,16 +977,15 @@ def browse_topics(
     sort_dir: str = Query("asc", pattern="^(asc|desc)$"),
 ) -> dict[str, Any]:
     """Return topic rows with counts and stance statistics calculated by the database."""
-    stance_number = cast(FctAttitude.stance, Float)
-    numeric_stance = FctAttitude.stance.op("~")(r"^-?[0-9]+(\.[0-9]+)?$")
+    stance_number = FctAttitude.stance
     stats = (
         select(
             FctAttitude.topic_uuid.label("topic_uuid"),
             func.count(func.distinct(FctAttitude.citation_uuid)).label("citation_count"),
             func.count(func.distinct(DimCitation.person_uuid)).label("people_count"),
-            func.avg(stance_number).filter(numeric_stance).label("stance_average"),
-            func.stddev_pop(stance_number).filter(numeric_stance).label("stance_std"),
-            func.percentile_cont(0.5).within_group(stance_number).filter(numeric_stance).label("stance_median"),
+            func.avg(stance_number).label("stance_average"),
+            func.stddev_pop(stance_number).label("stance_std"),
+            func.percentile_cont(0.5).within_group(stance_number).label("stance_median"),
         )
         .join(DimCitation, FctAttitude.citation_uuid == DimCitation.citation_uuid)
         .group_by(FctAttitude.topic_uuid)
@@ -1101,8 +1168,8 @@ def browse_attitudes(
         )
         count_statement = select(func.count()).select_from(FctAttitude).join(DimCitation, FctAttitude.citation_uuid == DimCitation.citation_uuid).join(DimTopic, FctAttitude.topic_uuid == DimTopic.topic_uuid).outerjoin(DimPerson, DimCitation.person_uuid == DimPerson.person_uuid)
         if stance:
-            statement = statement.where(FctAttitude.stance.ilike(f"%{stance}%"))
-            count_statement = count_statement.where(FctAttitude.stance.ilike(f"%{stance}%"))
+            statement = statement.where(cast(FctAttitude.stance, String).ilike(f"%{stance}%"))
+            count_statement = count_statement.where(cast(FctAttitude.stance, String).ilike(f"%{stance}%"))
         if status:
             statement = statement.where(FctAttitude.status == status)
             count_statement = count_statement.where(FctAttitude.status == status)
@@ -1125,7 +1192,7 @@ def browse_attitudes(
             select(FctAttitude.stance, func.count()).select_from(FctAttitude)
             .join(DimCitation, FctAttitude.citation_uuid == DimCitation.citation_uuid)
             .where(*(condition for condition in (
-                FctAttitude.stance.ilike(f"%{stance}%") if stance else None,
+                cast(FctAttitude.stance, String).ilike(f"%{stance}%") if stance else None,
                 FctAttitude.status == status if status else None,
                 DimCitation.person_uuid == person_uuid if person_uuid else None,
                 FctAttitude.topic_uuid == topic_uuid if topic_uuid else None,
@@ -1179,6 +1246,7 @@ def create_attitudes_bulk(payload: list[AttitudePayload], response: Response) ->
                 (item.topic_uuid, item.citation_uuid): item
                 for item in payload
             }
+            items = []
             for payload_item in payload_by_key.values():
                 values = payload_item.model_dump()
                 key = (payload_item.topic_uuid, payload_item.citation_uuid)
@@ -1192,8 +1260,9 @@ def create_attitudes_bulk(payload: list[AttitudePayload], response: Response) ->
                     for field, value in values.items():
                         if field not in {"topic_uuid", "citation_uuid"}:
                             setattr(item, field, value)
-                session.flush()
-                results.append(_as_dict(item))
+                items.append(item)
+            session.flush()
+            results = [_as_dict(item) for item in items]
         _set_bulk_stats(response, created_new, retrieved_from_db)
         logger.info(
             "db_write operation=bulk_upsert model=FctAttitude created_new=%d retrieved_from_db=%d",
@@ -1653,7 +1722,7 @@ def visualization_query(
     phrase: str | None = Query(None, min_length=1, max_length=512),
     general_topic_field: str | None = Query(None, min_length=1, max_length=128),
     min_similarity: float = Query(0.55, ge=-1, le=1),
-    limit: int = Query(5000, ge=1, le=20000),
+    limit: int = Query(1000, ge=1, le=5000),
 ) -> dict[str, Any]:
     """Return one traceable row per citation matching any relevant topic."""
     started = time.perf_counter()
@@ -1666,13 +1735,20 @@ def visualization_query(
         raise HTTPException(status_code=503, detail="Topic similarity search is temporarily unavailable") from exc
     with get_session() as session:
         similarity = None
-        article_tags = session.execute(select(DimArticle.tags)).scalars().all()
-        topic_fields: dict[str, int] = {}
-        for raw_tags in article_tags:
-            values = raw_tags if isinstance(raw_tags, list) else [raw_tags] if isinstance(raw_tags, str) else []
-            for value in values:
-                if isinstance(value, str) and value.strip():
-                    topic_fields[value.strip()] = topic_fields.get(value.strip(), 0) + 1
+        topic_fields = {
+            field: count
+            for field, count in session.execute(
+                select(
+                    DimTopic.general_topic_field,
+                    func.count(func.distinct(DimCitation.origin_article_id)),
+                )
+                .join(FctAttitude, FctAttitude.topic_uuid == DimTopic.topic_uuid)
+                .join(DimCitation, DimCitation.citation_uuid == FctAttitude.citation_uuid)
+                .where(DimTopic.general_topic_field.is_not(None))
+                .group_by(DimTopic.general_topic_field)
+            ).all()
+            if field and field.strip()
+        }
         statement = (
             select(
                 DimPerson,
@@ -1712,7 +1788,7 @@ def visualization_query(
             statement = (
                 statement.add_columns(similarity)
                 .where(DimTopic.topic_description_vector.is_not(None))
-                .where(similarity >= min_similarity)
+                .where(similarity >= max(-1.0, min_similarity - 0.25))
             )
         rows = session.execute(statement).all()
 
@@ -1803,6 +1879,7 @@ def visualization_query(
                 "relevancy_score": attitude.relevancy_score,
                 "stance_confidence": attitude.stance_confidence,
                 "quote": citation.exact_quote or citation.summarized_quote,
+                "summarized_quote": citation.summarized_quote,
                 "article_title": article.article_title,
                 "article_url": article.url,
                 "topic_similarity": topic_similarity,
@@ -1840,6 +1917,8 @@ def visualization_query(
             "excluded_row_count": len(invalid_rows),
             "excluded_rows": invalid_rows[:50],
             "truncated": len(invalid_rows) > 50,
+            "result_limit": limit,
+            "results_truncated": len(rows) >= limit,
         },
     }
     logger.info(

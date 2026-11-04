@@ -19,6 +19,7 @@ class ManagementDatabase:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         connection = sqlite3.connect(self.path, timeout=30)
         connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA busy_timeout=30000")
         try:
             yield connection
             connection.commit()
@@ -30,6 +31,8 @@ class ManagementDatabase:
 
     def initialize(self) -> None:
         with self.lock, self.connection() as connection:
+            connection.execute("PRAGMA journal_mode=WAL")
+            connection.execute("PRAGMA synchronous=NORMAL")
             connection.executescript(
                 """
                 CREATE TABLE IF NOT EXISTS jobs (
@@ -72,6 +75,8 @@ class ManagementDatabase:
                 );
                 CREATE INDEX IF NOT EXISTS idx_telemetry_timestamp ON telemetry_events(timestamp);
                 CREATE INDEX IF NOT EXISTS idx_telemetry_job ON telemetry_events(job_id);
+                CREATE INDEX IF NOT EXISTS idx_telemetry_job_stage_status
+                    ON telemetry_events(job_id, event_type, status);
                 CREATE INDEX IF NOT EXISTS idx_telemetry_trace ON telemetry_events(trace_id);
                 CREATE INDEX IF NOT EXISTS idx_telemetry_type ON telemetry_events(event_type);
                 CREATE TABLE IF NOT EXISTS experiments (
@@ -109,6 +114,10 @@ class ManagementDatabase:
             )
             self._migrate_jobs(connection)
             self._migrate_job_stages(connection)
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_jobs_status_created "
+                "ON jobs(status, created_at DESC)"
+            )
             task_columns = {
                 row["name"] for row in connection.execute("PRAGMA table_info(tasks)").fetchall()
             }

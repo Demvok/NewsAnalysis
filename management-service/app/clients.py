@@ -139,8 +139,8 @@ class ServiceClient:
         return payload
 
     def browse_knowledge(self, resource: str, limit: int = 100, offset: int = 0, filters: dict[str, str] | None = None) -> dict[str, Any]:
-        if resource not in {"attitudes", "inconsistencies"}:
-            raise ValueError("joined browse supports attitudes and inconsistencies")
+        if resource not in self.knowledge_resources:
+            raise ValueError("unsupported knowledge resource")
         response = httpx.get(
             f"{self.settings.storage_url}/{resource}/browse",
             params={"limit": limit, "offset": offset, **(filters or {})},

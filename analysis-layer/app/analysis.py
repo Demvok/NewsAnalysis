@@ -12,6 +12,11 @@ from uuid import UUID
 
 import httpx
 from . import LLM, models
+from .stance import (
+    StanceEvaluation,
+    calculate_stance,
+    evaluation_status,
+)
 from .logger import get_logger
 from .telemetry import emit_event, sanitized_error
 
@@ -138,6 +143,58 @@ def _usable_citation(citation: models.CitationCandidate) -> bool:
     )
 
 
+def _speaker_label(speaker: models.SpeakerExtraction) -> str:
+    """Return a name-like label suitable for citation context."""
+    generic_labels = {
+        "anonymous",
+        "anonymous source",
+        "unknown",
+        "unresolved",
+        "vague source",
+    }
+    name = speaker.speaker_name.strip()
+    if name and _normalized_text(name) not in generic_labels:
+        return name
+    for alias in speaker.aliases:
+        alias = alias.strip()
+        if alias and _normalized_text(alias) not in generic_labels:
+            return alias
+    return name
+
+
+def _include_speaker_in_text(text: str, speaker_label: str) -> str:
+    """Make vague-source evidence self-identifying without changing source text."""
+    if not speaker_label or _normalized_text(speaker_label) in _normalized_text(text):
+        return text
+    return f"{speaker_label}: {text}"
+
+
+def _ensure_vague_speaker_context(
+    speaker: models.SpeakerExtraction,
+) -> models.SpeakerExtraction:
+    """Ensure vague-source citation descriptions retain their speaker identity."""
+    kind = _speaker_kind(speaker)
+    if kind not in {
+        models.SpeakerKind.ANONYMOUS_SOURCE,
+        models.SpeakerKind.UNRESOLVED,
+        models.SpeakerKind.GROUP,
+    } and not speaker.uncertain:
+        return speaker
+    label = _speaker_label(speaker)
+    citations = [
+        citation.model_copy(
+            update={
+                "context": _include_speaker_in_text(citation.context, label),
+                "summarized_quote": _include_speaker_in_text(
+                    citation.summarized_quote, label
+                ),
+            }
+        )
+        for citation in speaker.citations
+    ]
+    return speaker.model_copy(update={"citations": citations})
+
+
 def _prepare_speakers(
     speakers: list[models.SpeakerExtraction],
 ) -> list[models.SpeakerExtraction]:
@@ -145,6 +202,7 @@ def _prepare_speakers(
     prepared: list[models.SpeakerExtraction] = []
     vague_citations: list[models.CitationCandidate] = []
     for speaker in speakers:
+        speaker = _ensure_vague_speaker_context(speaker)
         kind = _speaker_kind(speaker)
         citations = [citation for citation in speaker.citations if _usable_citation(citation)]
         if not citations:
@@ -323,6 +381,11 @@ def extract_citations(article: models.Article) -> models.CitationExtractionResul
                 normalized_confidences,
             )
         result = models.CitationExtractionResult.model_validate(extraction_payload)
+        result = models.CitationExtractionResult(
+            article_title=result.article_title,
+            status=result.status,
+            speakers=[_ensure_vague_speaker_context(speaker) for speaker in result.speakers],
+        )
         logger.info(
             "analysis_stage=extract_citations status=completed speakers=%d duration=%s",
             len(result.speakers),
@@ -894,7 +957,7 @@ def persist_citation_analysis(
                 analyze_speaker_topics(speaker) for speaker in analysis_inputs
             ]
 
-    for speaker_index, (speaker, evaluation) in enumerate(
+    for speaker_index, (speaker, speaker_evaluation) in enumerate(
         zip(analysis_inputs, evaluations), start=1
     ):
         logger.info(
@@ -912,12 +975,11 @@ def persist_citation_analysis(
                 "topic_description": topic.topic_description,
                 "general_topic_field": topic.general_topic_field,
             }
-            for citation in evaluation.evaluated_citations
+            for citation in speaker_evaluation.evaluated_citations
             for topic in citation.evaluated_topics
             if (
                 topic.topic_name.strip()
                 and topic.stance_detected
-                and topic.stance is not None
                 and citation.citation_type != models.CitationType.MENTION
             )
         ]
@@ -977,7 +1039,7 @@ def persist_citation_analysis(
             attributes={"article_id": str(article_id), "topic_count": len(resolved_topics)},
         )
         attitudes_by_key: dict[tuple[str, str], dict[str, object]] = {}
-        for citation in evaluation.evaluated_citations:
+        for citation in speaker_evaluation.evaluated_citations:
             citation_uuid = citation_ids.get(
                 (str(person_ids[speaker.speaker_name.strip().casefold()]), citation.exact_quote)
             )
@@ -988,7 +1050,14 @@ def persist_citation_analysis(
                 if topic_uuid is None:
                     continue
                 key = (str(topic_uuid), str(citation_uuid))
-                stance = topic.stance
+                stance_evaluation = StanceEvaluation(
+                    direction=topic.direction,
+                    endorsement=topic.endorsement,
+                    commitment=topic.commitment,
+                    conditionality=topic.conditionality,
+                )
+                stance = calculate_stance(stance_evaluation)
+                status = evaluation_status(stance_evaluation)
                 stance_confidence = topic.stance_confidence
                 if reverse_topic_polarity.get(topic.topic_name.strip().casefold()):
                     with _telemetry_stage(
@@ -1006,28 +1075,38 @@ def persist_citation_analysis(
                             ],
                             citation.exact_quote,
                             citation.context,
-                            stance,
                         )
                         reevaluation_attributes.update(
                             {
-                                "reevaluated_stance": reevaluated.stance,
+                                "reevaluated_direction": reevaluated.direction.value,
                                 "decision_confidence": reevaluated.confidence,
                             }
                         )
-                    stance = reevaluated.stance
-                    stance_confidence = reevaluated.confidence
+                        stance_evaluation = StanceEvaluation(
+                            direction=reevaluated.direction,
+                            endorsement=reevaluated.endorsement,
+                            commitment=reevaluated.commitment,
+                            conditionality=reevaluated.conditionality,
+                        )
+                        stance = calculate_stance(stance_evaluation)
+                        status = evaluation_status(stance_evaluation)
+                        stance_confidence = reevaluated.confidence
                 stance_summary = (topic.stance_summary or "").strip()
                 attitudes_by_key[key] = {
                     "topic_uuid": topic_uuid,
                     "citation_uuid": citation_uuid,
-                    "stance": str(stance) if stance is not None else None,
+                    "direction": stance_evaluation.direction.value,
+                    "endorsement": int(stance_evaluation.endorsement),
+                    "commitment": int(stance_evaluation.commitment),
+                    "conditionality": int(stance_evaluation.conditionality),
+                    "stance": stance,
                     "relevancy_score": topic.relevancy_score,
                     "stance_confidence": stance_confidence,
                     "stance_summary": stance_summary or canonical_topic_descriptions.get(
                         topic.topic_name.strip().casefold(),
                         topic.topic_description,
                     ),
-                    "status": "ANALYZED",
+                    "status": status,
                 }
         attitudes = list(attitudes_by_key.values())
         attitude_total += len(attitudes)

@@ -30,7 +30,9 @@ async function loadLive(params) {
 }
 
 function filterMock(data, phrase, field, threshold) {
-  const citations = data.citations.filter(item => (!field || item.general_topic_field === field) && (!phrase || `${item.topic_name} ${item.quote}`.toLowerCase().includes(phrase.toLowerCase())) && item.relevancy_score >= threshold);
+  const citations = data.citations
+    .map(item => ({ ...item, topic_similarity: phrase ? (`${item.topic_name} ${item.quote}`.toLowerCase().includes(phrase.toLowerCase()) ? .9 : .42) : null }))
+    .filter(item => (!field || item.general_topic_field === field) && item.relevancy_score >= (phrase ? threshold - .25 : threshold));
   const speakers = data.speakers.filter(item => citations.some(citation => citation.person_uuid === item.person_uuid));
   return { ...data, citations, speakers };
 }
@@ -44,7 +46,7 @@ function Speakers({ speakers, selected, onSelect }) {
   return <div className="speaker-strip">{speakers.slice(0, 8).map(speaker => <button className={`speaker-card ${selected === speaker.person_uuid ? "selected" : ""} ${speaker.person_type === "ANONYMOUS_SOURCE" ? "vague" : ""}`} key={speaker.person_uuid} onClick={() => onSelect(selected === speaker.person_uuid ? null : speaker.person_uuid)}><span className="speaker-avatar" style={{ background: colorForSpeaker(speaker.person_uuid) }}>{speaker.name[0]}</span><span className="speaker-info"><strong>{speaker.name}</strong><small>{speaker.citations} citations</small><small className="person-type">{speaker.person_type || "PERSON"}</small></span><span className={`speaker-metric ${stanceTone(speaker.average_stance)}`} title="Average stance"><i>μ</i>{simplifyStance(speaker.average_stance)}</span><span className="speaker-metric spread" title="Stance deviation"><i>σ</i>{simplifyStance(speaker.std_stance)}</span></button>)}</div>;
 }
 
-function Timeline({ citations, selectedSpeaker }) {
+function Timeline({ citations, selectedSpeaker, semanticSearch, similarityThreshold }) {
   const chartRef = useRef(null);
   const visible = useMemo(() => citations.filter(item => (!selectedSpeaker || item.person_uuid === selectedSpeaker) && Number.isFinite(Number(item.stance_value)) && Number.isFinite(stamp(item.published_at))), [citations, selectedSpeaker]);
 
@@ -84,12 +86,18 @@ function Timeline({ citations, selectedSpeaker }) {
       silent: true,
       z: 2,
     }));
+    const timelineByCitation = new Map(timelineCitations.map(item => [item.citation_uuid, item]));
+    const inconsistencySource = selectedSpeaker
+      ? timelineCitations.filter(item => item.person_uuid === selectedSpeaker)
+      : timelineCitations;
     const links = [];
-    visible.forEach(item => {
+    inconsistencySource.forEach(item => {
       if (!item.inconsistency) return;
       const otherId = item.inconsistency.citation_a_uuid === item.citation_uuid ? item.inconsistency.citation_b_uuid : item.inconsistency.citation_a_uuid;
-      const other = visible.find(candidate => candidate.citation_uuid === otherId);
-      if (other && item.citation_uuid < other.citation_uuid) links.push([item, other, item.inconsistency]);
+      const other = timelineByCitation.get(otherId);
+      if (other && other.person_uuid === item.person_uuid && item.citation_uuid < other.citation_uuid) {
+        links.push([item, other, item.inconsistency]);
+      }
     });
     links.forEach(([first, second, inconsistency]) => {
       const resolved = inconsistency.classification === "CONSISTENT";
@@ -137,10 +145,10 @@ function Timeline({ citations, selectedSpeaker }) {
       value: [positionFor(item), simplifyStance(item.stance_value)],
       name: item.person_name,
       symbol: item.person_type === "ORGANIZATION" ? "diamond" : "circle",
-      symbolSize: 6 + Math.min(34, (item.relevancy_score || .5) * 18 + (item.stance_confidence || .5) * 14 + (counts.get(item.person_uuid) || 0) * 2.5 + (consecutive.has(item.citation_uuid) ? 4 : 0)),
+      symbolSize: 6 + Math.min(38, (item.topic_similarity == null ? .5 : Math.max(0, item.topic_similarity)) * 24 + (item.relevancy_score || .5) * 18 + (item.stance_confidence || .5) * 14 + (counts.get(item.person_uuid) || 0) * 2.5 + (consecutive.has(item.citation_uuid) ? 4 : 0)),
       itemStyle: {
         color: colorForSpeaker(item.person_uuid),
-        opacity: item.person_type === "ANONYMOUS_SOURCE" ? .42 : 1,
+        opacity: item.person_type === "ANONYMOUS_SOURCE" ? .42 : semanticSearch && item.topic_similarity < similarityThreshold ? .42 : 1,
         borderColor: item.inconsistency?.classification && item.inconsistency.classification !== "CONSISTENT" ? "#fff1b0" : "#0b1725",
         borderWidth: item.inconsistency?.classification && item.inconsistency.classification !== "CONSISTENT" ? 3 : 2,
       },
@@ -166,7 +174,7 @@ function Timeline({ citations, selectedSpeaker }) {
         position: (point, params, dom, rect, size) => [Math.min(point[0] + 14, size.viewSize[0] - size.contentSize[0] - 8), Math.max(12, point[1] - size.contentSize[1] - 12)],
         formatter: params => {
           const item = params.data?.citation;
-          if (item) return `<strong>${item.person_name}</strong><br><span>${item.topic_name} · stance ${simplifyStance(item.stance_value)}/5</span><br><span>${item.quote}</span><br><small>${new Date(item.published_at).toLocaleDateString()}</small>${item.article_url ? `<br><a href="${item.article_url}" target="_blank" rel="noreferrer">Open original article →</a>` : ""}`;
+          if (item) return `<div class="chart-tooltip-content"><strong>${item.person_name}</strong><br><span>${item.topic_name} · stance ${simplifyStance(item.stance_value)}/5</span>${item.topic_similarity != null ? `<br><small>Topic similarity ${Number(item.topic_similarity).toFixed(2)}</small>` : ""}<br><small>Original quote</small><p>${item.quote || "No original quote available."}</p><small>Summarized quote</small><p>${item.summarized_quote || "No summarized quote available."}</p><small>${new Date(item.published_at).toLocaleDateString()}</small>${item.article_url ? `<br><a href="${item.article_url}" target="_blank" rel="noreferrer">Open original article →</a>` : ""}</div>`;
           const inconsistency = params.data?.inconsistency || params.series?.linkMeta;
           return inconsistency ? `<strong>${inconsistency.classification}</strong><br>${inconsistency.comment || "No inconsistency comment available."}` : params.seriesName;
         },
@@ -236,7 +244,7 @@ function App() {
     const timer = setTimeout(async () => { setLoading(true); try { setData(await loadLive(new URLSearchParams({ ...(phrase ? { phrase } : {}), ...(field ? { general_topic_field: field } : {}), min_similarity: threshold }))); } catch (value) { setError(value.message); } finally { setLoading(false); } }, 350);
     return () => clearTimeout(timer);
   }, [phrase, field, threshold, useMock]);
-  return <main className="page"><header><div><span className="overline">NEWSANALYSIS / EVIDENCE GRAPH</span><h1>Position landscape</h1></div><div className="controls"><input value={phrase} onChange={event => setPhrase(event.target.value)} placeholder="Search any topic phrase…" /><select value={field} onChange={event => setField(event.target.value)}><option value="">All topic fields</option>{fields.map(item => <option value={item.name} key={item.name}>{item.name}</option>)}</select><label>similarity <input type="range" min="-1" max="1" step=".05" value={threshold} onChange={event => setThreshold(Number(event.target.value))} /><b>{threshold.toFixed(2)}</b></label><label className="mode-toggle"><input type="checkbox" checked={!useMock} onChange={event => setUseMock(!event.target.checked)} /> live data</label><span className="loading-indicator">{loading ? "Updating…" : useMock ? "Mock" : "Live"}</span></div></header>{error && <div className="error">{error}</div>}<Kpis kpis={data.kpis} /><section className="panel timeline-panel"><div className="section-heading"><span className="overline">TIMELINE</span><span className="muted">window navigator · {data.citations.length} citations</span></div><Timeline citations={data.citations} selectedSpeaker={selectedSpeaker} /></section><section><div className="section-heading"><span className="overline">SPEAKERS</span></div><Speakers speakers={data.speakers} selected={selectedSpeaker} onSelect={setSelectedSpeaker} /></section></main>;
+  return <main className="page"><header><div><span className="overline">NEWSANALYSIS / EVIDENCE GRAPH</span><h1>Position landscape</h1></div><div className="controls"><input value={phrase} onChange={event => setPhrase(event.target.value)} placeholder="Search any topic phrase…" /><select value={field} onChange={event => setField(event.target.value)}><option value="">All topic fields</option>{fields.map(item => <option value={item.name} key={item.name}>{item.name}</option>)}</select><label>similarity <input type="range" min="-1" max="1" step=".05" value={threshold} onChange={event => setThreshold(Number(event.target.value))} /><b>{threshold.toFixed(2)}</b></label><label className="mode-toggle"><input type="checkbox" checked={!useMock} onChange={event => setUseMock(!event.target.checked)} /> live data</label><span className="loading-indicator">{loading ? "Updating…" : useMock ? "Mock" : "Live"}</span></div></header>{error && <div className="error">{error}</div>}<Kpis kpis={data.kpis} /><section className="panel timeline-panel"><div className="section-heading"><span className="overline">TIMELINE</span><span className="muted">window navigator · {data.citations.length} citations</span></div><Timeline citations={data.citations} selectedSpeaker={selectedSpeaker} semanticSearch={Boolean(phrase)} similarityThreshold={threshold} /></section><section><div className="section-heading"><span className="overline">SPEAKERS</span></div><Speakers speakers={data.speakers} selected={selectedSpeaker} onSelect={setSelectedSpeaker} /></section></main>;
 }
 
 createRoot(document.getElementById("root")).render(<App />);
