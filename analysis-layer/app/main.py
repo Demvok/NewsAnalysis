@@ -12,6 +12,7 @@ from app.analysis import (
     persist_citation_analysis,
     persist_extraction,
 )
+from app.propagation_service import propagate_topic_stances
 from app.logger import get_logger
 from app.telemetry import bind_context, emit_event
 
@@ -96,6 +97,25 @@ async def log_api_request(request: Request, call_next) -> Response:
 @app.get("/health", tags=["System"], summary="Health check")
 async def root():
     return {"message": "Analysis API Server is running", "version": app.version}
+
+
+@app.post(
+    "/analysis/topic-propagation",
+    response_model=list[models.TopicPropagationResult],
+    tags=["Stage 3 - Citation Analysis"],
+    summary="Propagate citation stances to a target topic",
+)
+def propagate_topic_stances_endpoint(
+    request: models.TopicPropagationRequest,
+) -> list[models.TopicPropagationResult]:
+    try:
+        return propagate_topic_stances(request)
+    except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
+        logger.exception("Failed to propagate citation stances")
+        raise HTTPException(
+            status_code=502,
+            detail="Unable to calculate topic-relative stances",
+        ) from exc
 
 
 @app.post("/llm", tags=["Diagnostics"], summary="Test LLM connection")

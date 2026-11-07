@@ -1,8 +1,8 @@
 const people = [
-  ["mock-alex", "Alex Morgan", "PERSON"],
-  ["mock-riley", "Riley Chen", "PERSON"],
-  ["mock-wef", "World Policy Forum", "ORGANIZATION"],
-  ["mock-source", "Unnamed government source", "ANONYMOUS_SOURCE"],
+  ["mock-alex", "Alex Morgan", "PERSON", "Energy policy advisor", ["A. Morgan", "Alex J. Morgan"]],
+  ["mock-riley", "Riley Chen", "PERSON", "Public health researcher", ["R. Chen"]],
+  ["mock-wef", "World Policy Forum", "ORGANIZATION", "International policy organization", ["WPF"]],
+  ["mock-source", "Unnamed government source", "ANONYMOUS_SOURCE", null, []],
 ];
 
 const dates = ["2024-01-15", "2024-01-22", "2024-02-02", "2024-02-09", "2024-06-18", "2024-06-25", "2024-10-04", "2024-10-12", "2025-01-09", "2025-01-16", "2025-05-21", "2025-05-29", "2025-06-06", "2025-06-13", "2025-08-19", "2025-08-26", "2025-10-03", "2025-10-10", "2026-01-08", "2026-01-15", "2026-03-20", "2026-03-27", "2026-06-05", "2026-06-12"];
@@ -30,10 +30,15 @@ const citations = dates.map((date, index) => {
     person_type: personType,
     topic_uuid: `mock-topic-${index % 3}`,
     topic_name: ["energy transition", "public health funding", "regional security"][index % 3],
+    topic_names: [["energy transition", "climate policy"], ["public health funding", "healthcare access"], ["regional security", "defense policy"]][index % 3],
     general_topic_field: "Mock policy",
     published_at: `${date}T12:00:00Z`,
     stance: stanceValue > 0 ? "SUPPORT" : "OPPOSE",
     stance_value: stanceValue,
+    direction: stanceValue > 0 ? "SUPPORT" : "OPPOSE",
+    endorsement: 1 + (index % 4),
+    commitment: 1 + ((index + 1) % 4),
+    conditionality: index % 3,
     relevancy_score: 0.55 + (index % 5) * 0.1,
     stance_confidence: 0.6 + (index % 4) * 0.1,
     quote: `Mock evidence statement ${index + 1} about the policy direction.`,
@@ -44,7 +49,7 @@ const citations = dates.map((date, index) => {
   };
 });
 
-const speakerMap = new Map(people.map(([id, name, person_type]) => [id, { person_uuid: id, name, person_type, citations: 0, stances: [] }]));
+const speakerMap = new Map(people.map(([id, name, person_type, affiliation, aliases]) => [id, { person_uuid: id, name, person_type, affiliation, aliases, citations: 0, stances: [] }]));
 citations.forEach(item => {
   const speaker = speakerMap.get(item.person_uuid);
   speaker.citations += 1;

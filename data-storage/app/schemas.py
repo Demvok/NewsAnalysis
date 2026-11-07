@@ -193,6 +193,11 @@ class EmbeddingBatchRequest(BaseModel):
     texts: list[str] = Field(min_length=1, max_length=100)
 
 
+class TopicEmbeddingsRequest(BaseModel):
+    topic_uuids: list[UUID] = Field(min_length=1, max_length=500)
+    generate_missing: bool = True
+
+
 class CitationUpdate(BaseModel):
     person_uuid: UUID | None = None
     exact_quote: str | None = None

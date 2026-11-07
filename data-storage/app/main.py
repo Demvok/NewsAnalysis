@@ -53,6 +53,7 @@ from app.schemas import (
     PersonPayload,
     PersonUpdate,
     TopicBulkUpdate,
+    TopicEmbeddingsRequest,
     TopicPayload,
     TopicUpdate,
     parse_datetime,
@@ -1574,6 +1575,41 @@ def search_topics_by_text(
     return search_topics(_embed_texts([payload.text])[0], limit, min_similarity)
 
 
+@app.post("/topics/embeddings", response_model=None, tags=["Topics"], summary="Get topic embeddings in a batch")
+def topic_embeddings(payload: TopicEmbeddingsRequest) -> list[dict[str, Any]]:
+    requested_ids = list(dict.fromkeys(payload.topic_uuids))
+    with get_session() as session:
+        topics = session.scalars(
+            select(DimTopic).where(DimTopic.topic_uuid.in_(requested_ids))
+        ).all()
+        topics_by_id = {topic.topic_uuid: topic for topic in topics}
+        missing = [
+            topic
+            for topic in topics
+            if topic.topic_description_vector is None
+            and payload.generate_missing
+            and (topic.topic_description or topic.topic_name).strip()
+        ]
+        if missing:
+            embeddings = _embed_texts([
+                (topic.topic_description or topic.topic_name).strip()
+                for topic in missing
+            ])
+            for topic, embedding in zip(missing, embeddings):
+                topic.topic_description_vector = embedding
+            session.flush()
+        return [
+            {
+                "topic_uuid": str(topic_uuid),
+                "topic_name": topics_by_id[topic_uuid].topic_name,
+                "topic_description": topics_by_id[topic_uuid].topic_description,
+                "embedding": topics_by_id[topic_uuid].topic_description_vector,
+            }
+            for topic_uuid in requested_ids
+            if topic_uuid in topics_by_id
+        ]
+
+
 @app.post("/citations/search/vector", response_model=None, tags=["Citations"], summary="Search citations by embedding")
 def search_citations_by_vector(
     embedding: list[float],
@@ -1726,6 +1762,11 @@ def visualization_query(
 ) -> dict[str, Any]:
     """Return one traceable row per citation matching any relevant topic."""
     started = time.perf_counter()
+    requested_topic_fields = [
+        value.strip()
+        for value in (general_topic_field or "").split(",")
+        if value.strip()
+    ]
     if not phrase and not general_topic_field:
         logger.info("visualization_query status=unfiltered")
     try:
@@ -1735,20 +1776,21 @@ def visualization_query(
         raise HTTPException(status_code=503, detail="Topic similarity search is temporarily unavailable") from exc
     with get_session() as session:
         similarity = None
-        topic_fields = {
-            field: count
-            for field, count in session.execute(
-                select(
-                    DimTopic.general_topic_field,
-                    func.count(func.distinct(DimCitation.origin_article_id)),
-                )
-                .join(FctAttitude, FctAttitude.topic_uuid == DimTopic.topic_uuid)
-                .join(DimCitation, DimCitation.citation_uuid == FctAttitude.citation_uuid)
-                .where(DimTopic.general_topic_field.is_not(None))
-                .group_by(DimTopic.general_topic_field)
-            ).all()
-            if field and field.strip()
-        }
+        topic_fields: dict[str, int] = {}
+        tag_rows = session.execute(
+            select(DimArticle.article_id, DimArticle.tags)
+            .join(DimCitation, DimCitation.origin_article_id == DimArticle.article_id)
+            .join(FctAttitude, FctAttitude.citation_uuid == DimCitation.citation_uuid)
+            .where(DimArticle.tags.is_not(None))
+        ).all()
+        counted_article_tags: set[tuple[UUID, str]] = set()
+        for article_id, tags in tag_rows:
+            values = tags if isinstance(tags, list) else [tags]
+            for value in values:
+                tag = str(value).strip()
+                if tag and (article_id, tag) not in counted_article_tags:
+                    counted_article_tags.add((article_id, tag))
+                    topic_fields[tag] = topic_fields.get(tag, 0) + 1
         statement = (
             select(
                 DimPerson,
@@ -1774,14 +1816,15 @@ def visualization_query(
             .order_by(DimArticle.published_at.asc().nulls_last())
             .limit(limit)
         )
-        if general_topic_field:
+        if requested_topic_fields:
             tags = cast(DimArticle.tags, JSONB)
-            statement = statement.where(
-                or_(
-                    tags.contains([general_topic_field]),
-                    tags == cast(json.dumps(general_topic_field), JSONB),
-                )
-            )
+            statement = statement.where(or_(*[
+                tags.contains([field])
+                for field in requested_topic_fields
+            ], *[
+                tags == cast(json.dumps(field), JSONB)
+                for field in requested_topic_fields
+            ]))
         if query_vector:
             distance = DimTopic.topic_description_vector.cosine_distance(query_vector)
             similarity = (1 - distance).label("topic_similarity")
@@ -1824,6 +1867,7 @@ def visualization_query(
     inconsistency_ids: set[UUID] = set()
     invalid_rows: list[dict[str, str]] = []
     seen_citation_topics: set[tuple[UUID, UUID]] = set()
+    topic_names_by_citation: dict[UUID, set[str]] = {}
     for row in rows:
         person, topic, citation, article, published_at, attitude, inconsistency = row[:7]
         citation_topic = (citation.citation_uuid, topic.topic_uuid)
@@ -1845,6 +1889,7 @@ def visualization_query(
             invalid_rows.append({"citation_uuid": serialize(citation.citation_uuid), "reason": "publication date is missing"})
             continue
         topic_ids.add(topic.topic_uuid)
+        topic_names_by_citation.setdefault(citation.citation_uuid, set()).add(topic.topic_name)
         if inconsistency and inconsistency.classification in {"CONTRADICTION", "POSITION_CHANGE"}:
             inconsistency_ids.add(inconsistency.inconsistency_uuid)
         speaker = speaker_rows.setdefault(
@@ -1854,6 +1899,8 @@ def visualization_query(
                 "name": person.name,
                 "image_url": person.image_url,
                 "person_type": person.person_type,
+                "affiliation": person.affiliation,
+                "aliases": person.aliases or [],
                 "citations": 0,
                 "stances": [],
             },
@@ -1876,6 +1923,10 @@ def visualization_query(
                 "published_at": serialize(published_at),
                 "stance": attitude.stance,
                 "stance_value": stance_value,
+                "direction": attitude.direction,
+                "endorsement": attitude.endorsement,
+                "commitment": attitude.commitment,
+                "conditionality": attitude.conditionality,
                 "relevancy_score": attitude.relevancy_score,
                 "stance_confidence": attitude.stance_confidence,
                 "quote": citation.exact_quote or citation.summarized_quote,
@@ -1893,6 +1944,8 @@ def visualization_query(
                 } if inconsistency else None,
             }
         )
+    for item in citations:
+        item["topic_names"] = sorted(topic_names_by_citation.get(UUID(item["citation_uuid"]), {item["topic_name"]}))
     for speaker in speaker_rows.values():
         values = speaker.pop("stances")
         speaker["average_stance"] = sum(values) / len(values)

@@ -200,3 +200,32 @@ class TopicAttitude(BaseModel):
     relevancy_score: float = Field(ge=0, le=1)
     stance_summary: str | None = None
     stance_confidence: float | None = Field(default=None, ge=0, le=1)
+
+
+class TopicPropagationCitation(BaseModel):
+    citation_uuid: UUID
+    citation_topic_uuid: UUID
+    original_stance: float | None = Field(default=None, ge=-1, le=1)
+    original_stance_confidence: float | None = Field(default=None, ge=0, le=1)
+
+
+class TopicPropagationRequest(BaseModel):
+    target_topic_uuid: UUID
+    citations: list[TopicPropagationCitation] = Field(min_length=1, max_length=5000)
+    minimum_relevance: float | None = Field(default=None, ge=0, le=1)
+    minimum_polarity: float | None = Field(default=None, ge=0, le=1)
+
+
+class TopicPropagationResult(BaseModel):
+    citation_uuid: UUID
+    citation_topic_uuid: UUID
+    target_topic_uuid: UUID
+    citation_topic_name: str | None = None
+    target_topic_name: str | None = None
+    original_stance: float | None = Field(default=None, ge=-1, le=1)
+    topic_relevance: float | None = Field(default=None, ge=0, le=1)
+    topic_relation_polarity: float | None = Field(default=None, ge=-1, le=1)
+    transferred_stance: float | None = Field(default=None, ge=-1, le=1)
+    transfer_confidence: float | None = Field(default=None, ge=0, le=1)
+    reliable: bool = False
+    status: str
