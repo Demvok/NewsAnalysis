@@ -1845,11 +1845,11 @@ def search_citations_by_text(
     "/citations/history",
     response_model=None,
     tags=["Citations"],
-    summary="List all topic citations for a person in a time window",
+    summary="List topic citations for a person in a time window",
 )
 def citation_history(
     person_uuid: UUID,
-    topic_uuid: UUID,
+    topic_uuid: UUID | None = None,
     before: datetime | None = None,
     window_days: int = Query(365, ge=1, le=3650),
     exclude_citation_uuid: UUID | None = None,
@@ -1861,33 +1861,37 @@ def citation_history(
     cutoff = effective_before - timedelta(days=window_days)
     with get_session() as session:
         statement = (
-            select(DimCitation, FctAttitude.stance)
+            select(DimCitation, FctAttitude)
             .join(DimArticle, DimCitation.origin_article_id == DimArticle.article_id)
             .join(
                 FctAttitude,
                 FctAttitude.citation_uuid == DimCitation.citation_uuid,
             )
             .where(DimCitation.person_uuid == person_uuid)
-            .where(FctAttitude.topic_uuid == topic_uuid)
             .where(DimArticle.published_at >= cutoff)
             .where(DimArticle.published_at <= effective_before)
-            .order_by(DimArticle.published_at.desc())
-            .limit(limit)
         )
+        if topic_uuid is not None:
+            statement = statement.where(FctAttitude.topic_uuid == topic_uuid)
         if exclude_citation_uuid is not None:
             statement = statement.where(
                 DimCitation.citation_uuid != exclude_citation_uuid
             )
+        statement = statement.order_by(DimArticle.published_at.desc()).limit(limit)
         return [
             {
                 **_as_dict(citation),
-                "stance": stance,
-                "stance_polarity": _stance_polarity(stance),
+                "topic_uuid": attitude.topic_uuid,
+                "stance": attitude.stance,
+                "stance_confidence": attitude.stance_confidence,
+                "stance_polarity": _stance_polarity(attitude.stance),
                 "historical_date": article_date,
             }
-            for citation, stance, article_date in (
-                (citation, stance, citation.article.published_at)
-                for citation, stance in session.execute(statement).all()
+            for citation, attitude, article_date in (
+                (citation, attitude, article_date)
+                for citation, attitude, article_date in session.execute(
+                    statement.add_columns(DimArticle.published_at)
+                ).all()
             )
         ]
 

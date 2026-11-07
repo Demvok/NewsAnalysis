@@ -63,3 +63,15 @@ def test_cache_reuses_anchor_and_relation_values():
     cache.set_relation(("citation", "target"), relation)
     assert cache.get_anchors(("target", "description")) is anchors
     assert cache.get_relation(("citation", "target")) is relation
+
+
+def test_identical_topics_preserve_stance_polarity():
+    result = propagate_stance(
+        -0.8,
+        0.9,
+        TopicRelation(relevance=1.0, polarity=1.0),
+        minimum_relevance=0.5,
+        minimum_polarity=0.15,
+    )
+    assert result.reliable
+    assert result.transferred_stance == pytest.approx(-0.8)

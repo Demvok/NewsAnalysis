@@ -17,10 +17,27 @@ const api = async (path, options = {}) => {
 
 const formatNumber = (value, digits = 0) =>
   value === null || value === undefined ? "Unavailable" : Number(value).toLocaleString(undefined, { maximumFractionDigits: digits });
+const formatTokens = item => {
+  if (!item || item.token_source === "none") return "Unavailable";
+  const input = item.input_tokens || item.input_tokens_estimated;
+  const output = item.output_tokens || item.output_tokens_estimated;
+  return `${item.input_tokens ? "" : "~"}${formatNumber(input)} / ${item.output_tokens ? "" : "~"}${formatNumber(output)}`;
+};
 const formatDate = value => value ? new Date(value).toLocaleString() : "—";
 const shortId = value => value || "—";
 const compactId = value => value ? `${value.slice(0, 8)}…` : "—";
-const formatDuration = value => value === null || value === undefined ? "Unavailable" : value < 1000 ? `${Math.round(value)} ms` : `${(value / 1000).toFixed(2)} s`;
+const formatDuration = value => {
+  if (value === null || value === undefined || !Number.isFinite(Number(value))) return "Unavailable";
+  const milliseconds = Math.max(0, Number(value));
+  if (milliseconds < 1000) return `${Math.round(milliseconds)} ms`;
+  const seconds = Math.round(milliseconds / 1000);
+  if (seconds < 60) return `${seconds} s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  if (minutes < 60) return `${minutes}m ${remainder}s`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours}h ${minutes % 60}m ${remainder}s`;
+};
 const rangeSince = range => {
   const minutes = { "15m": 15, "1h": 60, "24h": 1440, "7d": 10080 }[range] || 1440;
   return new Date(Date.now() - minutes * 60000).toISOString();
@@ -83,19 +100,6 @@ function CopyIdentifier({ value, notify }) {
   </span>;
 }
 
-function MiniChart({ points, color = "#62d8b5", valueKey = "value", empty = "Awaiting live telemetry…" }) {
-  const usable = points.filter(point => Number.isFinite(Number(point[valueKey])));
-  if (!usable.length) return <Empty>{empty}</Empty>;
-  const max = Math.max(...usable.map(point => Number(point[valueKey])), 1);
-  return <div className="chart" aria-label="Live telemetry chart">
-    <svg viewBox="0 0 640 150" preserveAspectRatio="none" role="img">
-      <path d={`M ${usable.map((point, index) => `${(index / Math.max(usable.length - 1, 1)) * 640},${145 - (Number(point[valueKey]) / max) * 125}`).join(" L ")}`} fill="none" stroke={color} strokeWidth="3" vectorEffect="non-scaling-stroke" />
-      <line x1="0" y1="145" x2="640" y2="145" stroke="#27364d" />
-    </svg>
-    <div className="chart-caption"><span>{formatNumber(usable[0][valueKey])}</span><span>max {formatNumber(max)}</span><span>{formatNumber(usable[usable.length - 1][valueKey])}</span></div>
-  </div>;
-}
-
 function useTelemetryStream(onEvent) {
   const lastId = useRef(0);
   const acceptsEvent = useRef(createEventDeduper());
@@ -129,25 +133,20 @@ function Overview({ notify }) {
   const [metrics, setMetrics] = useState(null);
   const [stageMetrics, setStageMetrics] = useState([]);
   const [range, setRange] = useState("24h");
-  const [live, setLive] = useState([]);
   const [error, setError] = useState(null);
+  const [tasks, setTasks] = useState([]);
   const load = async () => {
     try {
       setError(null);
-      const [h, j, m, s, execution] = await Promise.all([api("/health"), api("/jobs?limit=100"), api(`/metrics/llm?since=${encodeURIComponent(rangeSince(range))}`), api("/metrics/stages"), api("/metrics/jobs")]);
-      setHealth({ ...h, telemetry_health: execution.telemetry_health }); setJobs(j); setMetrics(m); setStageMetrics(s);
+      const [h, j, m, s, execution, taskData] = await Promise.all([api("/health"), api("/jobs?limit=100"), api(`/metrics/llm?since=${encodeURIComponent(rangeSince(range))}`), api("/metrics/stages"), api("/metrics/jobs"), api("/tasks?limit=50")]);
+      setHealth({ ...h, telemetry_health: execution.telemetry_health }); setJobs(j); setMetrics(m); setStageMetrics(s); setTasks(taskData);
     } catch (e) { setError(e); }
   };
   useEffect(() => { load(); }, [range]);
-  const onEvent = React.useCallback(event => setLive(items => [...items.slice(-59), event]), []);
-  useTelemetryStream(onEvent);
   const running = jobs.filter(job => job.status === "RUNNING").length;
   const waiting = jobs.filter(job => ["PENDING", "RETRYING"].includes(job.status)).length;
   const completed = jobs.filter(job => job.status === "COMPLETED").length;
   const failed = jobs.filter(job => job.status === "FAILED").length;
-  const liveCalls = live.filter(event => event.event_type === "llm_call");
-  const liveTokens = liveCalls.reduce((sum, event) => sum + (event.input_tokens || 0) + (event.output_tokens || 0), 0);
-  const liveSeries = liveCalls.map((event, index) => ({ value: event.output_tokens || 0, index }));
   if (error) return <ErrorState error={error} retry={load} />;
   return <Page title="Overview" subtitle="Operational view backed by the management service." refresh={load}>
     <div className="toolbar"><span className="live-dot" /> Live telemetry (informational) {health && <><span className="muted">·</span><Status value={health.status} /><span className="muted">· telemetry {health.telemetry_health?.status || "unknown"}, dropped {formatNumber(health.telemetry_health?.dropped_events)}</span></>}<select value={range} onChange={event => setRange(event.target.value)}><option value="15m">Last 15 minutes</option><option value="1h">Last hour</option><option value="24h">Last 24 hours</option><option value="7d">Last 7 days</option></select></div>
@@ -158,13 +157,11 @@ function Overview({ notify }) {
       <MetricCard label="LLM requests" value={formatNumber(metrics?.call_count)} detail={`${formatNumber(metrics?.active_call_count)} active now`} />
       <MetricCard label="Tokens (measured / estimated)" value={`${formatNumber(metrics?.input_tokens_measured || metrics?.input_tokens_estimated)} / ${formatNumber(metrics?.output_tokens_measured || metrics?.output_tokens_estimated)}`} detail="Input / output; estimates are marked by the detail" />
       <MetricCard label="Average latency" value={formatDuration(metrics?.latency_ms?.average)} detail={`P95 ${formatDuration(metrics?.latency_ms?.p95)}`} />
-      <MetricCard label="Generation throughput" value={metrics?.throughput_tokens_per_second_average == null ? "Unavailable" : `${formatNumber(metrics.throughput_tokens_per_second_average, 1)} tok/s`} detail="Measured output tokens only" />
       <MetricCard label="LLM error rate" value={metrics?.call_count ? `${((metrics.failed_calls / metrics.call_count) * 100).toFixed(1)}%` : "Unavailable"} detail={`${formatNumber(metrics?.failed_calls)} failed calls`} />
     </section>
-    <div className="two-column">
-      <Panel title="Live output tokens" kicker={`${liveCalls.length} calls in browser window`}><MiniChart points={liveSeries} color="#f0b35b" /></Panel>
-      <Panel title="Live event volume" kicker="Bounded to the latest 60 events"><MiniChart points={live.map((_, index) => ({ value: index + 1 }))} /></Panel>
-    </div>
+    <Panel title="Task execution" kicker="Aggregated compute time and remaining estimates for every retained task">
+      {tasks.length ? <div className="metric-grid compact">{tasks.map(task => <article className="metric-card task-kpi" key={task.task_id}><span className="eyebrow">{task.name}</span><strong>{formatDuration(task.elapsed_time_ms)}</strong><small>Elapsed · remaining {formatDuration(task.remaining_time_ms)}</small><small>Estimated total {formatDuration(task.estimated_total_time_ms)}</small><small>{task.completed_articles}/{task.total_articles} articles · tokens {formatTokens(task)}</small></article>)}</div> : <Empty>No tasks have been created.</Empty>}
+    </Panel>
     <Panel title="Pipeline stage cost" kicker="Mean duration is calculated from completed stage telemetry"><div className="bar-list">{stageMetrics.length ? stageMetrics.map(stage => <div className="bar-row" key={stage.stage}><span>{stage.stage || "Unspecified"}</span><div><i style={{ width: `${Math.min(100, (stage.total_duration_ms / Math.max(...stageMetrics.map(item => item.total_duration_ms || 0), 1)) * 100)}%` }} /></div><b>{formatDuration(stage.average_duration_ms)} mean · {formatDuration(stage.total_duration_ms)} total</b></div>) : <Empty />}</div></Panel>
     <Panel title="Service health"><div className="health-grid">{health?.dependencies?.map(service => <div className="health-item" key={service.name}><Status value={service.status} /><strong>{service.name}</strong><small>{service.availability} · {service.latency_ms == null ? "latency unavailable" : `${service.latency_ms} ms`}</small></div>) || <Empty>Health data unavailable.</Empty>}</div></Panel>
   </Page>;
@@ -218,7 +215,7 @@ function Jobs({ openJob, notify }) {
   return <Page title="Jobs" subtitle="Queue and inspect durable article-analysis jobs." refresh={load}>
     <Panel title="Queue analysis"><div className="form-row"><input value={article} onChange={e => setArticle(e.target.value)} placeholder="Article UUID" /><button onClick={create} disabled={!article}>Queue job</button></div></Panel>
     <Panel title="Job history" actions={<div className="filter-row"><select value={status} onChange={e => setStatus(e.target.value)}><option value="">All statuses</option>{["PENDING", "RUNNING", "COMPLETED", "FAILED", "CANCELLED", "RETRYING"].map(value => <option key={value}>{value}</option>)}</select><input value={article} onChange={e => setArticle(e.target.value)} placeholder="Filter article UUID" /><button className="secondary" onClick={load}>Apply</button><button className="secondary" onClick={() => setSelected(jobs.map(job => job.job_id))}>Select all</button><button className="secondary" onClick={() => setSelected([])}>Clear</button><button onClick={() => bulk("retry")} disabled={!selected.length}>Retry selected</button><button className="danger" onClick={() => bulk("delete")} disabled={!selected.length}>Delete selected</button><button className="danger" onClick={async () => { if (!window.confirm("Request cancellation for all queued and running jobs?")) return; try { const result = await api("/jobs/cancel-all", { method: "POST" }); notify(`Cancellation requested for ${result.queued_cancelled + result.running_cancel_requested} jobs`); load(); } catch (e) { notify(e.message, true); } }}>Stop all processing</button></div>}>
-      {error ? <ErrorState error={error} retry={load} /> : jobs.length ? rows.map(([taskId, taskJobs]) => <details className="table-scroll" key={taskId} open><summary><strong>{taskId === "unassigned" ? "Unassigned jobs" : `Task ${taskId}`}</strong><span className="muted"> · {taskJobs.length} jobs</span></summary><table><thead><tr><th></th><th>Job</th><th>Article</th><th>Status</th><th>Stage</th><th>Created</th><th>Duration</th><th>Actions</th></tr></thead><tbody>{taskJobs.map(job => <tr key={job.job_id}><td><input type="checkbox" checked={selected.includes(job.job_id)} onChange={e => setSelected(current => e.target.checked ? [...current, job.job_id] : current.filter(id => id !== job.job_id))} /></td><td><button className="link-button" onClick={() => openJob(job.job_id)}>{shortId(job.job_id)}</button></td><td title={job.article_id}>{shortId(job.article_id)}</td><td><Status value={job.status} /></td><td>{job.current_stage || "—"}</td><td>{formatDate(job.created_at)}</td><td>{job.started_at && job.completed_at ? formatDuration(new Date(job.completed_at) - new Date(job.started_at)) : "—"}</td><td className="actions">{job.status === "RUNNING" || job.status === "PENDING" ? <button className="danger" onClick={() => action(job, "cancel")}>Cancel</button> : null}{["FAILED", "CANCELLED"].includes(job.status) ? <button onClick={() => action(job, "retry")}>Retry</button> : null}{["COMPLETED", "FAILED", "CANCELLED"].includes(job.status) ? <button className="danger" onClick={() => remove(job)}>Delete</button> : null}</td></tr>)}</tbody></table></details>) : <Empty>{error ? "Unable to load jobs." : "No jobs match the selected filters."}</Empty>}
+      {error ? <ErrorState error={error} retry={load} /> : jobs.length ? rows.map(([taskId, taskJobs]) => <details className="table-scroll" key={taskId} open><summary><strong>{taskId === "unassigned" ? "Unassigned jobs" : `Task ${taskId}`}</strong><span className="muted"> · {taskJobs.length} jobs</span></summary><table><thead><tr><th></th><th>Job</th><th>Article</th><th>Status</th><th>Stage</th><th>Created</th><th>Duration</th><th>Tokens in / out</th><th>Actions</th></tr></thead><tbody>{taskJobs.map(job => <tr key={job.job_id}><td><input type="checkbox" checked={selected.includes(job.job_id)} onChange={e => setSelected(current => e.target.checked ? [...current, job.job_id] : current.filter(id => id !== job.job_id))} /></td><td><button className="link-button" onClick={() => openJob(job.job_id)}>{shortId(job.job_id)}</button></td><td title={job.article_id}>{shortId(job.article_id)}</td><td><Status value={job.status} /></td><td>{job.current_stage || "—"}</td><td>{formatDate(job.created_at)}</td><td>{job.duration_ms != null ? formatDuration(job.duration_ms) : job.started_at ? formatDuration(Date.now() - new Date(job.started_at)) : "—"}</td><td>{formatTokens(job)}</td><td className="actions">{job.status === "RUNNING" || job.status === "PENDING" ? <button className="danger" onClick={() => action(job, "cancel")}>Cancel</button> : null}{["FAILED", "CANCELLED"].includes(job.status) ? <button onClick={() => action(job, "retry")}>Retry</button> : null}{["COMPLETED", "FAILED", "CANCELLED"].includes(job.status) ? <button className="danger" onClick={() => remove(job)}>Delete</button> : null}</td></tr>)}</tbody></table></details>) : <Empty>{error ? "Unable to load jobs." : "No jobs match the selected filters."}</Empty>}
     </Panel>
   </Page>;
 }
@@ -244,15 +241,20 @@ function JobDetail({ jobId, back, notify }) {
     const key = log.stage || log.operation;
     if (!key) return;
     const current = telemetryStages.get(key) || { stage: key, status: "PENDING", duration_ms: null, summary: {} };
-    if (log.status === "started") current.status = "RUNNING";
+    if (log.status === "started") {
+      current.status = "RUNNING";
+      current.started_at = log.started_at || log.timestamp;
+    }
     if (log.status === "completed") {
       current.status = "COMPLETED";
       current.duration_ms = log.duration_ms;
+      current.completed_at = log.completed_at || log.timestamp;
       current.summary = { ...current.summary, ...(log.attributes || {}) };
     }
     if (log.status === "failed") {
       current.status = "FAILED";
       current.duration_ms = log.duration_ms;
+      current.completed_at = log.completed_at || log.timestamp;
       current.summary = { ...current.summary, ...(log.attributes || {}) };
     }
     telemetryStages.set(key, current);
@@ -318,10 +320,9 @@ function JobDetail({ jobId, back, notify }) {
     </svg>
     <div className="pipeline-legend"><span><i className="graph-dot completed" />Completed</span><span><i className="graph-dot running" />Running</span><span><i className="graph-dot failed" />Failed</span><span><i className="graph-dot pending" />Pending / skipped</span></div>
   </div>;
-  const elapsed = metrics?.job_wall_clock_duration_ms;
-  const estimate = null;
+  const elapsed = metrics?.elapsed_time_ms ?? metrics?.job_wall_clock_duration_ms;
   return <Page title={`Job ${shortId(job.job_id)}`} subtitle={`Article ${job.article_id}`} refresh={load}><button className="secondary" onClick={back}>← Back to jobs</button>
-    <section className="metric-grid compact"><MetricCard label="Wall-clock" value={formatDuration(elapsed)} /><MetricCard label="Queue wait" value={formatDuration(metrics?.queue_wait_ms)} /><MetricCard label="Critical path" value={formatDuration(metrics?.critical_path_duration_ms)} /><MetricCard label="LLM busy time" value={formatDuration(llmDuration)} /><MetricCard label="Input / output tokens" value={`${formatNumber(inputTokens)} / ${formatNumber(outputTokens)}`} detail={`${metrics?.tokens?.input_source || "Unavailable"} / ${metrics?.tokens?.output_source || "Unavailable"}`} /><MetricCard label="Retries / timeouts" value={`${formatNumber(metrics?.retry_count)} / ${formatNumber(metrics?.timeout_count)}`} /><MetricCard label="DB created / retrieved" value={`${createdRecords} / ${retrievedRecords}`} /></section>
+    <section className="metric-grid compact"><MetricCard label="Elapsed" value={formatDuration(elapsed)} /><MetricCard label="Estimated total" value={formatDuration(metrics?.estimated_total_time_ms)} detail={metrics?.estimate_source || "Unavailable"} /><MetricCard label="Remaining" value={formatDuration(metrics?.remaining_time_ms)} /><MetricCard label="Actual tokens in / out" value={formatTokens({ input_tokens: metrics?.tokens?.input_measured, output_tokens: metrics?.tokens?.output_measured, input_tokens_estimated: metrics?.tokens?.input_estimated, output_tokens_estimated: metrics?.tokens?.output_estimated, token_source: metrics?.tokens?.input_source === "measured" || metrics?.tokens?.output_source === "measured" ? "measured" : metrics?.tokens?.input_source === "estimated" || metrics?.tokens?.output_source === "estimated" ? "estimated" : "none" })} /><MetricCard label="Queue wait" value={formatDuration(metrics?.queue_wait_ms)} /><MetricCard label="Critical path" value={formatDuration(metrics?.critical_path_duration_ms)} /><MetricCard label="LLM busy time" value={formatDuration(llmDuration)} /><MetricCard label="Retries / timeouts" value={`${formatNumber(metrics?.retry_count)} / ${formatNumber(metrics?.timeout_count)}`} /><MetricCard label="DB created / retrieved" value={`${createdRecords} / ${retrievedRecords}`} /></section>
     <div className="detail-grid"><Panel title="Lifecycle"><dl><dt>Status</dt><dd><Status value={job.status} /></dd><dt>Created</dt><dd>{formatDate(job.created_at)}</dd><dt>Started</dt><dd>{formatDate(job.started_at)}</dd><dt>Completed</dt><dd>{formatDate(job.completed_at)}</dd><dt>Correlation</dt><dd className="mono">{job.correlation_id}</dd><dt>Trace</dt><dd className="mono">{job.trace_id}</dd><dt>Error</dt><dd>{job.error_summary || "—"}</dd></dl></Panel>
       <Panel title="Pipeline execution graph" kicker="Branches share a column when stages can execute in parallel; muted nodes are not started">{stageGraph}</Panel></div>
     <Panel title="Related LLM calls" kicker="Model calls correlated to this job"><CallTable calls={llmCalls} /></Panel><Panel title="Related logs" kicker="Structured records filtered by job correlation"><LogTable logs={logs} /></Panel>
@@ -331,28 +332,44 @@ function JobDetail({ jobId, back, notify }) {
 function LLMMonitoring() {
   const [metrics, setMetrics] = useState(null);
   const [calls, setCalls] = useState([]);
-  const [live, setLive] = useState([]);
   const [error, setError] = useState(null);
   const load = () => Promise.all([api("/metrics/llm"), api("/logs?limit=500")]).then(([m, l]) => { setMetrics(m); setCalls(l.filter(event => event.event_type === "llm_call")); }).catch(setError);
   useEffect(() => { load(); }, []);
-  const onEvent = React.useCallback(event => { if (event.event_type === "llm_call") setLive(items => [...items.slice(-59), event]); }, []);
-  useTelemetryStream(onEvent);
   if (error) return <ErrorState error={error} retry={load} />;
   return <Page title="LLM Monitoring" subtitle="Measured provider telemetry, with unavailable values left explicit." refresh={load}>
     <section className="metric-grid compact"><MetricCard label="Requests" value={formatNumber(metrics?.call_count)} detail={`${formatNumber(metrics?.active_call_count)} active now`} /><MetricCard label="Input tokens" value={formatNumber(metrics?.input_tokens_measured || metrics?.input_tokens_estimated)} detail={metrics?.token_source?.input || "Unavailable"} /><MetricCard label="Output tokens" value={formatNumber(metrics?.output_tokens_measured || metrics?.output_tokens_estimated)} detail={metrics?.token_source?.output || "Unavailable"} /><MetricCard label="P50 / average" value={`${formatDuration(metrics?.latency_ms?.p50)} / ${formatDuration(metrics?.latency_ms?.average)}`} /><MetricCard label="P95 / P99 latency" value={`${formatDuration(metrics?.latency_ms?.p95)} / ${formatDuration(metrics?.latency_ms?.p99)}`} /><MetricCard label="Retries / timeouts" value={`${formatNumber(metrics?.retry_count)} / ${formatNumber(metrics?.timeout_count)}`} /><MetricCard label="Errors" value={formatNumber(metrics?.failed_calls)} /></section>
-    <div className="two-column"><Panel title="Live request volume"><MiniChart points={live.map((_, index) => ({ value: index + 1 }))} /></Panel><Panel title="Live output tokens"><MiniChart points={live.map(event => ({ value: event.output_tokens ?? event.output_tokens_estimated }))} color="#f0b35b" /></Panel></div>
-    <Panel title="LLM call inspector" kicker={`${calls.length} retained structured events`}><CallTable calls={calls} /><p className="muted">Output tokens and throughput are shown only when LM Studio reports usage. If no calls appear, verify LLM_URL and MANAGEMENT_EVENTS_URL, then run a new job; retained telemetry is not backfilled from plain logs.</p></Panel>
+    <Panel title="LLM call inspector" kicker={`${calls.length} retained structured events`}><CallTable calls={calls} /><p className="muted">If no calls appear, verify LLM_URL and MANAGEMENT_EVENTS_URL, then run a new job; retained telemetry is not backfilled from plain logs.</p></Panel>
   </Page>;
 }
 
 function CallTable({ calls }) {
   const [query, setQuery] = useState("");
-  const sorted = [...calls].filter(call => JSON.stringify(call).toLowerCase().includes(query.toLowerCase())).sort((a, b) => (b.duration_ms || 0) - (a.duration_ms || 0));
-  return <><div className="filter-row"><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search model, stage, trace…" /></div><div className="table-scroll"><table><thead><tr><th>Status</th><th>Stage</th><th>Model</th><th>Duration</th><th>Tokens in / out</th><th>Throughput</th><th>Trace</th></tr></thead><tbody>{sorted.slice(0, 200).map(call => <tr key={call.event_id}><td><Status value={call.status} /></td><td>{call.stage || "—"}</td><td>{call.model || "Unavailable"}</td><td>{formatDuration(call.duration_ms)}</td><td>{call.input_tokens == null && call.input_tokens_estimated == null ? "Unavailable" : `${call.input_tokens == null ? "~" : ""}${call.input_tokens ?? call.input_tokens_estimated} / ${call.output_tokens == null ? (call.output_tokens_estimated == null ? "—" : "~" + call.output_tokens_estimated) : call.output_tokens}`}</td><td>{call.throughput_tokens_per_second == null ? "Unavailable" : `${formatNumber(call.throughput_tokens_per_second, 1)} tok/s`}</td><td className="mono">{shortId(call.trace_id)}</td></tr>)}</tbody></table></div>{!sorted.length && <Empty />}</>;
+  const sorted = mergeTelemetryEvents(calls).filter(call => JSON.stringify(call).toLowerCase().includes(query.toLowerCase())).sort((a, b) => (b.duration_ms || 0) - (a.duration_ms || 0));
+  return <><div className="filter-row"><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search model, stage, trace…" /></div><div className="table-scroll"><table><thead><tr><th>Status</th><th>Stage</th><th>Model</th><th>Duration</th><th>Tokens in / out</th><th>Trace</th></tr></thead><tbody>{sorted.slice(0, 200).map(call => <tr key={call.event_id}><td><Status value={call.status} /></td><td>{call.stage || "—"}</td><td>{call.model || "Unavailable"}</td><td>{formatDuration(call.duration_ms)}</td><td>{call.input_tokens == null && call.input_tokens_estimated == null ? "Unavailable" : `${call.input_tokens == null ? "~" : ""}${call.input_tokens ?? call.input_tokens_estimated} / ${call.output_tokens == null ? (call.output_tokens_estimated == null ? "—" : "~" + call.output_tokens_estimated) : call.output_tokens}`}</td><td className="mono">{shortId(call.trace_id)}</td></tr>)}</tbody></table></div>{!sorted.length && <Empty />}</>;
+}
+
+function mergeTelemetryEvents(logs) {
+  const groups = new Map();
+  logs.forEach(log => {
+    const key = log.span_id || log.event_id || `${log.timestamp}-${log.event_type}`;
+    const group = groups.get(key) || { ...log, events: [] };
+    group.events.push(log);
+    const completed = log.status === "completed" || log.status === "failed";
+    if (completed || !group.status) Object.assign(group, log);
+    if (log.status === "started" && !group.started_at) group.started_at = log.started_at || log.timestamp;
+    if (completed) {
+      group.completed_at = log.completed_at || log.timestamp;
+      group.duration_ms = log.duration_ms ?? group.duration_ms;
+    }
+    groups.set(key, group);
+  });
+  return [...groups.values()].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 }
 
 function LogTable({ logs }) {
-  return logs.length ? <div className="table-scroll"><table><thead><tr><th>Time</th><th>Severity</th><th>Service</th><th>Event</th><th>Stage</th><th>Details</th></tr></thead><tbody>{logs.map(log => <tr key={log.event_id || `${log.timestamp}-${log.event_type}`}><td>{formatDate(log.timestamp)}</td><td><Status value={log.level || log.status} /></td><td>{log.service}</td><td>{log.event_type}</td><td>{log.stage || "—"}</td><td className="log-detail">{log.error_detail || JSON.stringify(log.attributes || {})}</td></tr>)}</tbody></table></div> : <Empty />;
+  const [expanded, setExpanded] = useState(null);
+  const rows = mergeTelemetryEvents(logs);
+  return rows.length ? <div className="table-scroll"><table><thead><tr><th></th><th>Time</th><th>Severity</th><th>Service</th><th>Event</th><th>Stage</th><th>Duration</th><th>Details</th></tr></thead><tbody>{rows.map(log => <React.Fragment key={log.span_id || log.event_id}><tr><td>{log.events.length > 1 && <button className="table-sort" onClick={() => setExpanded(expanded === (log.span_id || log.event_id) ? null : (log.span_id || log.event_id))}>{expanded === (log.span_id || log.event_id) ? "−" : "+"}</button>}</td><td>{formatDate(log.timestamp)}</td><td><Status value={log.level || log.status} /></td><td>{log.service}</td><td>{log.event_type}</td><td>{log.stage || "—"}</td><td>{formatDuration(log.duration_ms)}</td><td className="log-detail">{log.error_detail || JSON.stringify(log.attributes || {})}</td></tr>{expanded === (log.span_id || log.event_id) && <tr><td colSpan="8"><div className="log-history">{log.events.map(event => <div key={event.event_id || event.status}><Status value={event.status} /> <span>{formatDate(event.timestamp)}</span> <span>{event.status === "completed" ? formatDuration(event.duration_ms) : ""}</span></div>)}</div></td></tr>}</React.Fragment>)}</tbody></table></div> : <Empty />;
 }
 
 function Logs({ notify }) {
@@ -442,8 +459,8 @@ function Tasks({ notify, openJob }) {
       <div className="form-row"><input value={name} onChange={e => setName(e.target.value)} placeholder="Task name" /><button className="secondary" onClick={() => toggleAll(true)}>Select all visible</button><button className="secondary" onClick={() => toggleAll(false)}>Clear selection</button><button disabled={!selected.length} onClick={() => create(selected)}>Process selected ({selected.length})</button><button className="secondary" disabled={!selected.length} onClick={() => create(selected, true)}>Redo selected ({selected.length})</button></div>
       <div className="table-scroll"><table><thead><tr><th><input type="checkbox" checked={articles.length > 0 && selected.length === articles.length} onChange={e => toggleAll(e.target.checked)} /></th><th>Article</th><th>Title</th><th>Status</th></tr></thead><tbody>{articles.map(article => <tr key={article.article_id}><td><input type="checkbox" checked={selected.includes(article.article_id)} onChange={e => setSelected(e.target.checked ? [...selected, article.article_id] : selected.filter(id => id !== article.article_id))} /></td><td className="mono">{shortId(article.article_id)}</td><td>{article.article_title || "Untitled"}</td><td>{article.status || "NEW"}</td></tr>)}</tbody></table></div>
     </Panel>}
-    {tab === "history" && <Panel title="Task history">{error ? <ErrorState error={error} retry={load} /> : tasks.length ? <div className="table-scroll"><table><thead><tr><th>Task</th><th>Status</th><th>Progress</th><th>KPIs</th><th>Created</th></tr></thead><tbody>{tasks.map(task => <tr key={task.task_id}><td><button className="link-button" onClick={() => setDetail(task)}>{task.name}</button><small className="mono">{shortId(task.task_id)}</small></td><td><Status value={task.status} /></td><td>{task.completed_articles}/{task.total_articles} complete · {task.failed_articles} failed</td><td>{task.citations} citations · {task.topics} topics · {task.attitudes} attitudes</td><td>{formatDate(task.created_at)}</td></tr>)}</tbody></table></div> : <Empty>No tasks have been created.</Empty>}</Panel>}
-    {detail && <Panel title={detail.name} actions={<div className="filter-row">{["PENDING", "RUNNING"].includes(detail.status) && <button className="danger" onClick={async () => { if (!window.confirm("Request cancellation for this task?")) return; try { setDetail(await api(`/tasks/${detail.task_id}/cancel`, { method: "POST" })); notify("Task cancellation requested"); } catch (e) { notify(e.message, true); } }}>Cancel task</button>}{!["PENDING", "RUNNING", "RETRYING"].includes(detail.status) && <button className="danger" onClick={async () => { if (!window.confirm("Delete this task and all related job attempts?")) return; try { await api(`/tasks/${detail.task_id}`, { method: "DELETE" }); notify("Task and related jobs deleted"); setDetail(null); load(); } catch (e) { notify(e.message, true); } }}>Delete task</button>}<button className="secondary" onClick={() => setDetail(null)}>Close</button></div>}><div className="metric-grid compact"><MetricCard label="Status" value={detail.status} /><MetricCard label="Articles" value={`${detail.completed_articles}/${detail.total_articles}`} /><MetricCard label="Retry rate" value={`${((detail.retry_rate || 0) * 100).toFixed(1)}%`} /><MetricCard label="Execution time" value={formatDuration(detail.execution_time_ms)} /><MetricCard label="Time / job" value={formatDuration(detail.execution_time_per_job_ms)} /><MetricCard label="Citations" value={formatNumber(detail.citations)} /><MetricCard label="Topics" value={formatNumber(detail.topics)} /><MetricCard label="Attitudes" value={formatNumber(detail.attitudes)} /></div><p className="muted">Live estimates update every five seconds from completed stage duration and observed analytical counts.</p><div className="timeline">{analytics?.stages?.map(stage => <div className="timeline-row" key={stage.stage}><strong>{stage.stage}</strong><span>{formatDuration(stage.duration_ms)}</span><span>{stage.events} events · {stage.citations} citations · {stage.topics} topics · {stage.people} people · {stage.attitudes} attitudes</span><small>{stage.created_records} created / {stage.retrieved_records} retrieved</small></div>) || <Empty>Stage analytics will appear when telemetry arrives.</Empty>}</div><TaskJobsTable taskId={detail.task_id} openJob={openJob} notify={notify} /></Panel>}
+    {tab === "history" && <Panel title="Task history">{error ? <ErrorState error={error} retry={load} /> : tasks.length ? <div className="table-scroll"><table><thead><tr><th>Task</th><th>Status</th><th>Progress</th><th>Elapsed / remaining</th><th>Tokens in / out</th><th>KPIs</th><th>Created</th></tr></thead><tbody>{tasks.map(task => <tr key={task.task_id}><td><button className="link-button" onClick={() => setDetail(task)}>{task.name}</button><small className="mono">{shortId(task.task_id)}</small></td><td><Status value={task.status} /></td><td>{task.completed_articles}/{task.total_articles} complete · {task.failed_articles} failed</td><td>{formatDuration(task.elapsed_time_ms)} / {formatDuration(task.remaining_time_ms)}</td><td>{formatTokens(task)}</td><td>{task.citations} citations · {task.topics} topics · {task.attitudes} attitudes</td><td>{formatDate(task.created_at)}</td></tr>)}</tbody></table></div> : <Empty>No tasks have been created.</Empty>}</Panel>}
+    {detail && <Panel title={detail.name} actions={<div className="filter-row">{["PENDING", "RUNNING"].includes(detail.status) && <button className="danger" onClick={async () => { if (!window.confirm("Request cancellation for this task?")) return; try { setDetail(await api(`/tasks/${detail.task_id}/cancel`, { method: "POST" })); notify("Task cancellation requested"); } catch (e) { notify(e.message, true); } }}>Cancel task</button>}{!["PENDING", "RUNNING", "RETRYING"].includes(detail.status) && <button className="danger" onClick={async () => { if (!window.confirm("Delete this task and all related job attempts?")) return; try { await api(`/tasks/${detail.task_id}`, { method: "DELETE" }); notify("Task and related jobs deleted"); setDetail(null); load(); } catch (e) { notify(e.message, true); } }}>Delete task</button>}<button className="secondary" onClick={() => setDetail(null)}>Close</button></div>}><div className="metric-grid compact"><MetricCard label="Status" value={detail.status} /><MetricCard label="Articles" value={`${detail.completed_articles}/${detail.total_articles}`} /><MetricCard label="Elapsed" value={formatDuration(detail.elapsed_time_ms)} /><MetricCard label="Estimated total" value={formatDuration(detail.estimated_total_time_ms)} detail={detail.estimate_source || "Unavailable"} /><MetricCard label="Remaining" value={formatDuration(detail.remaining_time_ms)} /><MetricCard label="Actual tokens in / out" value={formatTokens(detail)} detail={detail.token_source} /><MetricCard label="Retry rate" value={`${((detail.retry_rate || 0) * 100).toFixed(1)}%`} /><MetricCard label="Citations" value={formatNumber(detail.citations)} /><MetricCard label="Topics" value={formatNumber(detail.topics)} /><MetricCard label="Attitudes" value={formatNumber(detail.attitudes)} /></div><p className="muted">Estimates use the observed task completion rate or a weighted moving average of recent jobs.</p><div className="timeline">{analytics?.stages?.map(stage => <div className="timeline-row" key={stage.stage}><strong>{stage.stage}</strong><span>{formatDuration(stage.duration_ms)}</span><span>{stage.events} events · {stage.citations} citations · {stage.topics} topics · {stage.people} people · {stage.attitudes} attitudes</span><small>{stage.created_records} created / {stage.retrieved_records} retrieved</small></div>) || <Empty>Stage analytics will appear when telemetry arrives.</Empty>}</div><TaskJobsTable taskId={detail.task_id} openJob={openJob} notify={notify} /></Panel>}
   </Page>;
 }
 
@@ -633,41 +650,33 @@ function DataManager({ notify }) {
 }
 
 function Experiments({ notify }) {
-  const [experiments, setExperiments] = useState([]);
-  const [selected, setSelected] = useState([]);
-  const [form, setForm] = useState({ description: "", article_ids: "", dataset_name: "", model: "", prompt_version: "", inconsistency_window_days: "365" });
-  const [detail, setDetail] = useState(null);
-  const [comparison, setComparison] = useState(null);
+  const [runs, setRuns] = useState([]);
+  const [models, setModels] = useState([]);
+  const [datasets, setDatasets] = useState([]);
+  const [form, setForm] = useState({ experiment_type: "EXP-01", dataset: "synthetic", model_ids: [], repetitions: "1", alternative_temperature: "0.7" });
   const [error, setError] = useState(null);
-  const load = () => api("/experiments?limit=100").then(setExperiments).catch(setError);
+  const load = async () => {
+    try {
+      const [runData, modelData, datasetData] = await Promise.all([api("/benchmarks/runs"), api("/benchmarks/models"), api("/benchmarks/datasets")]);
+      setRuns(runData); setModels(modelData); setDatasets(datasetData);
+      if (!form.model_ids.length && modelData.length) setForm(current => ({ ...current, model_ids: modelData.map(item => item.id) }));
+    } catch (e) { setError(e); }
+  };
   useEffect(() => { load(); }, []);
   const create = async event => {
     event.preventDefault();
-    const articleIds = form.article_ids.split(/[\s,]+/).map(value => value.trim()).filter(Boolean);
-    if (!articleIds.length) return notify("Enter at least one article UUID", true);
     try {
-      await api("/experiments", { method: "POST", body: JSON.stringify({
-        description: form.description,
-        article_ids: articleIds,
-        dataset_name: form.dataset_name || null,
-        model_config_snapshot: form.model ? { model: form.model } : {},
-        prompt_versions: form.prompt_version ? { pipeline: form.prompt_version } : {},
-        pipeline_parameters: { inconsistency_window_days: Number(form.inconsistency_window_days) },
-      }) });
-      notify("Experiment created"); setForm({ ...form, description: "", article_ids: "" }); load();
+      const configurations = form.experiment_type === "EXP-02" && form.model_ids[0]
+        ? [{ model_id: models.find(item => item.id === form.model_ids[0])?.model, temperature: 0 }, { model_id: models.find(item => item.id === form.model_ids[0])?.model, temperature: Number(form.alternative_temperature) }]
+        : [];
+      await api("/benchmarks/runs", { method: "POST", body: JSON.stringify({ experiment_type: form.experiment_type, dataset: form.dataset, model_ids: form.model_ids, repetitions: Number(form.repetitions), configurations }) });
+      notify("Benchmark run created"); load();
     } catch (e) { notify(e.message, true); }
   };
-  const start = async experiment => {
-    try { await api(`/experiments/${experiment.experiment_id}/start`, { method: "POST" }); notify("Experiment jobs queued"); load(); } catch (e) { notify(e.message, true); }
-  };
-  const compare = async () => {
-    try { setComparison(await api("/experiments/compare", { method: "POST", body: JSON.stringify({ experiment_ids: selected }) })); } catch (e) { notify(e.message, true); }
-  };
-  return <Page title="Experiments" subtitle="Reproducible pipeline runs with configuration snapshots and operational comparisons." refresh={load}>
-    <Panel title="Create experiment" kicker="Secrets are removed before snapshots are persisted"><form className="experiment-form" onSubmit={create}><label>Description<input required value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} /></label><label>Article UUIDs<input required value={form.article_ids} onChange={e => setForm({ ...form, article_ids: e.target.value })} placeholder="Comma or whitespace separated" /></label><label>Dataset name<input value={form.dataset_name} onChange={e => setForm({ ...form, dataset_name: e.target.value })} /></label><label>Model identifier<input value={form.model} onChange={e => setForm({ ...form, model: e.target.value })} placeholder="Optional snapshot" /></label><label>Prompt/template version<input value={form.prompt_version} onChange={e => setForm({ ...form, prompt_version: e.target.value })} /></label><label>Inconsistency window (days)<input type="number" min="1" max="3650" value={form.inconsistency_window_days} onChange={e => setForm({ ...form, inconsistency_window_days: e.target.value })} /></label><button type="submit">Create experiment</button></form></Panel>
-    <Panel title="Experiment history" actions={<div className="filter-row"><button disabled={selected.length < 2} onClick={compare}>Compare selected ({selected.length})</button></div>}>{error ? <ErrorState error={error} retry={load} /> : experiments.length ? <div className="table-scroll"><table><thead><tr><th></th><th>Experiment</th><th>Status</th><th>Articles</th><th>Created</th><th>Jobs</th><th>Actions</th></tr></thead><tbody>{experiments.map(experiment => <tr key={experiment.experiment_id}><td><input type="checkbox" checked={selected.includes(experiment.experiment_id)} onChange={e => setSelected(e.target.checked ? [...selected, experiment.experiment_id] : selected.filter(id => id !== experiment.experiment_id))} /></td><td><button className="link-button" onClick={() => setDetail(experiment)}>{experiment.description}</button><small className="mono">{shortId(experiment.experiment_id)}</small></td><td><Status value={experiment.status} /></td><td>{experiment.article_ids.length}</td><td>{formatDate(experiment.created_at)}</td><td>{experiment.job_ids.length}</td><td>{experiment.status === "CREATED" || experiment.status === "FAILED" ? <button onClick={() => start(experiment)}>Start</button> : <button className="secondary" onClick={() => setDetail(experiment)}>Inspect</button>}</td></tr>)}</tbody></table></div> : <Empty>No experiments have been created.</Empty>}</Panel>
-    {comparison && <Panel title="Comparison" kicker="Operational metrics only; quality appears only with evaluation data"><div className="comparison-grid">{comparison.experiments.map(item => <div className="comparison-card" key={item.experiment_id}><strong>{item.description}</strong><span>Articles: {item.metrics.article_count}</span><span>Time/article: {formatDuration(item.metrics.processing_time_ms_per_article)}</span><span>LLM calls/article: {formatNumber(item.metrics.llm_calls_per_article, 2)}</span><span>Tokens/article: {item.metrics.input_tokens_per_article == null ? "Unavailable" : `${formatNumber(item.metrics.input_tokens_per_article)} / ${formatNumber(item.metrics.output_tokens_per_article)}`}</span><span>Failure rate: {item.metrics.failure_rate == null ? "Unavailable" : `${(item.metrics.failure_rate * 100).toFixed(1)}%`}</span><span>Quality: {item.metrics.quality ? `F1 ${formatNumber(item.metrics.quality.f1, 3)}` : "Unavailable — no ground truth"}</span></div>)}</div></Panel>}
-    {detail && <Panel title={detail.description} actions={<div className="filter-row"><a className="button-link" href={`/api/experiments/${detail.experiment_id}/export?format=json`} target="_blank" rel="noreferrer">JSON export</a><a className="button-link" href={`/api/experiments/${detail.experiment_id}/export?format=csv`}>CSV export</a><button className="secondary" onClick={() => setDetail(null)}>Close</button></div>}><div className="experiment-detail"><div><span className="eyebrow">Configuration snapshot</span><pre>{JSON.stringify({ dataset_name: detail.dataset_name, model_config_snapshot: detail.model_config_snapshot, prompt_versions: detail.prompt_versions, pipeline_parameters: detail.pipeline_parameters }, null, 2)}</pre></div><div><span className="eyebrow">Metrics</span><pre>{JSON.stringify(detail.metrics, null, 2)}</pre></div><div><span className="eyebrow">Job references</span><p className="mono">{detail.job_ids.join("\n") || "No jobs started"}</p></div></div></Panel>}
+  const start = async run => { try { await api(`/benchmarks/runs/${run.run_id}/start`, { method: "POST" }); notify("Benchmark started"); load(); } catch (e) { notify(e.message, true); } };
+  return <Page title="Benchmarks" subtitle="Isolated model, configuration, and stability evaluation." refresh={load}>
+    <Panel title="Create benchmark run" kicker="Synthetic labels are predefined; real-news results are exploratory"><form className="experiment-form" onSubmit={create}><label>Experiment type<select value={form.experiment_type} onChange={e => setForm({ ...form, experiment_type: e.target.value })}><option>EXP-01</option><option>EXP-02</option><option>EXP-03</option></select></label><label>Dataset<select value={form.dataset} onChange={e => setForm({ ...form, dataset: e.target.value })}>{datasets.map(item => <option key={item.id} value={item.id}>{item.id} ({item.case_count})</option>)}</select></label><label>Repetitions<input type="number" min="1" max="3" value={form.repetitions} onChange={e => setForm({ ...form, repetitions: e.target.value })} /></label>{form.experiment_type === "EXP-02" && <label>Alternative temperature<input type="number" min="0" max="2" step="0.1" value={form.alternative_temperature} onChange={e => setForm({ ...form, alternative_temperature: e.target.value })} /></label>}<label>Models<select multiple value={form.model_ids} onChange={e => setForm({ ...form, model_ids: [...e.target.selectedOptions].map(option => option.value) })}>{models.map(item => <option key={item.id} value={item.id}>{item.id}</option>)}</select></label><button type="submit" disabled={!form.model_ids.length}>Create run</button></form></Panel>
+    <Panel title="Benchmark runs">{error ? <ErrorState error={error} retry={load} /> : runs.length ? <div className="table-scroll"><table><thead><tr><th>Run</th><th>Type</th><th>Dataset</th><th>Status</th><th>Summary</th><th>Actions</th></tr></thead><tbody>{runs.map(run => <tr key={run.run_id}><td className="mono">{run.run_id}</td><td>{run.experiment_type}</td><td>{run.dataset}</td><td><Status value={run.status} /></td><td>{run.summary?.cases ? `${run.summary.cases} cases · ${formatDuration(run.summary.average_execution_time_ms)}` : "—"}</td><td>{run.status === "CREATED" || run.status === "FAILED" ? <button onClick={() => start(run)}>Start</button> : <button className="secondary" onClick={() => window.open(`/api/benchmarks/runs/${run.run_id}`, "_blank")}>Inspect JSON</button>}</td></tr>)}</tbody></table></div> : <Empty>No benchmark runs have been created.</Empty>}</Panel>
   </Page>;
 }
 
@@ -686,7 +695,7 @@ function App() {
     ["group", "Processing"],
     ["tasks", "Tasks"],
     ["jobs", "Jobs"],
-    ["experiments", "Experiments"],
+    ["experiments", "Benchmarks"],
     ["group", "Operations"],
     ["overview", "Overview"],
     ["llm", "LLM Monitoring"],

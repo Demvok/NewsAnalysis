@@ -12,6 +12,7 @@ from uuid import UUID
 
 import httpx
 from . import LLM, models
+from .propagation_service import propagate_topic_stances
 from .stance import (
     StanceEvaluation,
     calculate_stance,
@@ -1253,7 +1254,6 @@ def persist_inconsistencies(
                 f"{STORAGE_URL}/citations/history",
                 params={
                     "person_uuid": person_uuid,
-                    "topic_uuid": topic_uuid,
                     "before": before.isoformat() if before else None,
                     "window_days": window_days,
                     "exclude_citation_uuid": citation_uuid,
@@ -1265,8 +1265,30 @@ def persist_inconsistencies(
             history_attributes["historical_candidate_count"] = len(
                 search_response.json()
             )
-        comparisons += 1
-        for historical in search_response.json():
+        historical_candidates = search_response.json()
+        propagation_request = models.TopicPropagationRequest(
+            target_topic_uuid=UUID(topic_uuid),
+            citations=[
+                models.TopicPropagationCitation(
+                    citation_uuid=UUID(str(historical["citation_uuid"])),
+                    citation_topic_uuid=UUID(str(historical["topic_uuid"])),
+                    original_stance=historical.get("stance"),
+                    original_stance_confidence=historical.get("stance_confidence"),
+                )
+                for historical in historical_candidates
+                if historical.get("topic_uuid")
+                and historical.get("stance") is not None
+            ],
+        )
+        propagated_history = (
+            propagate_topic_stances(propagation_request)
+            if propagation_request.citations
+            else []
+        )
+        propagated_by_citation = {
+            str(item.citation_uuid): item for item in propagated_history
+        }
+        for historical in historical_candidates:
             historical_quote = (
                 historical.get("exact_quote")
                 or historical.get("summarized_quote")
@@ -1280,36 +1302,34 @@ def persist_inconsistencies(
                 or historical.get("stance") is None
             ):
                 continue
-            # Deterministic pre-checks run before the expensive semantic comparison:
-            # exact duplicate evidence and mentions are never historical signals.
-            historical_polarity = historical.get("stance_polarity")
-            current_polarity = _stance_polarity(attitude["stance"])
-            if historical_polarity is not None and current_polarity == 0:
-                continue
-            if (
-                historical_polarity is not None
-                and current_polarity != 0
-                and int(historical_polarity) == -current_polarity
-            ):
+            relative_stance = propagated_by_citation.get(
+                str(historical["citation_uuid"])
+            )
+            if relative_stance is None or not relative_stance.reliable:
                 logger.info(
-                    "analysis_stage=inconsistency_comparison "
-                    "status=opposite_polarity_candidate person_uuid=%s topic_uuid=%s "
-                    "historical_citation_uuid=%s current_citation_uuid=%s",
+                    "analysis_stage=inconsistency_comparison status=topic_candidate_skipped "
+                    "person_uuid=%s source_topic_uuid=%s target_topic_uuid=%s "
+                    "relevance=%.3f polarity=%.3f",
                     person_uuid,
+                    historical.get("topic_uuid"),
                     topic_uuid,
-                    historical["citation_uuid"],
-                    citation_uuid,
+                    relative_stance.relevance if relative_stance else 0.0,
+                    relative_stance.polarity if relative_stance else 0.0,
                 )
+                continue
+            comparisons += 1
             logger.info(
                 "analysis_stage=inconsistency_comparison status=started "
-                "person_uuid=%s topic_uuid=%s",
+                "person_uuid=%s topic_uuid=%s relevance=%.3f polarity=%.3f",
                 person_uuid,
                 topic_uuid,
+                relative_stance.relevance,
+                relative_stance.polarity,
             )
             comparison = LLM.compare_attitudes(
                 topic_name=topic_name,
                 earlier=historical_quote,
-                earlier_stance=historical.get("stance"),
+                earlier_stance=str(relative_stance.transferred_stance),
                 newer=current_quote,
                 newer_stance=str(attitude.get("stance"))
                 if attitude.get("stance") is not None
@@ -1323,8 +1343,8 @@ def persist_inconsistencies(
                     "topic_uuid": topic_uuid,
                     "citation_a_uuid": historical["citation_uuid"],
                     "citation_b_uuid": citation_uuid,
-                    "attitude_a": historical.get("stance"),
-                    "attitude_b": attitude.get("stance"),
+                    "attitude_a": str(relative_stance.transferred_stance),
+                    "attitude_b": str(attitude.get("stance")),
                     "classification": comparison.classification,
                     "severity": comparison.severity.value,
                     "confidence": comparison.confidence,
@@ -1345,6 +1365,14 @@ def persist_inconsistencies(
                     response.text[:1000],
                 )
             response.raise_for_status()
+            persisted = response.json()
+            if (
+                not isinstance(persisted, dict)
+                or not persisted.get("inconsistency_uuid")
+            ):
+                raise ValueError(
+                    "Inconsistency storage returned no persisted record identifier"
+                )
             _add_stats(stats, _bulk_stats(response))
     stats["comparison_count"] = comparisons
     emit_event(

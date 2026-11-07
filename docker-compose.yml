@@ -64,6 +64,18 @@ services:
       analysis-layer:
         condition: service_started
 
+  benchmark-service:
+    build: ./benchmark-service
+    container_name: benchmark-service
+    environment:
+      BENCHMARK_LLM_URL: ${BENCHMARK_LLM_URL:-http://host.docker.internal:1234/v1}
+    ports:
+      - "7100:7100"
+    volumes:
+      - benchmark_results:/app/results
+    depends_on:
+      - analysis-layer
+
   management-dashboard:
     build: ./management-service/dashboard
     container_name: management-dashboard
@@ -84,3 +96,4 @@ services:
 volumes:
   postgres_data:
   management_data:
+  benchmark_results:

@@ -170,6 +170,36 @@ app = FastAPI(
 )
 
 
+@app.get("/api/benchmarks/models", tags=["Benchmarks"])
+def benchmark_models() -> Any:
+    return client.benchmark("GET", "/api/models")
+
+
+@app.get("/api/benchmarks/datasets", tags=["Benchmarks"])
+def benchmark_datasets() -> Any:
+    return client.benchmark("GET", "/api/datasets")
+
+
+@app.get("/api/benchmarks/runs", tags=["Benchmarks"])
+def benchmark_runs() -> Any:
+    return client.benchmark("GET", "/api/runs")
+
+
+@app.post("/api/benchmarks/runs", tags=["Benchmarks"])
+def create_benchmark_run(payload: dict[str, Any]) -> Any:
+    return client.benchmark("POST", "/api/runs", payload)
+
+
+@app.post("/api/benchmarks/runs/{run_id}/start", tags=["Benchmarks"])
+def start_benchmark_run(run_id: str) -> Any:
+    return client.benchmark("POST", f"/api/runs/{run_id}/start")
+
+
+@app.get("/api/benchmarks/runs/{run_id}", tags=["Benchmarks"])
+def get_benchmark_run(run_id: str) -> Any:
+    return client.benchmark("GET", f"/api/runs/{run_id}")
+
+
 @app.on_event("startup")
 def recover_jobs() -> None:
     global _retention_thread
@@ -242,9 +272,45 @@ def _interval_duration(intervals: list[tuple[datetime, datetime]]) -> int:
     return int(sum((completed - started).total_seconds() * 1000 for started, completed in merged))
 
 
+def _now_aware() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _elapsed_ms(started_at: str | None, completed_at: str | None = None) -> int | None:
+    if not started_at:
+        return None
+    started = datetime.fromisoformat(started_at)
+    completed = datetime.fromisoformat(completed_at) if completed_at else _now_aware()
+    if started.tzinfo is None:
+        started = started.replace(tzinfo=timezone.utc)
+    if completed.tzinfo is None:
+        completed = completed.replace(tzinfo=timezone.utc)
+    return max(0, int((completed - started).total_seconds() * 1000))
+
+
+def _event_duration_ms(row) -> int | None:
+    if row["duration_ms"] is not None:
+        return row["duration_ms"]
+    if row["started_at"] and row["completed_at"]:
+        return _elapsed_ms(row["started_at"], row["completed_at"])
+    return None
+
+
+def _moving_average(values: list[float]) -> float | None:
+    if not values:
+        return None
+    recent = values[-20:]
+    weights = range(1, len(recent) + 1)
+    return sum(value * weight for value, weight in zip(recent, weights)) / sum(weights)
+
+
 def _execution_metrics(connection, job_ids: list[str]) -> dict[str, Any]:
     empty = {
         "job_wall_clock_duration_ms": None,
+        "elapsed_time_ms": None,
+        "estimated_total_time_ms": None,
+        "remaining_time_ms": None,
+        "estimate_source": None,
         "queue_wait_ms": None,
         "critical_path_duration_ms": None,
         "summed_llm_busy_time_ms": 0,
@@ -272,12 +338,12 @@ def _execution_metrics(connection, job_ids: list[str]) -> dict[str, Any]:
         f"SELECT * FROM telemetry_events WHERE job_id IN ({placeholders})", job_ids
     ).fetchall()
     wall = []
+    elapsed = []
     for row in jobs:
         if row["started_at"] and row["completed_at"]:
-            wall.append(
-                (datetime.fromisoformat(row["completed_at"]) -
-                 datetime.fromisoformat(row["started_at"])).total_seconds() * 1000
-            )
+            wall.append(_elapsed_ms(row["started_at"], row["completed_at"]))
+        elif row["started_at"]:
+            elapsed.append(_elapsed_ms(row["started_at"]))
     stage_intervals = []
     llm_durations = []
     llm_queue_wait = 0
@@ -286,16 +352,20 @@ def _execution_metrics(connection, job_ids: list[str]) -> dict[str, Any]:
     latency = []
     measured_input = measured_output = estimated_input = estimated_output = 0
     measured_input_present = measured_output_present = False
+    completed_stage_durations: dict[str, list[float]] = {}
     for event in events:
         if event["started_at"] and event["completed_at"] and event["event_type"] == "pipeline_stage":
             stage_intervals.append((
                 datetime.fromisoformat(event["started_at"]),
                 datetime.fromisoformat(event["completed_at"]),
             ))
+            if event["stage"] and event["duration_ms"] is not None:
+                completed_stage_durations.setdefault(event["stage"], []).append(event["duration_ms"])
         if event["event_type"] == "llm_call" and event["status"] in {"completed", "failed"}:
-            if event["duration_ms"] is not None:
-                llm_durations.append(event["duration_ms"])
-                latency.append(event["duration_ms"])
+            duration = _event_duration_ms(event)
+            if duration is not None:
+                llm_durations.append(duration)
+                latency.append(duration)
             if event["input_tokens"] is not None:
                 measured_input += event["input_tokens"]
                 measured_input_present = True
@@ -308,17 +378,37 @@ def _execution_metrics(connection, job_ids: list[str]) -> dict[str, Any]:
             llm_queue_wait += attributes.get("provider_queue_wait_ms") or 0
             timeout_count += int(event["error_category"] == "timeout")
         if event["event_type"] == "embedding_request" and event["status"] in {"completed", "failed"}:
-            embedding += event["duration_ms"] or 0
+            embedding += _event_duration_ms(event) or 0
         if event["event_type"] == "api_request_completed":
             attributes = json.loads(event["attributes_json"] or "{}")
             path = attributes.get("path", "")
             if path == "/internal/events/bulk":
-                telemetry += event["duration_ms"] or 0
+                telemetry += _event_duration_ms(event) or 0
             elif event["service"] == "data-storage":
-                storage += event["duration_ms"] or 0
+                storage += _event_duration_ms(event) or 0
     retry_count = sum(row["retry_count"] or 0 for row in jobs)
+    job_wall_clock = sum(wall) / len(wall) if wall else None
+    active_elapsed = sum(elapsed) / len(elapsed) if elapsed else None
+    historical_jobs = connection.execute(
+        """SELECT started_at, completed_at FROM jobs
+           WHERE status IN ('COMPLETED', 'FAILED')
+             AND started_at IS NOT NULL AND completed_at IS NOT NULL
+           ORDER BY completed_at DESC LIMIT 50""",
+    ).fetchall()
+    historical = [_elapsed_ms(row["started_at"], row["completed_at"]) for row in historical_jobs]
+    baseline = _moving_average(list(reversed([value for value in historical if value is not None])))
+    estimate_total = job_wall_clock or active_elapsed
+    estimate_source = "observed"
+    if estimate_total is None and baseline is not None:
+        estimate_total = baseline
+        estimate_source = "moving_average"
     return {
-        "job_wall_clock_duration_ms": sum(wall) / len(wall) if wall else None,
+        "job_wall_clock_duration_ms": job_wall_clock,
+        "elapsed_time_ms": job_wall_clock if job_wall_clock is not None else active_elapsed,
+        "estimated_total_time_ms": estimate_total,
+        "remaining_time_ms": max(0, estimate_total - active_elapsed) if estimate_total is not None and active_elapsed is not None else None,
+        "estimate_source": estimate_source if estimate_total is not None else None,
+        "stage_estimates": {stage: _moving_average(values) for stage, values in completed_stage_durations.items()},
         "queue_wait_ms": sum(row["queue_wait_ms"] or 0 for row in jobs) / len(jobs),
         "critical_path_duration_ms": _interval_duration(stage_intervals),
         "summed_llm_busy_time_ms": sum(llm_durations),
@@ -371,6 +461,11 @@ def _retention_loop() -> None:
 
 
 def job_response(value: dict[str, Any]) -> JobResponse:
+    with database.connection() as connection:
+        tokens = _execution_metrics(connection, [str(value["job_id"])])["tokens"]
+    token_source = "measured" if tokens["input_source"] == "measured" or tokens["output_source"] == "measured" else (
+        "estimated" if tokens["input_source"] == "estimated" or tokens["output_source"] == "estimated" else "none"
+    )
     return JobResponse(
         job_id=value["job_id"], job_type=value["job_type"], article_id=value["article_id"],
         status=value["status"], current_stage=value.get("current_stage"),
@@ -381,6 +476,9 @@ def job_response(value: dict[str, Any]) -> JobResponse:
         error_code=value.get("error_code"), error_summary=value.get("error_summary"),
         correlation_id=value["correlation_id"], trace_id=value["trace_id"],
         metadata=value.get("metadata", {}),
+        input_tokens=tokens["input_measured"], output_tokens=tokens["output_measured"],
+        input_tokens_estimated=tokens["input_estimated"], output_tokens_estimated=tokens["output_estimated"],
+        token_source=token_source,
     )
 
 
@@ -1418,7 +1516,8 @@ def llm_metrics(
             if value:
                 active_query += f" AND {column}=?"; active_params.append(value)
         active_rows = list(connection.execute(active_query, active_params))
-    durations = [row["duration_ms"] for row in rows if row["duration_ms"] is not None]
+    durations = [_event_duration_ms(row) for row in rows]
+    durations = [duration for duration in durations if duration is not None]
     ttft = [row["time_to_first_token_ms"] for row in rows if row["time_to_first_token_ms"] is not None]
     throughput = [row["throughput_tokens_per_second"] for row in rows if row["throughput_tokens_per_second"] is not None]
     with database.connection() as connection:

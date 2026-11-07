@@ -8,6 +8,7 @@ from . import models
 from .topic_propagation import (
     MIN_RELATION_POLARITY,
     MIN_TOPIC_RELEVANCE,
+    TopicRelation,
     calculate_topic_relation,
     propagate_stance,
     topic_propagation_cache,
@@ -93,11 +94,15 @@ def propagate_topic_stances(
         pair_key = (citation_topic_id, target_id)
         relation = topic_propagation_cache.get_relation(pair_key)
         if relation is None:
-            relation = calculate_topic_relation(
-                _embedding(citation_topic.get("embedding"), citation_topic_id),
-                target_embedding,
-                positive_anchor,
-                negative_anchor,
+            relation = (
+                TopicRelation(relevance=1.0, polarity=1.0)
+                if citation_topic_id == target_id
+                else calculate_topic_relation(
+                    _embedding(citation_topic.get("embedding"), citation_topic_id),
+                    target_embedding,
+                    positive_anchor,
+                    negative_anchor,
+                )
             )
             topic_propagation_cache.set_relation(pair_key, relation)
         propagated = propagate_stance(

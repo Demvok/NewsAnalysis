@@ -782,13 +782,68 @@ class JobCoordinator:
                    SELECT * FROM task_job_summary CROSS JOIN telemetry_summary""",
                 (task_id, task_id),
             ).fetchone()
+            token_summary = connection.execute(
+                """SELECT
+                       COALESCE(SUM(input_tokens), 0) AS input_tokens,
+                       COALESCE(SUM(output_tokens), 0) AS output_tokens,
+                       COALESCE(SUM(input_tokens_estimated), 0) AS input_tokens_estimated,
+                       COALESCE(SUM(output_tokens_estimated), 0) AS output_tokens_estimated
+                   FROM telemetry_events
+                   WHERE job_id IN (SELECT job_id FROM task_jobs WHERE task_id=?)
+                     AND event_type='llm_call'
+                     AND status IN ('completed', 'failed')""",
+                (task_id,),
+            ).fetchone()
             self._refresh_task_status(connection, task_id)
             task = connection.execute("SELECT * FROM tasks WHERE task_id=?", (task_id,)).fetchone()
+            now = datetime.now(timezone.utc)
             elapsed_ms = None
-            if task["started_at"] and task["completed_at"]:
-                elapsed_ms = max(0, int((datetime.fromisoformat(task["completed_at"]) - datetime.fromisoformat(task["started_at"])).total_seconds() * 1000))
+            if task["started_at"]:
+                started = datetime.fromisoformat(task["started_at"])
+                completed = datetime.fromisoformat(task["completed_at"]) if task["completed_at"] else now
+                if started.tzinfo is None:
+                    started = started.replace(tzinfo=timezone.utc)
+                if completed.tzinfo is None:
+                    completed = completed.replace(tzinfo=timezone.utc)
+                elapsed_ms = max(0, int((completed - started).total_seconds() * 1000))
             total = summary["total"] or 0
             retry_rate = (summary["retried"] or 0) / total if total else 0
+            completed_jobs = connection.execute(
+                """SELECT started_at, completed_at FROM jobs
+                   WHERE status IN ('COMPLETED', 'FAILED')
+                     AND started_at IS NOT NULL AND completed_at IS NOT NULL
+                   ORDER BY completed_at DESC LIMIT 50"""
+            ).fetchall()
+            durations = []
+            for row in completed_jobs:
+                started = datetime.fromisoformat(row["started_at"])
+                completed = datetime.fromisoformat(row["completed_at"])
+                if started.tzinfo is None:
+                    started = started.replace(tzinfo=timezone.utc)
+                if completed.tzinfo is None:
+                    completed = completed.replace(tzinfo=timezone.utc)
+                durations.append(max(0, (completed - started).total_seconds() * 1000))
+            recent = list(reversed(durations[-20:]))
+            weights = range(1, len(recent) + 1)
+            baseline = sum(value * weight for value, weight in zip(recent, weights)) / sum(weights) if recent else None
+            completed_count = summary["completed"] or 0
+            remaining = total - completed_count - (summary["failed"] or 0)
+            input_tokens = token_summary["input_tokens"] or 0
+            output_tokens = token_summary["output_tokens"] or 0
+            input_tokens_estimated = token_summary["input_tokens_estimated"] or 0
+            output_tokens_estimated = token_summary["output_tokens_estimated"] or 0
+            token_source = "measured" if input_tokens or output_tokens else (
+                "estimated" if input_tokens_estimated or output_tokens_estimated else "none"
+            )
+            if elapsed_ms is not None and completed_count:
+                estimated_total = elapsed_ms * total / completed_count
+                estimate_source = "observed_task_rate"
+            elif baseline is not None:
+                estimated_total = baseline * total
+                estimate_source = "moving_average"
+            else:
+                estimated_total = None
+                estimate_source = None
             return {
                 "task_id": task["task_id"], "name": task["name"], "status": task["status"],
                 "article_ids": json.loads(task["article_ids_json"]) if include_job_ids else [],
@@ -804,6 +859,15 @@ class JobCoordinator:
                 "retry_rate": retry_rate,
                 "execution_time_ms": elapsed_ms,
                 "execution_time_per_job_ms": elapsed_ms / len(jobs) if elapsed_ms is not None and jobs else None,
+                "elapsed_time_ms": elapsed_ms,
+                "estimated_total_time_ms": estimated_total,
+                "remaining_time_ms": max(0, estimated_total - elapsed_ms) if estimated_total is not None and elapsed_ms is not None and remaining else 0 if estimated_total is not None and not remaining else None,
+                "estimate_source": estimate_source,
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "input_tokens_estimated": input_tokens_estimated,
+                "output_tokens_estimated": output_tokens_estimated,
+                "token_source": token_source,
             }
 
     def list_tasks(self, limit: int) -> list[dict[str, Any]]:

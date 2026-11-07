@@ -416,3 +416,13 @@ class ServiceClient:
                 checked_at=datetime.now(timezone.utc),
             ))
         return result
+
+    def benchmark(self, method: str, path: str, payload: dict[str, Any] | None = None) -> Any:
+        response = httpx.request(
+            method,
+            f"{self.settings.benchmark_url}{path}",
+            json=payload,
+            timeout=self.settings.analysis_timeout_seconds,
+        )
+        response.raise_for_status()
+        return response.json()

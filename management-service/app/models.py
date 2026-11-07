@@ -73,6 +73,11 @@ class JobResponse(BaseModel):
     correlation_id: UUID
     trace_id: UUID
     metadata: dict[str, Any]
+    input_tokens: int = 0
+    output_tokens: int = 0
+    input_tokens_estimated: int = 0
+    output_tokens_estimated: int = 0
+    token_source: str = "none"
 
 
 class TaskCreateRequest(BaseModel):
@@ -107,6 +112,15 @@ class TaskResponse(BaseModel):
     retry_rate: float = 0
     execution_time_ms: int | None = None
     execution_time_per_job_ms: float | None = None
+    elapsed_time_ms: int | None = None
+    estimated_total_time_ms: float | None = None
+    remaining_time_ms: float | None = None
+    estimate_source: str | None = None
+    input_tokens: int = 0
+    output_tokens: int = 0
+    input_tokens_estimated: int = 0
+    output_tokens_estimated: int = 0
+    token_source: str = "none"
 
 
 class StageResponse(BaseModel):

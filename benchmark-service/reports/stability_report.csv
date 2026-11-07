@@ -1,0 +1,6 @@
+execution_time_mean_ms,execution_time_stddev_ms,repetitions,stance_mae_max,stance_mae_mean,stance_mae_min,structured_output_consistency,test_id
+65197.051,2807.5059102507707,3,0.0,0.0,0.0,True,syn-001
+62564.96166666666,2569.734318355953,3,,,,True,syn-002
+82588.49533333333,4750.0760414819,3,,,,True,syn-003
+70762.35466666667,5573.8787547529555,3,0.0,0.0,0.0,True,syn-004
+66816.39933333333,3653.041743839558,3,0.0,0.0,0.0,True,syn-005

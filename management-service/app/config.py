@@ -12,6 +12,7 @@ class Settings:
     analysis_url: str
     storage_url: str
     llm_url: str
+    benchmark_url: str
     management_events_url: str
     max_concurrent_jobs: int
     request_timeout_seconds: float
@@ -36,6 +37,7 @@ class Settings:
             analysis_url=os.getenv("ANALYSIS_URL", "http://analysis-layer:7000").rstrip("/"),
             storage_url=os.getenv("STORAGE_URL", "http://data-storage:8000").rstrip("/"),
             llm_url=os.getenv("LLM_URL", "http://host.docker.internal:1234/v1").rstrip("/"),
+            benchmark_url=os.getenv("BENCHMARK_URL", "http://benchmark-service:7100").rstrip("/"),
             management_events_url=os.getenv("MANAGEMENT_EVENTS_URL", "").strip(),
             max_concurrent_jobs=max(1, int(os.getenv("MANAGEMENT_MAX_CONCURRENT_JOBS", "1"))),
             request_timeout_seconds=float(os.getenv("MANAGEMENT_REQUEST_TIMEOUT_SECONDS", "10")),
