@@ -119,6 +119,47 @@ class ManagementPhase2Tests(unittest.TestCase):
             writer.join(timeout=5)
         self.assertFalse(writer_error)
 
+    def test_execution_metrics_keep_parallel_work_on_the_critical_path(self):
+        job_id = str(uuid4())
+        with main.database.connection() as connection:
+            connection.execute(
+                """INSERT INTO jobs
+                   (job_id,job_type,article_id,status,created_at,started_at,completed_at,
+                    retry_count,queue_wait_ms,correlation_id,trace_id,config_json,metadata_json)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (job_id, "analysis", "article", "COMPLETED",
+                 "2026-01-01T00:00:00+00:00", "2026-01-01T00:00:01+00:00",
+                 "2026-01-01T00:00:03+00:00", 1, 250, "corr", "trace", "{}", "{}"),
+            )
+            rows = [
+                (str(uuid4()), "pipeline_stage", "completed", "2026-01-01T00:00:01+00:00",
+                 "2026-01-01T00:00:02+00:00", 100, None, None, None, None, "{}"),
+                (str(uuid4()), "pipeline_stage", "completed", "2026-01-01T00:00:01+00:00",
+                 "2026-01-01T00:00:02+00:00", 100, None, None, None, None, "{}"),
+                (str(uuid4()), "llm_call", "completed", "2026-01-01T00:00:01+00:00",
+                 "2026-01-01T00:00:01.100000+00:00", 100, 4, 8, None, None, "{}"),
+            ]
+            for event_id, event_type, status, started, completed, duration, input_tokens, output_tokens, _, _, attributes in rows:
+                connection.execute(
+                    """INSERT INTO telemetry_events
+                       (event_id,timestamp,service,level,event_type,status,job_id,started_at,
+                        completed_at,duration_ms,input_tokens,output_tokens,attributes_json)
+                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    (event_id, completed, "analysis", "INFO", event_type, status, job_id,
+                     started, completed, duration, input_tokens, output_tokens, attributes),
+                )
+        response = self.client.get(f"/api/metrics/jobs?job_id={job_id}")
+        self.assertEqual(response.status_code, 200)
+        execution = response.json()["execution"]
+        self.assertEqual(execution["critical_path_duration_ms"], 1000)
+        self.assertEqual(execution["summed_llm_busy_time_ms"], 100)
+        self.assertEqual(execution["job_wall_clock_duration_ms"], 2000)
+        self.assertEqual(execution["queue_wait_ms"], 250)
+        self.assertEqual(execution["retry_count"], 1)
+        llm = self.client.get(f"/api/metrics/llm?job_id={job_id}").json()["execution"]
+        self.assertEqual(llm["job_wall_clock_duration_ms"], execution["job_wall_clock_duration_ms"])
+        self.assertEqual(llm["critical_path_duration_ms"], execution["critical_path_duration_ms"])
+
 
 
 if __name__ == "__main__":

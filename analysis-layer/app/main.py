@@ -1,10 +1,12 @@
 import httpx
 import time
 import os
+from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 from uuid import uuid4
 from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.responses import JSONResponse
 
 from app import models
 from app.analysis import (
@@ -14,7 +16,7 @@ from app.analysis import (
 )
 from app.propagation_service import propagate_topic_stances
 from app.logger import get_logger
-from app.telemetry import bind_context, emit_event
+from app.telemetry import bind_context, emit_event, shutdown_telemetry, telemetry_metrics, track_active
 
 
 OPENAPI_TAGS = [
@@ -52,8 +54,23 @@ app = FastAPI(
     openapi_tags=OPENAPI_TAGS,
 )
 
+
+@app.exception_handler(TimeoutError)
+async def timeout_error_handler(request: Request, exc: TimeoutError) -> JSONResponse:
+    return JSONResponse(status_code=504, content={"detail": "Upstream request timed out"})
+
 logger = get_logger("main", "analysis")
 PARALLEL_ANALYSIS_WORKERS = max(1, int(os.getenv("PARALLEL_ANALYSIS_WORKERS", "4")))
+
+
+@app.on_event("shutdown")
+def stop_telemetry() -> None:
+    shutdown_telemetry()
+
+
+@app.get("/telemetry/metrics", tags=["Diagnostics"])
+def telemetry_metrics_endpoint() -> dict[str, int]:
+    return telemetry_metrics()
 
 
 def _run_bulk[T](handler, requests: list[T]) -> list:
@@ -73,23 +90,29 @@ async def log_api_request(request: Request, call_next) -> Response:
     job_id = request.headers.get("x-job-id")
     correlation_id = request.headers.get("x-correlation-id", request_id)
     started = time.perf_counter()
+    started_at = datetime.now(timezone.utc).isoformat()
     logger.info("api_request status=started request_id=%s job_id=%s correlation_id=%s method=%s path=%s", request_id, job_id or "-", correlation_id, request.method, request.url.path)
     with bind_context(
         request_id=request_id,
         job_id=job_id,
         correlation_id=correlation_id,
         trace_id=correlation_id,
+        attempt_number=request.headers.get("x-job-attempt"),
+        retry_count=request.headers.get("x-job-retry-count"),
+        queue_wait_ms=request.headers.get("x-queue-wait-ms"),
     ):
-        try:
-            response = await call_next(request)
-        except Exception:
-            logger.exception("api_request status=failed request_id=%s job_id=%s correlation_id=%s method=%s path=%s duration=%.3fs", request_id, job_id or "-", correlation_id, request.method, request.url.path, time.perf_counter() - started)
-            emit_event("api_request_failed", operation=f"{request.method} {request.url.path}", event_status="failed", attributes={"path": request.url.path})
-            raise
+        request_kind = "stages" if request.url.path.startswith("/analysis/stages") else "http_requests"
+        with track_active(request_kind) as active:
+            try:
+                response = await call_next(request)
+            except Exception:
+                logger.exception("api_request status=failed request_id=%s job_id=%s correlation_id=%s method=%s path=%s duration=%.3fs", request_id, job_id or "-", correlation_id, request.method, request.url.path, time.perf_counter() - started)
+                emit_event("api_request_failed", operation=f"{request.method} {request.url.path}", event_status="failed", attributes={"path": request.url.path, "active_requests": active.get("http_requests", 0), "active_stages": active.get("stages", 0)})
+                raise
         level = logger.info if response.status_code < 400 else logger.warning
         duration = time.perf_counter() - started
         level("api_request status=completed request_id=%s job_id=%s correlation_id=%s method=%s path=%s status_code=%d duration=%.3fs", request_id, job_id or "-", correlation_id, request.method, request.url.path, response.status_code, duration)
-        emit_event("api_request_completed", operation=f"{request.method} {request.url.path}", event_status="completed", duration_ms=int(duration * 1000), attributes={"path": request.url.path, "status_code": response.status_code})
+        emit_event("api_request_completed", operation=f"{request.method} {request.url.path}", event_status="completed", started_at=started_at, completed_at=datetime.now(timezone.utc).isoformat(), duration_ms=int(duration * 1000), attributes={"path": request.url.path, "status_code": response.status_code, "active_requests": active.get("http_requests", 0), "active_stages": active.get("stages", 0), "configured_analysis_workers": PARALLEL_ANALYSIS_WORKERS})
     response.headers["x-request-id"] = request_id
     return response
 

@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 import time
+import threading
 from uuid import uuid4
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -59,18 +61,31 @@ from app.schemas import (
     parse_datetime,
 )
 from app.logger import get_logger
-from app.telemetry import emit_event
+from app.telemetry import emit_event, shutdown_telemetry, telemetry_metrics
 
 logger = get_logger("main", "data_storage")
 app = FastAPI(title="NewsAnalysis-DataStorage", version="0.2.0")
+
+
+@app.on_event("shutdown")
+def stop_telemetry() -> None:
+    shutdown_telemetry()
+
+
+@app.get("/telemetry/metrics", tags=["Diagnostics"])
+def telemetry_metrics_endpoint() -> dict[str, int]:
+    return telemetry_metrics()
 _embedding_client = OpenAI(
     base_url=os.getenv("EMBEDDING_URL", "http://host.docker.internal:1234/v1"),
     api_key=os.getenv("EMBEDDING_API_KEY", "fake_api_key"),
+    timeout=float(os.getenv("EMBEDDING_REQUEST_TIMEOUT_SECONDS", "1800")),
 )
 _embedding_model_name = os.getenv("EMBEDDING_MODEL", "text-embedding-embeddinggemma-300m")
 _default_min_cosine_similarity = float(os.getenv("EMBEDDING_MIN_COSINE_SIMILARITY", "0.0"))
 if not -1 <= _default_min_cosine_similarity <= 1:
     raise ValueError("EMBEDDING_MIN_COSINE_SIMILARITY must be between -1 and 1")
+_active_requests = 0
+_active_requests_lock = threading.Lock()
 
 
 @app.middleware("http")
@@ -78,7 +93,11 @@ async def log_api_request(request: Request, call_next) -> Response:
     request_id = request.headers.get("x-request-id", str(uuid4()))
     job_id = request.headers.get("x-job-id")
     correlation_id = request.headers.get("x-correlation-id", request_id)
+    attempt_number = request.headers.get("x-job-attempt")
+    retry_count = request.headers.get("x-job-retry-count")
+    queue_wait = request.headers.get("x-queue-wait-ms")
     started = time.perf_counter()
+    started_at = datetime.now(timezone.utc).isoformat()
     logger.info(
         "api_request status=started request_id=%s job_id=%s correlation_id=%s method=%s path=%s query=%s",
         request_id, job_id or "-", correlation_id,
@@ -86,6 +105,10 @@ async def log_api_request(request: Request, call_next) -> Response:
         request.url.path,
         request.url.query or "-",
     )
+    global _active_requests
+    with _active_requests_lock:
+        _active_requests += 1
+        active_requests = _active_requests
     try:
         response = await call_next(request)
     except Exception:
@@ -97,6 +120,9 @@ async def log_api_request(request: Request, call_next) -> Response:
             time.perf_counter() - started,
         )
         raise
+    finally:
+        with _active_requests_lock:
+            _active_requests = max(0, _active_requests - 1)
     duration = time.perf_counter() - started
     level = logger.info if response.status_code < 400 else logger.warning
     level(
@@ -115,7 +141,20 @@ async def log_api_request(request: Request, call_next) -> Response:
         correlation_id=correlation_id,
         request_id=request_id,
         duration_ms=int(duration * 1000),
-        attributes={"path": request.url.path, "status_code": response.status_code},
+        started_at=started_at,
+        completed_at=datetime.now(timezone.utc).isoformat(),
+        attempt_number=int(attempt_number) if attempt_number and attempt_number.isdigit() else None,
+        retry_count=int(retry_count) if retry_count and retry_count.isdigit() else 0,
+        queue_wait_ms=int(queue_wait) if queue_wait and queue_wait.isdigit() else None,
+        attributes={
+            "path": request.url.path,
+            "status_code": response.status_code,
+            "worker_identity": f"pid={os.getpid()} thread={threading.current_thread().name}",
+            "process_id": os.getpid(),
+            "thread_id": threading.get_ident(),
+            "active_requests": active_requests,
+            "configured_workers": int(os.getenv("STORAGE_WORKERS", "1")),
+        },
     )
     response.headers["x-request-id"] = request_id
     return response
@@ -192,7 +231,7 @@ def _person_values(values: dict[str, Any]) -> dict[str, Any]:
         values["aliases"], values.get("affiliation"), values.get("name")
     )
     values["aliases_vector"] = (
-        _embed_texts([alias_text])[0] if alias_text else None
+        _embed_texts_deduplicated([alias_text])[0] if alias_text else None
     )
     return values
 
@@ -212,7 +251,9 @@ def _with_generated_vector(
     values = dict(values)
     if text_field in values:
         text = values[text_field]
-        values[vector_field] = _embed_texts([text])[0] if text and text.strip() else None
+        values[vector_field] = (
+            _embed_texts_deduplicated([text])[0] if text and text.strip() else None
+        )
     return values
 
 
@@ -730,11 +771,29 @@ def create_people_bulk(payload: list[PersonPayload], response: Response) -> list
     created_new = 0
     retrieved_from_db = 0
     try:
+        prepared: list[tuple[PersonPayload, dict[str, Any], bool]] = []
+        texts: list[str] = []
+        text_indexes: list[int | None] = []
+        for item in payload:
+            values = item.model_dump(exclude_none=True)
+            has_person_details = "affiliation" in values or "aliases" in values
+            values["aliases"] = _normalize_aliases(values.get("aliases"))
+            alias_text = _person_embedding_text(
+                values["aliases"], values.get("affiliation"), values.get("name")
+            )
+            text_indexes.append(len(texts) if alias_text else None)
+            if alias_text:
+                texts.append(alias_text)
+            prepared.append((item, values, has_person_details))
+        embeddings = _embed_texts_deduplicated(texts) if texts else []
+        for item_index, (_, values, _) in enumerate(prepared):
+            text_index = text_indexes[item_index]
+            if text_index is not None:
+                values["aliases_vector"] = embeddings[text_index]
+            else:
+                values["aliases_vector"] = None
         with get_session() as session:
-            for item in payload:
-                values = item.model_dump(exclude_none=True)
-                has_person_details = "affiliation" in values or "aliases" in values
-                values = _person_values(values)
+            for item, values, has_person_details in prepared:
                 existing = session.scalar(
                     select(DimPerson).where(func.lower(DimPerson.name) == item.name.strip().casefold())
                 )
@@ -742,22 +801,17 @@ def create_people_bulk(payload: list[PersonPayload], response: Response) -> list
                 if existing is None:
                     existing = DimPerson(**values)
                     session.add(existing)
-                    session.flush()
                     created_new += 1
                 else:
                     retrieved_from_db += 1
                 if was_existing and has_person_details:
                     existing.affiliation = values.get("affiliation", existing.affiliation)
                 if existing is not None:
-                    refreshed = _person_values(
-                        {
-                            "aliases": values.get("aliases", existing.aliases) if has_person_details else existing.aliases,
-                            "affiliation": existing.affiliation,
-                        }
-                    )
-                    existing.aliases = refreshed["aliases"]
-                    existing.aliases_vector = refreshed["aliases_vector"]
+                    if has_person_details:
+                        existing.aliases = values["aliases"]
+                        existing.aliases_vector = values["aliases_vector"]
                 results.append(_as_dict(existing))
+            session.flush()
         _set_bulk_stats(response, created_new, retrieved_from_db)
         logger.info(
             "db_write operation=bulk_upsert model=DimPerson created_new=%d retrieved_from_db=%d",
@@ -882,13 +936,23 @@ def create_citations_bulk(payload: list[CitationPayload], response: Response) ->
     created_new = 0
     retrieved_from_db = 0
     try:
+        prepared = [item.model_dump(exclude_none=True) for item in payload]
+        texts = [
+            values["summarized_quote"]
+            for values in prepared
+            if values.get("summarized_quote") and values["summarized_quote"].strip()
+        ]
+        embeddings = _embed_texts_deduplicated(texts) if texts else []
+        embedding_index = 0
+        for values in prepared:
+            text = values.get("summarized_quote")
+            if text and text.strip():
+                values["summarized_quote_vector"] = embeddings[embedding_index]
+                embedding_index += 1
+            else:
+                values["summarized_quote_vector"] = None
         with get_session() as session:
-            for item in payload:
-                values = _with_generated_vector(
-                    item.model_dump(exclude_none=True),
-                    "summarized_quote",
-                    "summarized_quote_vector",
-                )
+            for item, values in zip(payload, prepared):
                 existing = session.scalar(
                     select(DimCitation).where(
                         DimCitation.origin_article_id == item.origin_article_id,
@@ -905,8 +969,8 @@ def create_citations_bulk(payload: list[CitationPayload], response: Response) ->
                     for field, value in values.items():
                         if field not in {"origin_article_id", "person_uuid", "exact_quote"}:
                             setattr(existing, field, value)
-                session.flush()
                 results.append(_as_dict(existing))
+            session.flush()
         _set_bulk_stats(response, created_new, retrieved_from_db)
         logger.info(
             "db_write operation=bulk_upsert model=DimCitation created_new=%d retrieved_from_db=%d",
@@ -1069,33 +1133,37 @@ def create_topics_bulk(payload: list[TopicPayload], response: Response) -> list[
     created_new = 0
     retrieved_from_db = 0
     try:
+        prepared = [item.model_dump(exclude_none=True) for item in payload]
+        texts = [
+            values["topic_description"]
+            for values in prepared
+            if values.get("topic_description") and values["topic_description"].strip()
+        ]
+        embeddings = _embed_texts_deduplicated(texts) if texts else []
+        embedding_index = 0
+        for values in prepared:
+            text = values.get("topic_description")
+            if text and text.strip():
+                values["topic_description_vector"] = embeddings[embedding_index]
+                embedding_index += 1
+            else:
+                values["topic_description_vector"] = None
         with get_session() as session:
-            for item in payload:
+            for item, values in zip(payload, prepared):
                 existing = session.scalar(
                     select(DimTopic).where(func.lower(DimTopic.topic_name) == item.topic_name.strip().casefold())
                 )
                 if existing is None:
-                    existing = DimTopic(
-                        **_with_generated_vector(
-                            item.model_dump(exclude_none=True),
-                            "topic_description",
-                            "topic_description_vector",
-                        )
-                    )
+                    existing = DimTopic(**values)
                     session.add(existing)
-                    session.flush()
                     created_new += 1
                 else:
                     retrieved_from_db += 1
-                    values = _with_generated_vector(
-                        item.model_dump(exclude_none=True),
-                        "topic_description",
-                        "topic_description_vector",
-                    )
                     for field, value in values.items():
                         if field != "topic_uuid":
                             setattr(existing, field, value)
                 results.append(_as_dict(existing))
+            session.flush()
         _set_bulk_stats(response, created_new, retrieved_from_db)
         logger.info(
             "db_write operation=bulk_upsert model=DimTopic created_new=%d retrieved_from_db=%d",
@@ -1404,18 +1472,93 @@ def get_inconsistency(inconsistency_uuid: UUID) -> dict[str, Any]:
 
 
 def _embed_texts(texts: list[str]) -> list[list[float]]:
+    started = time.perf_counter()
     try:
         response = _embedding_client.embeddings.create(
             model=_embedding_model_name,
             input=texts,
         )
     except Exception as exc:
+        emit_event(
+            "embedding_request",
+            duration_ms=int((time.perf_counter() - started) * 1000),
+            attributes={"text_count": len(texts), "status": "failed"},
+        )
         logger.exception("Failed to generate embeddings")
         raise HTTPException(status_code=503, detail="Embedding service unavailable") from exc
+    emit_event(
+        "embedding_request",
+        duration_ms=int((time.perf_counter() - started) * 1000),
+        attributes={
+            "text_count": len(texts),
+            "model": _embedding_model_name,
+            "status": "completed",
+        },
+    )
     embeddings = [item.embedding for item in sorted(response.data, key=lambda item: item.index)]
+    if len(embeddings) != len(texts):
+        raise HTTPException(
+            status_code=503,
+            detail="Embedding service returned an incomplete batch",
+        )
     for embedding in embeddings:
         _validate_vector(embedding)
     return embeddings
+
+
+def _normalized_embedding_text(value: str) -> str:
+    return re.sub(r"\s+", " ", value.strip())
+
+
+def _embed_texts_deduplicated(texts: list[str]) -> list[list[float]]:
+    """Embed unique normalized inputs once and restore the original order."""
+    if not texts:
+        return []
+    unique: list[str] = []
+    positions: dict[str, int] = {}
+    for text in texts:
+        key = _normalized_embedding_text(text)
+        if key not in positions:
+            positions[key] = len(unique)
+            unique.append(text)
+    embeddings = _embed_texts(unique)
+    return [embeddings[positions[_normalized_embedding_text(text)]] for text in texts]
+
+
+def _embedding_results(texts: list[str]) -> list[dict[str, Any]]:
+    """Return one result per input, including validation/request errors."""
+    if not texts:
+        return []
+    valid_texts = [text for text in texts if text.strip()]
+    valid_indexes = [index for index, text in enumerate(texts) if text.strip()]
+    results = [
+        {
+            "index": index,
+            "text": text,
+            "embedding": None,
+            "error": "text must not be blank",
+        }
+        for index, text in enumerate(texts)
+        if not text.strip()
+    ]
+    try:
+        embeddings = _embed_texts_deduplicated(valid_texts)
+    except Exception as exc:
+        results.extend(
+            {"index": index, "text": texts[index], "embedding": None, "error": str(exc)}
+            for index in valid_indexes
+        )
+    else:
+        results.extend(
+            {
+                "index": index,
+                "text": texts[index],
+                "embedding": embedding,
+                "error": None,
+            }
+            for index, embedding in zip(valid_indexes, embeddings)
+        )
+    return sorted(results, key=lambda item: item["index"])
 
 
 @app.post("/vectors/embed", response_model=None, tags=["Vectors"], summary="Embed text")
@@ -1429,11 +1572,12 @@ def embed_text(payload: EmbeddingRequest) -> dict[str, Any]:
 
 @app.post("/vectors/embed-batch", response_model=None, tags=["Vectors"], summary="Embed multiple texts")
 def embed_text_batch(payload: EmbeddingBatchRequest) -> dict[str, Any]:
-    embeddings = _embed_texts(payload.texts)
+    results = _embedding_results(payload.texts)
     return {
         "model": _embedding_model_name,
         "dimension": EMBEDDING_DIMENSION,
-        "embeddings": embeddings,
+        "results": results,
+        "embeddings": [item["embedding"] for item in results],
     }
 
 
@@ -1509,7 +1653,7 @@ def reembed_all_vectors() -> dict[str, int]:
             if topic.topic_description:
                 texts.append(topic.topic_description)
                 targets.append((topic, "topic_description_vector"))
-        embeddings = _embed_texts(texts) if texts else []
+        embeddings = _embed_texts_deduplicated(texts) if texts else []
         for (target, field), embedding in zip(targets, embeddings):
             setattr(target, field, embedding)
         session.flush()

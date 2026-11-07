@@ -39,6 +39,7 @@ class ManagementDatabase:
                     job_id TEXT PRIMARY KEY, job_type TEXT NOT NULL, article_id TEXT NOT NULL,
                     status TEXT NOT NULL, current_stage TEXT, created_at TEXT NOT NULL,
                     started_at TEXT, completed_at TEXT, retry_count INTEGER NOT NULL DEFAULT 0,
+                    queue_wait_ms INTEGER, duration_ms INTEGER, worker_identity TEXT,
                     correlation_id TEXT NOT NULL, trace_id TEXT NOT NULL,
                     idempotency_key TEXT, config_json TEXT NOT NULL,
                     metadata_json TEXT NOT NULL, error_code TEXT, error_summary TEXT,
@@ -70,6 +71,9 @@ class ManagementDatabase:
                     output_tokens_estimated INTEGER,
                     throughput_tokens_per_second REAL, model TEXT, provider TEXT,
                     finish_reason TEXT, retry_count INTEGER NOT NULL DEFAULT 0,
+                    attempt_number INTEGER, queue_wait_ms INTEGER,
+                    job_duration_ms INTEGER, stage_duration_ms INTEGER,
+                    worker_identity TEXT,
                     error_category TEXT, error_detail TEXT,
                     attributes_json TEXT NOT NULL, debug_content_json TEXT
                 );
@@ -114,6 +118,28 @@ class ManagementDatabase:
             )
             self._migrate_jobs(connection)
             self._migrate_job_stages(connection)
+            telemetry_columns = {
+                row["name"] for row in connection.execute("PRAGMA table_info(telemetry_events)").fetchall()
+            }
+            job_columns = {
+                row["name"] for row in connection.execute("PRAGMA table_info(jobs)").fetchall()
+            }
+            for name, definition in (
+                ("queue_wait_ms", "INTEGER"),
+                ("duration_ms", "INTEGER"),
+                ("worker_identity", "TEXT"),
+            ):
+                if name not in job_columns:
+                    connection.execute(f"ALTER TABLE jobs ADD COLUMN {name} {definition}")
+            for name, definition in (
+                ("attempt_number", "INTEGER"),
+                ("queue_wait_ms", "INTEGER"),
+                ("job_duration_ms", "INTEGER"),
+                ("stage_duration_ms", "INTEGER"),
+                ("worker_identity", "TEXT"),
+            ):
+                if name not in telemetry_columns:
+                    connection.execute(f"ALTER TABLE telemetry_events ADD COLUMN {name} {definition}")
             connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_jobs_status_created "
                 "ON jobs(status, created_at DESC)"

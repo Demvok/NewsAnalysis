@@ -11,13 +11,14 @@ from langchain_core.runnables import ConfigurableField
 
 from . import prompts
 from .logger import get_logger
-from .telemetry import current_context, emit_event, sanitized_error
+from .telemetry import current_context, emit_event, sanitized_error, track_active
 llm_main = ChatOpenAI(
     # base_url="http://host.docker.internal:1234/v1",
     base_url=os.getenv("LLM_URL"),
     model=os.getenv("LLM_MODEL", "google/gemma-4-e4b"),
     api_key="fake_api_key",
-    temperature=0.5
+    temperature=0.5,
+    timeout=float(os.getenv("LLM_REQUEST_TIMEOUT_SECONDS", "1800")),
 ).configurable_fields(
     temperature=ConfigurableField(
         id="temperature",
@@ -151,6 +152,8 @@ def _invoke_chain(chain: Any, payload: Any, *, stage: str, speaker: str | None =
     started = time.perf_counter()
     span_id = f"chain-{time.time_ns()}"
     input_chars = _value_chars(payload)
+    with track_active("llm_calls") as active:
+        active_llm_calls = active.get("llm_calls", 0)
     emit_event(
         "llm_call",
         operation="structured_chain",
@@ -162,11 +165,21 @@ def _invoke_chain(chain: Any, payload: Any, *, stage: str, speaker: str | None =
         input_tokens_estimated=_estimate_tokens(input_chars),
         model=os.getenv("LLM_MODEL"),
         provider=os.getenv("LLM_URL", "").split("/")[2] if "://" in os.getenv("LLM_URL", "") else "openai-compatible",
-        attributes={"speaker": speaker, "citation_count": citation_count, "instrumentation_source": "chain_invoke"},
+        attributes={
+            "speaker": speaker,
+            "citation_count": citation_count,
+            "instrumentation_source": "chain_invoke",
+            "active_llm_calls": active_llm_calls,
+            "configured_analysis_workers": int(os.getenv("PARALLEL_ANALYSIS_WORKERS", "4")),
+        },
     )
+    active_llm_calls = 0
     try:
-        response = chain.invoke(payload)
+        with track_active("llm_calls") as active:
+            active_llm_calls = active.get("llm_calls", 0)
+            response = chain.invoke(payload)
     except Exception as error:
+        category = "timeout" if isinstance(error, TimeoutError) or "Timeout" in type(error).__name__ else type(error).__name__
         emit_event(
             "llm_call",
             operation="structured_chain",
@@ -178,12 +191,16 @@ def _invoke_chain(chain: Any, payload: Any, *, stage: str, speaker: str | None =
             input_tokens_estimated=_estimate_tokens(input_chars),
             model=os.getenv("LLM_MODEL"),
             provider=os.getenv("LLM_URL", "").split("/")[2] if "://" in os.getenv("LLM_URL", "") else "openai-compatible",
-            error_category=type(error).__name__,
+            error_category=category,
             error_detail=sanitized_error(error),
             attributes={"speaker": speaker, "citation_count": citation_count, "instrumentation_source": "chain_invoke"},
         )
         raise
     provider_input, provider_output = _provider_usage(response)
+    response_metadata = getattr(response, "response_metadata", {}) or {}
+    provider_queue_wait_ms = response_metadata.get("queue_wait_ms")
+    if provider_queue_wait_ms is None:
+        provider_queue_wait_ms = response_metadata.get("queue_wait")
     duration_ms = int((time.perf_counter() - started) * 1000)
     output_chars = _response_chars(response)
     emit_event(
@@ -200,7 +217,14 @@ def _invoke_chain(chain: Any, payload: Any, *, stage: str, speaker: str | None =
         output_tokens_estimated=_estimate_tokens(output_chars) if provider_output is None else None,
         model=os.getenv("LLM_MODEL"),
         provider=os.getenv("LLM_URL", "").split("/")[2] if "://" in os.getenv("LLM_URL", "") else "openai-compatible",
-        attributes={"speaker": speaker, "citation_count": citation_count, "instrumentation_source": "chain_invoke"},
+        attributes={
+            "speaker": speaker,
+            "citation_count": citation_count,
+            "instrumentation_source": "chain_invoke",
+            "active_llm_calls": active_llm_calls,
+            "configured_analysis_workers": int(os.getenv("PARALLEL_ANALYSIS_WORKERS", "4")),
+            "provider_queue_wait_ms": provider_queue_wait_ms,
+        },
     )
     _record_chain_metrics(
         stage=stage,

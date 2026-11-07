@@ -65,6 +65,9 @@ class JobResponse(BaseModel):
     started_at: datetime | None
     completed_at: datetime | None
     retry_count: int
+    queue_wait_ms: int | None = None
+    duration_ms: int | None = None
+    worker_identity: str | None = None
     error_code: str | None
     error_summary: str | None
     correlation_id: UUID
@@ -144,12 +147,24 @@ class KnowledgeSummaryResponse(BaseModel):
 class RuntimeSettingsResponse(BaseModel):
     request_timeout_seconds: float
     analysis_timeout_seconds: float
+    max_job_duration_seconds: float
+    max_job_attempts: int
+    stage_timeout_seconds: float
+    llm_request_timeout_seconds: float
+    retry_backoff_seconds: float
+    retry_max_delay_seconds: float
     configurable_fields: list[str]
 
 
 class RuntimeSettingsUpdate(BaseModel):
     request_timeout_seconds: float | None = Field(default=None, gt=0, le=120)
     analysis_timeout_seconds: float | None = Field(default=None, gt=0, le=7200)
+    max_job_duration_seconds: float | None = Field(default=None, gt=0)
+    max_job_attempts: int | None = Field(default=None, ge=1)
+    stage_timeout_seconds: float | None = Field(default=None, gt=0)
+    llm_request_timeout_seconds: float | None = Field(default=None, gt=0)
+    retry_backoff_seconds: float | None = Field(default=None, ge=0)
+    retry_max_delay_seconds: float | None = Field(default=None, ge=0)
 
 
 class EventRequest(BaseModel):
@@ -181,6 +196,11 @@ class EventRequest(BaseModel):
     provider: str | None = Field(default=None, max_length=100)
     finish_reason: str | None = Field(default=None, max_length=100)
     retry_count: int = Field(default=0, ge=0)
+    attempt_number: int | None = Field(default=None, ge=1)
+    queue_wait_ms: int | None = Field(default=None, ge=0)
+    job_duration_ms: int | None = Field(default=None, ge=0)
+    stage_duration_ms: int | None = Field(default=None, ge=0)
+    worker_identity: str | None = Field(default=None, max_length=200)
     error_category: str | None = Field(default=None, max_length=100)
     error_detail: str | None = Field(default=None, max_length=500)
     debug_content: dict[str, str | None] | None = None

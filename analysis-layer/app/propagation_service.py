@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import httpx
 import os
+import os
 
 from . import models
 from .topic_propagation import (
@@ -17,7 +18,7 @@ def _storage_topics(topic_ids: list[str]) -> dict[str, dict[str, object]]:
     response = httpx.post(
         f"{os.environ.get('STORAGE_URL', 'http://data-storage:8000').rstrip('/')}/topics/embeddings",
         json={"topic_uuids": topic_ids, "generate_missing": True},
-        timeout=30.0,
+        timeout=STORAGE_REQUEST_TIMEOUT,
     )
     response.raise_for_status()
     topics = response.json()
@@ -50,7 +51,7 @@ def _anchor_embeddings(topic_id: str, description: str) -> tuple[list[float], li
                 f"A position or policy that opposes, restricts, or undermines {description}.",
             ]
         },
-        timeout=30.0,
+        timeout=STORAGE_REQUEST_TIMEOUT,
     )
     response.raise_for_status()
     embeddings = response.json().get("embeddings")
@@ -121,3 +122,4 @@ def propagate_topic_stances(
             status="RELIABLE" if propagated.reliable else "UNCERTAIN",
         ))
     return results
+STORAGE_REQUEST_TIMEOUT = max(0.1, float(os.getenv("STORAGE_REQUEST_TIMEOUT_SECONDS", "30")))

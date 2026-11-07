@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./style.css";
+import { createEventDeduper } from "./metrics";
 
 const api = async (path, options = {}) => {
   const response = await fetch(path === "/health" ? "/health" : `/api${path}`, {
@@ -97,6 +98,7 @@ function MiniChart({ points, color = "#62d8b5", valueKey = "value", empty = "Awa
 
 function useTelemetryStream(onEvent) {
   const lastId = useRef(0);
+  const acceptsEvent = useRef(createEventDeduper());
   useEffect(() => {
     let source;
     let stopped = false;
@@ -106,8 +108,9 @@ function useTelemetryStream(onEvent) {
       source.addEventListener("telemetry", event => {
         try {
           const value = JSON.parse(event.data);
-          lastId.current = Number(event.lastEventId) || lastId.current;
-          onEvent(value);
+          const sequence = Number(event.lastEventId);
+          lastId.current = sequence || lastId.current;
+          if (acceptsEvent.current({ ...value, sequence })) onEvent(value);
         } catch { /* malformed live events are ignored; the next refresh remains authoritative */ }
       });
       source.onerror = () => {
@@ -131,8 +134,8 @@ function Overview({ notify }) {
   const load = async () => {
     try {
       setError(null);
-      const [h, j, m, s] = await Promise.all([api("/health"), api("/jobs?limit=100"), api(`/metrics/llm?since=${encodeURIComponent(rangeSince(range))}`), api("/metrics/stages")]);
-      setHealth(h); setJobs(j); setMetrics(m); setStageMetrics(s);
+      const [h, j, m, s, execution] = await Promise.all([api("/health"), api("/jobs?limit=100"), api(`/metrics/llm?since=${encodeURIComponent(rangeSince(range))}`), api("/metrics/stages"), api("/metrics/jobs")]);
+      setHealth({ ...h, telemetry_health: execution.telemetry_health }); setJobs(j); setMetrics(m); setStageMetrics(s);
     } catch (e) { setError(e); }
   };
   useEffect(() => { load(); }, [range]);
@@ -147,7 +150,7 @@ function Overview({ notify }) {
   const liveSeries = liveCalls.map((event, index) => ({ value: event.output_tokens || 0, index }));
   if (error) return <ErrorState error={error} retry={load} />;
   return <Page title="Overview" subtitle="Operational view backed by the management service." refresh={load}>
-    <div className="toolbar"><span className="live-dot" /> Live telemetry stream {health && <><span className="muted">·</span><Status value={health.status} /></>}<select value={range} onChange={event => setRange(event.target.value)}><option value="15m">Last 15 minutes</option><option value="1h">Last hour</option><option value="24h">Last 24 hours</option><option value="7d">Last 7 days</option></select></div>
+    <div className="toolbar"><span className="live-dot" /> Live telemetry (informational) {health && <><span className="muted">·</span><Status value={health.status} /><span className="muted">· telemetry {health.telemetry_health?.status || "unknown"}, dropped {formatNumber(health.telemetry_health?.dropped_events)}</span></>}<select value={range} onChange={event => setRange(event.target.value)}><option value="15m">Last 15 minutes</option><option value="1h">Last hour</option><option value="24h">Last 24 hours</option><option value="7d">Last 7 days</option></select></div>
     <section className="metric-grid">
       <MetricCard label="Articles processed" value={formatNumber(completed)} detail="Completed management jobs in retained history" />
       <MetricCard label="Jobs running / waiting" value={`${running} / ${waiting}`} detail="Current queue state" />
@@ -224,15 +227,16 @@ function JobDetail({ jobId, back, notify }) {
   const [job, setJob] = useState(null);
   const [stages, setStages] = useState([]);
   const [logs, setLogs] = useState([]);
+  const [metrics, setMetrics] = useState(null);
   const [error, setError] = useState(null);
-  const load = () => Promise.all([api(`/jobs/${jobId}`), api(`/jobs/${jobId}/stages`), api(`/logs?job_id=${jobId}&limit=100`)]).then(([j, s, l]) => { setJob(j); setStages(s); setLogs(l); }).catch(setError);
+  const load = () => Promise.all([api(`/jobs/${jobId}`), api(`/jobs/${jobId}/stages`), api(`/logs?job_id=${jobId}&limit=100`), api(`/metrics/jobs?job_id=${jobId}`)]).then(([j, s, l, m]) => { setJob(j); setStages(s); setLogs(l); setMetrics(m.execution); }).catch(setError);
   useEffect(() => { load(); }, [jobId]);
   if (error) return <ErrorState error={error} retry={load} />;
   if (!job) return <Loading />;
   const llmCalls = logs.filter(log => log.event_type === "llm_call");
-  const outputTokens = llmCalls.reduce((sum, call) => sum + (call.output_tokens ?? call.output_tokens_estimated ?? 0), 0);
-  const inputTokens = llmCalls.reduce((sum, call) => sum + (call.input_tokens ?? call.input_tokens_estimated ?? 0), 0);
-  const llmDuration = llmCalls.reduce((sum, call) => sum + (call.duration_ms || 0), 0);
+  const outputTokens = (metrics?.tokens?.output_measured || 0) + (metrics?.tokens?.output_estimated || 0);
+  const inputTokens = (metrics?.tokens?.input_measured || 0) + (metrics?.tokens?.input_estimated || 0);
+  const llmDuration = metrics?.summed_llm_busy_time_ms || 0;
   const createdRecords = logs.reduce((sum, log) => sum + (log.attributes?.created_records || log.attributes?.created_new || 0), 0);
   const retrievedRecords = logs.reduce((sum, log) => sum + (log.attributes?.retrieved_records || log.attributes?.retrieved_from_db || 0), 0);
   const telemetryStages = new Map();
@@ -243,12 +247,12 @@ function JobDetail({ jobId, back, notify }) {
     if (log.status === "started") current.status = "RUNNING";
     if (log.status === "completed") {
       current.status = "COMPLETED";
-      current.duration_ms = (current.duration_ms || 0) + (log.duration_ms || 0);
+      current.duration_ms = log.duration_ms;
       current.summary = { ...current.summary, ...(log.attributes || {}) };
     }
     if (log.status === "failed") {
       current.status = "FAILED";
-      current.duration_ms = (current.duration_ms || 0) + (log.duration_ms || 0);
+      current.duration_ms = log.duration_ms;
       current.summary = { ...current.summary, ...(log.attributes || {}) };
     }
     telemetryStages.set(key, current);
@@ -314,10 +318,10 @@ function JobDetail({ jobId, back, notify }) {
     </svg>
     <div className="pipeline-legend"><span><i className="graph-dot completed" />Completed</span><span><i className="graph-dot running" />Running</span><span><i className="graph-dot failed" />Failed</span><span><i className="graph-dot pending" />Pending / skipped</span></div>
   </div>;
-  const elapsed = job.started_at ? Date.now() - new Date(job.started_at).getTime() : 0;
-  const estimate = job.status === "COMPLETED" ? 0 : stages.filter(stage => stage.status !== "COMPLETED").reduce((sum, stage) => sum + (stage.duration_ms || 0), 0);
+  const elapsed = metrics?.job_wall_clock_duration_ms;
+  const estimate = null;
   return <Page title={`Job ${shortId(job.job_id)}`} subtitle={`Article ${job.article_id}`} refresh={load}><button className="secondary" onClick={back}>← Back to jobs</button>
-    <section className="metric-grid compact"><MetricCard label="Input / output tokens" value={`${formatNumber(inputTokens)} / ${formatNumber(outputTokens)}`} /><MetricCard label="Tok/s" value={llmDuration ? `${formatNumber(outputTokens / (llmDuration / 1000), 1)}` : "Unavailable"} /><MetricCard label="Elapsed" value={formatDuration(elapsed)} /><MetricCard label="Estimated remaining" value={formatDuration(estimate)} /><MetricCard label="DB created / retrieved" value={`${createdRecords} / ${retrievedRecords}`} /></section>
+    <section className="metric-grid compact"><MetricCard label="Wall-clock" value={formatDuration(elapsed)} /><MetricCard label="Queue wait" value={formatDuration(metrics?.queue_wait_ms)} /><MetricCard label="Critical path" value={formatDuration(metrics?.critical_path_duration_ms)} /><MetricCard label="LLM busy time" value={formatDuration(llmDuration)} /><MetricCard label="Input / output tokens" value={`${formatNumber(inputTokens)} / ${formatNumber(outputTokens)}`} detail={`${metrics?.tokens?.input_source || "Unavailable"} / ${metrics?.tokens?.output_source || "Unavailable"}`} /><MetricCard label="Retries / timeouts" value={`${formatNumber(metrics?.retry_count)} / ${formatNumber(metrics?.timeout_count)}`} /><MetricCard label="DB created / retrieved" value={`${createdRecords} / ${retrievedRecords}`} /></section>
     <div className="detail-grid"><Panel title="Lifecycle"><dl><dt>Status</dt><dd><Status value={job.status} /></dd><dt>Created</dt><dd>{formatDate(job.created_at)}</dd><dt>Started</dt><dd>{formatDate(job.started_at)}</dd><dt>Completed</dt><dd>{formatDate(job.completed_at)}</dd><dt>Correlation</dt><dd className="mono">{job.correlation_id}</dd><dt>Trace</dt><dd className="mono">{job.trace_id}</dd><dt>Error</dt><dd>{job.error_summary || "—"}</dd></dl></Panel>
       <Panel title="Pipeline execution graph" kicker="Branches share a column when stages can execute in parallel; muted nodes are not started">{stageGraph}</Panel></div>
     <Panel title="Related LLM calls" kicker="Model calls correlated to this job"><CallTable calls={llmCalls} /></Panel><Panel title="Related logs" kicker="Structured records filtered by job correlation"><LogTable logs={logs} /></Panel>
@@ -335,7 +339,7 @@ function LLMMonitoring() {
   useTelemetryStream(onEvent);
   if (error) return <ErrorState error={error} retry={load} />;
   return <Page title="LLM Monitoring" subtitle="Measured provider telemetry, with unavailable values left explicit." refresh={load}>
-    <section className="metric-grid compact"><MetricCard label="Requests" value={formatNumber(metrics?.call_count)} detail={`${formatNumber(metrics?.active_call_count)} active now`} /><MetricCard label="Input tokens" value={formatNumber(metrics?.input_tokens_measured || metrics?.input_tokens_estimated)} detail={metrics?.input_tokens_measured ? "Measured" : "Estimated"} /><MetricCard label="Output tokens" value={formatNumber(metrics?.output_tokens_measured || metrics?.output_tokens_estimated)} detail={metrics?.output_tokens_measured ? "Measured" : "Estimated"} /><MetricCard label="P95 latency" value={formatDuration(metrics?.latency_ms?.p95)} /><MetricCard label="Average TTFT" value={formatDuration(metrics?.time_to_first_token_ms?.average)} /><MetricCard label="Errors" value={formatNumber(metrics?.failed_calls)} /></section>
+    <section className="metric-grid compact"><MetricCard label="Requests" value={formatNumber(metrics?.call_count)} detail={`${formatNumber(metrics?.active_call_count)} active now`} /><MetricCard label="Input tokens" value={formatNumber(metrics?.input_tokens_measured || metrics?.input_tokens_estimated)} detail={metrics?.token_source?.input || "Unavailable"} /><MetricCard label="Output tokens" value={formatNumber(metrics?.output_tokens_measured || metrics?.output_tokens_estimated)} detail={metrics?.token_source?.output || "Unavailable"} /><MetricCard label="P50 / average" value={`${formatDuration(metrics?.latency_ms?.p50)} / ${formatDuration(metrics?.latency_ms?.average)}`} /><MetricCard label="P95 / P99 latency" value={`${formatDuration(metrics?.latency_ms?.p95)} / ${formatDuration(metrics?.latency_ms?.p99)}`} /><MetricCard label="Retries / timeouts" value={`${formatNumber(metrics?.retry_count)} / ${formatNumber(metrics?.timeout_count)}`} /><MetricCard label="Errors" value={formatNumber(metrics?.failed_calls)} /></section>
     <div className="two-column"><Panel title="Live request volume"><MiniChart points={live.map((_, index) => ({ value: index + 1 }))} /></Panel><Panel title="Live output tokens"><MiniChart points={live.map(event => ({ value: event.output_tokens ?? event.output_tokens_estimated }))} color="#f0b35b" /></Panel></div>
     <Panel title="LLM call inspector" kicker={`${calls.length} retained structured events`}><CallTable calls={calls} /><p className="muted">Output tokens and throughput are shown only when LM Studio reports usage. If no calls appear, verify LLM_URL and MANAGEMENT_EVENTS_URL, then run a new job; retained telemetry is not backfilled from plain logs.</p></Panel>
   </Page>;

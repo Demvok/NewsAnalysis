@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
+import threading
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -170,11 +172,22 @@ app = FastAPI(
 
 @app.on_event("startup")
 def recover_jobs() -> None:
+    global _retention_thread
     coordinator.recover()
+    _retention_stop.clear()
+    _retention_thread = threading.Thread(
+        target=_retention_loop, name="telemetry-retention", daemon=True
+    )
+    _retention_thread.start()
 
 
 @app.on_event("shutdown")
 def shutdown_coordinator() -> None:
+    global _retention_thread
+    _retention_stop.set()
+    if _retention_thread:
+        _retention_thread.join(timeout=2)
+        _retention_thread = None
     coordinator.shutdown()
 
 
@@ -209,12 +222,162 @@ def parse_datetime(value: str | None) -> datetime | None:
     return datetime.fromisoformat(value) if value else None
 
 
+def _percentile(values: list[float], fraction: float) -> float | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    index = min(len(ordered) - 1, max(0, int((len(ordered) - 1) * fraction)))
+    return ordered[index]
+
+
+def _interval_duration(intervals: list[tuple[datetime, datetime]]) -> int:
+    merged: list[list[datetime]] = []
+    for started, completed in sorted(intervals):
+        if completed <= started:
+            continue
+        if merged and started <= merged[-1][1]:
+            merged[-1][1] = max(merged[-1][1], completed)
+        else:
+            merged.append([started, completed])
+    return int(sum((completed - started).total_seconds() * 1000 for started, completed in merged))
+
+
+def _execution_metrics(connection, job_ids: list[str]) -> dict[str, Any]:
+    empty = {
+        "job_wall_clock_duration_ms": None,
+        "queue_wait_ms": None,
+        "critical_path_duration_ms": None,
+        "summed_llm_busy_time_ms": 0,
+        "llm_queue_wait_ms": 0,
+        "embedding_time_ms": 0,
+        "storage_time_ms": 0,
+        "telemetry_time_ms": 0,
+        "retry_count": 0,
+        "timeout_count": 0,
+        "llm_call_count": 0,
+        "tokens": {
+            "input_measured": 0, "output_measured": 0,
+            "input_estimated": 0, "output_estimated": 0,
+            "input_source": "none", "output_source": "none",
+        },
+        "latency_ms": {"p50": None, "average": None, "p95": None, "p99": None},
+    }
+    if not job_ids:
+        return empty
+    placeholders = ",".join("?" for _ in job_ids)
+    jobs = connection.execute(
+        f"SELECT * FROM jobs WHERE job_id IN ({placeholders})", job_ids
+    ).fetchall()
+    events = connection.execute(
+        f"SELECT * FROM telemetry_events WHERE job_id IN ({placeholders})", job_ids
+    ).fetchall()
+    wall = []
+    for row in jobs:
+        if row["started_at"] and row["completed_at"]:
+            wall.append(
+                (datetime.fromisoformat(row["completed_at"]) -
+                 datetime.fromisoformat(row["started_at"])).total_seconds() * 1000
+            )
+    stage_intervals = []
+    llm_durations = []
+    llm_queue_wait = 0
+    embedding = storage = telemetry = 0
+    timeout_count = 0
+    latency = []
+    measured_input = measured_output = estimated_input = estimated_output = 0
+    measured_input_present = measured_output_present = False
+    for event in events:
+        if event["started_at"] and event["completed_at"] and event["event_type"] == "pipeline_stage":
+            stage_intervals.append((
+                datetime.fromisoformat(event["started_at"]),
+                datetime.fromisoformat(event["completed_at"]),
+            ))
+        if event["event_type"] == "llm_call" and event["status"] in {"completed", "failed"}:
+            if event["duration_ms"] is not None:
+                llm_durations.append(event["duration_ms"])
+                latency.append(event["duration_ms"])
+            if event["input_tokens"] is not None:
+                measured_input += event["input_tokens"]
+                measured_input_present = True
+            if event["output_tokens"] is not None:
+                measured_output += event["output_tokens"]
+                measured_output_present = True
+            estimated_input += event["input_tokens_estimated"] or 0
+            estimated_output += event["output_tokens_estimated"] or 0
+            attributes = json.loads(event["attributes_json"] or "{}")
+            llm_queue_wait += attributes.get("provider_queue_wait_ms") or 0
+            timeout_count += int(event["error_category"] == "timeout")
+        if event["event_type"] == "embedding_request" and event["status"] in {"completed", "failed"}:
+            embedding += event["duration_ms"] or 0
+        if event["event_type"] == "api_request_completed":
+            attributes = json.loads(event["attributes_json"] or "{}")
+            path = attributes.get("path", "")
+            if path == "/internal/events/bulk":
+                telemetry += event["duration_ms"] or 0
+            elif event["service"] == "data-storage":
+                storage += event["duration_ms"] or 0
+    retry_count = sum(row["retry_count"] or 0 for row in jobs)
+    return {
+        "job_wall_clock_duration_ms": sum(wall) / len(wall) if wall else None,
+        "queue_wait_ms": sum(row["queue_wait_ms"] or 0 for row in jobs) / len(jobs),
+        "critical_path_duration_ms": _interval_duration(stage_intervals),
+        "summed_llm_busy_time_ms": sum(llm_durations),
+        "llm_queue_wait_ms": llm_queue_wait,
+        "embedding_time_ms": embedding,
+        "storage_time_ms": storage,
+        "telemetry_time_ms": telemetry,
+        "retry_count": retry_count,
+        "timeout_count": timeout_count,
+        "llm_call_count": len(llm_durations),
+        "tokens": {
+            "input_measured": measured_input,
+            "output_measured": measured_output,
+            "input_estimated": estimated_input,
+            "output_estimated": estimated_output,
+            "input_source": "measured" if measured_input_present else ("estimated" if estimated_input else "none"),
+            "output_source": "measured" if measured_output_present else ("estimated" if estimated_output else "none"),
+        },
+        "latency_ms": {
+            "p50": _percentile(latency, 0.50),
+            "average": sum(latency) / len(latency) if latency else None,
+            "p95": _percentile(latency, 0.95),
+            "p99": _percentile(latency, 0.99),
+        },
+    }
+
+
+_retention_stop = threading.Event()
+_retention_thread: threading.Thread | None = None
+
+
+def _cleanup_telemetry() -> None:
+    cutoff = datetime.now(timezone.utc).timestamp() - settings.telemetry_retention_days * 86400
+    with database.lock, database.connection() as connection:
+        connection.execute(
+            "DELETE FROM telemetry_events WHERE strftime('%s', timestamp) < ?", (int(cutoff),)
+        )
+        connection.execute(
+            "DELETE FROM events WHERE strftime('%s', timestamp) < ?", (int(cutoff),)
+        )
+
+
+def _retention_loop() -> None:
+    interval = max(60.0, float(os.getenv("MANAGEMENT_TELEMETRY_CLEANUP_INTERVAL_SECONDS", "3600")))
+    while not _retention_stop.wait(interval):
+        try:
+            _cleanup_telemetry()
+        except Exception:
+            logger.exception("telemetry_retention_cleanup_failed")
+
+
 def job_response(value: dict[str, Any]) -> JobResponse:
     return JobResponse(
         job_id=value["job_id"], job_type=value["job_type"], article_id=value["article_id"],
         status=value["status"], current_stage=value.get("current_stage"),
         created_at=parse_datetime(value["created_at"]), started_at=parse_datetime(value.get("started_at")),
         completed_at=parse_datetime(value.get("completed_at")), retry_count=value["retry_count"],
+        queue_wait_ms=value.get("queue_wait_ms"), duration_ms=value.get("duration_ms"),
+        worker_identity=value.get("worker_identity"),
         error_code=value.get("error_code"), error_summary=value.get("error_summary"),
         correlation_id=value["correlation_id"], trace_id=value["trace_id"],
         metadata=value.get("metadata", {}),
@@ -807,7 +970,17 @@ def get_settings() -> RuntimeSettingsResponse:
     return RuntimeSettingsResponse(
         request_timeout_seconds=settings.request_timeout_seconds,
         analysis_timeout_seconds=settings.analysis_timeout_seconds,
-        configurable_fields=["request_timeout_seconds", "analysis_timeout_seconds"],
+        max_job_duration_seconds=settings.max_job_duration_seconds,
+        max_job_attempts=settings.max_job_attempts,
+        stage_timeout_seconds=settings.stage_timeout_seconds,
+        llm_request_timeout_seconds=settings.llm_request_timeout_seconds,
+        retry_backoff_seconds=settings.retry_backoff_seconds,
+        retry_max_delay_seconds=settings.retry_max_delay_seconds,
+        configurable_fields=[
+            "request_timeout_seconds", "analysis_timeout_seconds",
+            "max_job_duration_seconds", "max_job_attempts", "stage_timeout_seconds",
+            "llm_request_timeout_seconds", "retry_backoff_seconds", "retry_max_delay_seconds",
+        ],
     )
 
 
@@ -818,6 +991,12 @@ def update_settings(request: RuntimeSettingsUpdate) -> RuntimeSettingsResponse:
         settings.request_timeout_seconds = updates["request_timeout_seconds"]
     if "analysis_timeout_seconds" in updates:
         settings.analysis_timeout_seconds = updates["analysis_timeout_seconds"]
+    for field in (
+        "max_job_duration_seconds", "max_job_attempts", "stage_timeout_seconds",
+        "llm_request_timeout_seconds", "retry_backoff_seconds", "retry_max_delay_seconds",
+    ):
+        if field in updates:
+            setattr(settings, field, updates[field])
     logger.info("runtime_settings_updated fields=%s", sorted(updates))
     return get_settings()
 
@@ -1001,59 +1180,71 @@ def export_experiment(experiment_id: UUID, format: str = Query("json", pattern="
                     headers={"Content-Disposition": f'attachment; filename="experiment-{experiment_id}.csv"'})
 
 
-@app.post("/internal/events", status_code=202, tags=["Telemetry"])
-def receive_event(event: EventRequest) -> dict[str, str]:
-    event_id = str(event.event_id or uuid4())
+def _ingest_events(events: list[EventRequest]) -> int:
+    event_rows = []
+    telemetry_rows = []
+    for event in events:
+        event_id = str(event.event_id or uuid4())
+        timestamp = (event.timestamp or datetime.now(timezone.utc)).isoformat()
+        event_rows.append((
+            event_id, timestamp, event.service, event.level, event.event_type,
+            str(event.job_id) if event.job_id else None,
+            str(event.correlation_id) if event.correlation_id else None,
+            str(event.request_id) if event.request_id else None,
+            str(event.article_id) if event.article_id else None, event.stage,
+            event.duration_ms, json.dumps(event.attributes),
+        ))
+        telemetry_rows.append((
+            event_id, timestamp, event.service, event.level, event.event_type,
+            event.operation, event.status, str(event.job_id) if event.job_id else None,
+            str(event.correlation_id) if event.correlation_id else None,
+            str(event.request_id) if event.request_id else None,
+            str(event.article_id) if event.article_id else None, event.stage,
+            str(event.trace_id) if event.trace_id else None,
+            event.span_id, event.parent_span_id,
+            event.started_at.isoformat() if event.started_at else None,
+            event.completed_at.isoformat() if event.completed_at else None,
+            event.duration_ms,
+            event.time_to_first_token_ms, event.input_tokens, event.output_tokens,
+            event.input_tokens_estimated, event.output_tokens_estimated,
+            event.throughput_tokens_per_second, event.model, event.provider,
+            event.finish_reason, event.retry_count, event.attempt_number,
+            event.queue_wait_ms, event.job_duration_ms, event.stage_duration_ms,
+            event.worker_identity, event.error_category, event.error_detail,
+            json.dumps(event.attributes),
+            json.dumps(event.debug_content) if event.debug_content else None,
+        ))
     with database.lock, database.connection() as connection:
-        retention_cutoff = datetime.now(timezone.utc).timestamp() - settings.telemetry_retention_days * 86400
-        connection.execute(
-            "DELETE FROM telemetry_events WHERE strftime('%s', timestamp) < ?",
-            (int(retention_cutoff),),
+        connection.executemany(
+            "INSERT OR IGNORE INTO events VALUES(?,?,?,?,?,?,?,?,?,?,?,?)", [
+                row for row in event_rows
+            ],
         )
-        connection.execute(
-            "DELETE FROM events WHERE strftime('%s', timestamp) < ?",
-            (int(retention_cutoff),),
-        )
-        connection.execute(
-            "INSERT OR IGNORE INTO events VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
-            (
-                event_id, (event.timestamp or datetime.now(timezone.utc)).isoformat(),
-                event.service, event.level, event.event_type, str(event.job_id) if event.job_id else None,
-                str(event.correlation_id) if event.correlation_id else None,
-                str(event.request_id) if event.request_id else None,
-                str(event.article_id) if event.article_id else None, event.stage,
-                event.duration_ms, json.dumps(event.attributes),
-            ),
-        )
-        connection.execute(
+        connection.executemany(
             """INSERT OR IGNORE INTO telemetry_events
             (event_id,timestamp,service,level,event_type,operation,status,job_id,
              correlation_id,request_id,article_id,stage,trace_id,span_id,parent_span_id,
              started_at,completed_at,duration_ms,time_to_first_token_ms,input_tokens,
              output_tokens,input_tokens_estimated,output_tokens_estimated,
              throughput_tokens_per_second,model,provider,finish_reason,retry_count,
+             attempt_number,queue_wait_ms,job_duration_ms,stage_duration_ms,worker_identity,
              error_category,error_detail,attributes_json,debug_content_json)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-            (
-                event_id, (event.timestamp or datetime.now(timezone.utc)).isoformat(),
-                event.service, event.level, event.event_type, event.operation, event.status,
-                str(event.job_id) if event.job_id else None,
-                str(event.correlation_id) if event.correlation_id else None,
-                str(event.request_id) if event.request_id else None,
-                str(event.article_id) if event.article_id else None, event.stage,
-                str(event.trace_id) if event.trace_id else None, event.span_id,
-                event.parent_span_id,
-                event.started_at.isoformat() if event.started_at else None,
-                event.completed_at.isoformat() if event.completed_at else None,
-                event.duration_ms, event.time_to_first_token_ms, event.input_tokens,
-                event.output_tokens, event.input_tokens_estimated,
-                event.output_tokens_estimated, event.throughput_tokens_per_second,
-                event.model, event.provider, event.finish_reason, event.retry_count,
-                event.error_category, event.error_detail, json.dumps(event.attributes),
-                json.dumps(event.debug_content) if event.debug_content else None,
-            ),
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            telemetry_rows,
         )
+    return len(events)
+
+
+@app.post("/internal/events", status_code=202, tags=["Telemetry"])
+def receive_event(event: EventRequest) -> dict[str, str]:
+    _ingest_events([event])
     return {"status": "accepted"}
+
+
+@app.post("/internal/events/bulk", status_code=202, tags=["Telemetry"])
+def receive_events_bulk(events: list[EventRequest] = Body(..., min_length=1, max_length=1000)) -> dict[str, int | str]:
+    accepted = _ingest_events(events)
+    return {"status": "accepted", "accepted": accepted}
 
 
 @app.get("/api/pipeline/history", tags=["Pipeline"])
@@ -1191,7 +1382,7 @@ def llm_metrics(
     until_time = parse_time(until, "until")
     query = (
         "SELECT status, retry_count, duration_ms, time_to_first_token_ms, "
-        "throughput_tokens_per_second, input_tokens, output_tokens, "
+        "throughput_tokens_per_second, input_tokens, output_tokens, error_category, "
         "input_tokens_estimated, output_tokens_estimated, model, job_id, article_id, stage "
         "FROM telemetry_events WHERE event_type='llm_call' AND status IN ('completed','failed')"
     )
@@ -1200,11 +1391,11 @@ def llm_metrics(
         query += " AND timestamp>=?"; params.append(since_time.isoformat())
     if until_time:
         query += " AND timestamp<=?"; params.append(until_time.isoformat())
-    query += " ORDER BY timestamp DESC LIMIT 20000"
     for column, value in (("model", model), ("job_id", str(job_id) if job_id else None),
                           ("article_id", str(article_id) if article_id else None), ("stage", stage)):
         if value:
             query += f" AND {column}=?"; params.append(value)
+    query += " ORDER BY timestamp DESC LIMIT 20000"
     with database.connection() as connection:
         rows = [dict(row) for row in connection.execute(query, params)]
         active_query = (
@@ -1230,27 +1421,39 @@ def llm_metrics(
     durations = [row["duration_ms"] for row in rows if row["duration_ms"] is not None]
     ttft = [row["time_to_first_token_ms"] for row in rows if row["time_to_first_token_ms"] is not None]
     throughput = [row["throughput_tokens_per_second"] for row in rows if row["throughput_tokens_per_second"] is not None]
-    def percentile(values: list[float], fraction: float) -> float | None:
-        if not values:
-            return None
-        ordered = sorted(values)
-        index = min(len(ordered) - 1, max(0, int((len(ordered) - 1) * fraction)))
-        return ordered[index]
+    with database.connection() as connection:
+        execution = _execution_metrics(connection, [str(job_id)]) if job_id else None
+    measured_input = sum(row["input_tokens"] or 0 for row in rows)
+    measured_output = sum(row["output_tokens"] or 0 for row in rows)
+    estimated_input = sum(row["input_tokens_estimated"] or 0 for row in rows)
+    estimated_output = sum(row["output_tokens_estimated"] or 0 for row in rows)
     return {
         "call_count": len(rows),
         "active_call_count": len(active_rows),
         "successful_calls": sum(row["status"] == "completed" for row in rows),
         "failed_calls": sum(row["status"] == "failed" for row in rows),
         "retry_count": sum(row["retry_count"] for row in rows),
-        "input_tokens_measured": sum(row["input_tokens"] or 0 for row in rows),
-        "output_tokens_measured": sum(row["output_tokens"] or 0 for row in rows),
-        "input_tokens_estimated": sum(row["input_tokens_estimated"] or 0 for row in rows),
-        "output_tokens_estimated": sum(row["output_tokens_estimated"] or 0 for row in rows),
+        "timeout_count": sum(row["error_category"] == "timeout" for row in rows),
+        "input_tokens_measured": measured_input,
+        "output_tokens_measured": measured_output,
+        "input_tokens_estimated": estimated_input,
+        "output_tokens_estimated": estimated_output,
+        "token_source": {
+            "input": "measured" if measured_input else ("estimated" if estimated_input else "none"),
+            "output": "measured" if measured_output else ("estimated" if estimated_output else "none"),
+        },
         "latency_ms": {"average": sum(durations) / len(durations) if durations else None,
-                       "median": percentile(durations, 0.5), "p95": percentile(durations, 0.95)},
+                       "p50": _percentile(durations, 0.5),
+                       "median": _percentile(durations, 0.5),
+                       "p95": _percentile(durations, 0.95),
+                       "p99": _percentile(durations, 0.99)},
         "time_to_first_token_ms": {"average": sum(ttft) / len(ttft) if ttft else None,
-                                   "median": percentile(ttft, 0.5), "p95": percentile(ttft, 0.95)},
+                                   "p50": _percentile(ttft, 0.5),
+                                   "median": _percentile(ttft, 0.5),
+                                   "p95": _percentile(ttft, 0.95),
+                                   "p99": _percentile(ttft, 0.99)},
         "throughput_tokens_per_second_average": sum(throughput) / len(throughput) if throughput else None,
+        "execution": execution,
     }
 
 
@@ -1267,7 +1470,7 @@ def stage_metrics(limit: int = Query(100, ge=1, le=1000)) -> list[dict[str, Any]
 
 
 @app.get("/api/metrics/jobs", tags=["Telemetry"])
-def job_metrics() -> dict[str, Any]:
+def job_metrics(job_id: UUID | None = None) -> dict[str, Any]:
     with database.connection() as connection:
         counts = connection.execute(
             "SELECT status, COUNT(*) AS count FROM jobs GROUP BY status"
@@ -1275,11 +1478,28 @@ def job_metrics() -> dict[str, Any]:
         completed = connection.execute(
             "SELECT COUNT(*) AS count FROM jobs WHERE status='COMPLETED'"
         ).fetchone()["count"]
-    return {
+        execution = _execution_metrics(connection, [str(job_id)]) if job_id else None
+        telemetry_health = connection.execute(
+            """SELECT COUNT(*) AS received,
+                      SUM(CASE WHEN event_type='telemetry_health' THEN 1 ELSE 0 END) AS health_events,
+                      COALESCE(SUM(CASE WHEN event_type='telemetry_health'
+                                        THEN json_extract(attributes_json, '$.dropped_events')
+                                        ELSE 0 END), 0) AS dropped_events
+               FROM telemetry_events"""
+        ).fetchone()
+    result = {
         "queue_depth": sum(row["count"] for row in counts if row["status"] in {"PENDING", "RETRYING"}),
         "throughput_completed_jobs": completed,
         "by_status": {row["status"]: row["count"] for row in counts},
+        "execution": execution,
+        "telemetry_health": {
+            "received_events": telemetry_health["received"] or 0,
+            "health_events": telemetry_health["health_events"] or 0,
+            "dropped_events": telemetry_health["dropped_events"] or 0,
+            "status": "healthy" if (telemetry_health["dropped_events"] or 0) == 0 else "degraded",
+        },
     }
+    return result
 
 
 @app.get("/api/logs/errors", tags=["Diagnostics"])

@@ -2,18 +2,24 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import threading
+import time
+import math
+import inspect
+from types import SimpleNamespace
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID, uuid4
 
-from .clients import ServiceClient
+from .clients import ServiceClient, UpstreamTimeoutError
 from .database import ManagementDatabase
 from .logger import get_logger
 from .models import ExecutionMode, JobCreateRequest, JobStatus, StageStatus, TaskCreateRequest, TaskStatus
+from .timing import monotonic_ms, queue_wait_ms, wall_duration_ms, worker_identity
 
 logger = get_logger("orchestration")
 MAX_AUTOMATIC_RETRIES = 2
@@ -36,6 +42,11 @@ def safe_error_summary(error: BaseException) -> str:
     )
     return value[:500]
 
+def error_code(error: BaseException) -> str:
+    if isinstance(error, (TimeoutError, UpstreamTimeoutError)):
+        return "TIMEOUT"
+    return type(error).__name__
+
 
 class JobCoordinator:
     def __init__(self, database: ManagementDatabase, client: ServiceClient, max_workers: int):
@@ -45,14 +56,23 @@ class JobCoordinator:
         self.max_workers = max_workers
         self._shutting_down = False
         self._task_run_lock = threading.Lock()
+        self.settings = getattr(client, "settings", SimpleNamespace(
+            max_job_attempts=MAX_AUTOMATIC_RETRIES + 1,
+            max_job_duration_seconds=3600.0,
+            stage_timeout_seconds=1800.0,
+            retry_backoff_seconds=1.0,
+            retry_max_delay_seconds=60.0,
+        ))
 
     def recover(self) -> None:
         """Resume durable queued work and retry jobs interrupted by a restart."""
         with self.database.lock, self.database.connection() as connection:
             interrupted = connection.execute(
                 "SELECT job_id FROM jobs WHERE status='FAILED' AND error_code='MANAGEMENT_RESTART' "
-                "AND retry_count < ?",
-                (MAX_AUTOMATIC_RETRIES,),
+                "AND retry_count < ? AND (started_at IS NULL OR "
+                "julianday(?) - julianday(started_at) < ? / 86400.0)",
+                (self.settings.max_job_attempts - 1, timestamp(),
+                 self.settings.max_job_duration_seconds),
             ).fetchall()
             queued = connection.execute(
                 "SELECT job_id FROM jobs WHERE status='PENDING'"
@@ -171,6 +191,7 @@ class JobCoordinator:
         return job
 
     def run(self, job_id: str) -> None:
+        job_started = time.perf_counter()
         with self.database.lock, self.database.connection() as connection:
             row = connection.execute("SELECT * FROM jobs WHERE job_id=?", (job_id,)).fetchone()
             if row is None or row["status"] == JobStatus.CANCELLED.value or row["cancel_requested"]:
@@ -183,14 +204,50 @@ class JobCoordinator:
             )
             if updated.rowcount != 1:
                 return
-        headers = {"x-job-id": job_id, "x-correlation-id": row["correlation_id"], "x-request-id": row["trace_id"]}
+        attempt_number = int(row["retry_count"]) + 1
+        config = json.loads(row["config_json"])
+        deadline = time.perf_counter() + self.settings.max_job_duration_seconds
+        if row["started_at"]:
+            deadline = time.perf_counter() + max(
+                0.0,
+                self.settings.max_job_duration_seconds
+                - max(0.0, (datetime.now(timezone.utc) - datetime.fromisoformat(row["started_at"])).total_seconds()),
+            )
+        headers = {
+            "x-job-id": job_id,
+            "x-correlation-id": row["correlation_id"],
+            "x-request-id": row["trace_id"],
+            "x-job-attempt": str(attempt_number),
+            "x-job-retry-count": str(row["retry_count"]),
+            "x-job-created-at": row["created_at"],
+            "x-queue-wait-ms": str(queue_wait_ms(row["created_at"], timestamp())),
+        }
+        queue_wait = int(headers["x-queue-wait-ms"])
+        with self.database.lock, self.database.connection() as connection:
+            connection.execute(
+                "UPDATE jobs SET queue_wait_ms=?, worker_identity=? WHERE job_id=?",
+                (queue_wait, worker_identity(), job_id),
+            )
+            active_jobs = connection.execute(
+                "SELECT COUNT(*) AS count FROM jobs WHERE status='RUNNING'"
+            ).fetchone()["count"]
         current_stage: str | None = None
         try:
-            logger.info("job_started job_id=%s article_id=%s mode=%s", job_id, row["article_id"], json.loads(row["config_json"]).get("execution_mode", ExecutionMode.PER_ARTICLE.value))
+            logger.info(
+                "job_started job_id=%s article_id=%s mode=%s attempt=%d queue_wait_ms=%d "
+                "active_jobs=%d configured_workers=%d process_id=%d thread_id=%d worker_identity=%s",
+                job_id, row["article_id"],
+                json.loads(row["config_json"]).get("execution_mode", ExecutionMode.PER_ARTICLE.value),
+                attempt_number, queue_wait, active_jobs, self.max_workers,
+                os.getpid(), threading.get_ident(), worker_identity(),
+            )
             current_stage = "article_retrieval"
-            self._stage(job_id, "article_retrieval", StageStatus.RUNNING)
-            article = self.client.article(row["article_id"], headers)
-            self._stage(job_id, "article_retrieval", StageStatus.COMPLETED, {"article_id": row["article_id"]})
+            article_completed = self._stage_completed(job_id, current_stage)
+            if not article_completed:
+                self._stage(job_id, current_stage, StageStatus.RUNNING)
+            article = self._article(row["article_id"], headers, self._remaining(deadline, "article_retrieval"))
+            if not article_completed:
+                self._stage(job_id, current_stage, StageStatus.COMPLETED, {"article_id": row["article_id"]})
             self._set_article_status(row["article_id"], "INGESTED")
             if self._cancel_requested(job_id):
                 self._cancel_after_stage(job_id)
@@ -211,9 +268,11 @@ class JobCoordinator:
                 })
                 self._set_article_status(row["article_id"], "ANALYZED")
                 self._finish(job_id, JobStatus.COMPLETED)
-                logger.info("job_completed job_id=%s", job_id)
+                logger.info(
+                    "job_completed job_id=%s duration_ms=%d attempt=%d worker_identity=%s",
+                    job_id, monotonic_ms(job_started), attempt_number, worker_identity(),
+                )
                 return
-            config = json.loads(row["config_json"])
             extraction_payload = {
                 "article": {
                     "article_id": row["article_id"],
@@ -224,73 +283,157 @@ class JobCoordinator:
                 }
             }
             current_stage = "citation_extraction"
-            self._stage(job_id, current_stage, StageStatus.RUNNING)
-            extraction_response = self.client.analysis_stage(
-                "citation_extraction", extraction_payload, headers
-            )
-            extraction = extraction_response.get("result")
-            if not isinstance(extraction, dict):
-                raise ValueError("citation extraction response did not contain a result")
-            self._stage(job_id, current_stage, StageStatus.COMPLETED, {
-                "speaker_count": len(extraction.get("speakers", [])),
-                "citation_count": sum(len(item.get("citations", [])) for item in extraction.get("speakers", [])),
-            })
+            if self._stage_completed(job_id, current_stage):
+                extraction = self._stage_result(job_id, current_stage)
+                if not isinstance(extraction, dict):
+                    raise ValueError("completed citation extraction has no persisted result")
+            else:
+                self._stage(job_id, current_stage, StageStatus.RUNNING)
+                extraction_response = self._analysis_stage(
+                    "citation_extraction", extraction_payload, headers,
+                    self._remaining(deadline, current_stage),
+                )
+                extraction = extraction_response.get("result")
+                if not isinstance(extraction, dict):
+                    raise ValueError("citation extraction response did not contain a result")
+                self._save_stage_result(job_id, current_stage, extraction)
+                self._stage(job_id, current_stage, StageStatus.COMPLETED, {
+                    "speaker_count": len(extraction.get("speakers", [])),
+                    "citation_count": sum(len(item.get("citations", [])) for item in extraction.get("speakers", [])),
+                })
             if self._cancel_requested(job_id):
                 self._cancel_after_stage(job_id)
                 return
 
             current_stage = "extraction_persistence"
-            self._stage(job_id, current_stage, StageStatus.RUNNING)
-            persistence = self.client.analysis_stage(
-                current_stage,
-                {"article_id": row["article_id"], "extraction": extraction},
-                headers,
-            )
-            self._stage(job_id, current_stage, StageStatus.COMPLETED, persistence.get("stats") or {})
+            if not self._stage_completed(job_id, current_stage):
+                self._stage(job_id, current_stage, StageStatus.RUNNING)
+                persistence = self._analysis_stage(
+                    current_stage,
+                    {"article_id": row["article_id"], "extraction": extraction},
+                    headers,
+                    self._remaining(deadline, current_stage),
+                )
+                self._stage(job_id, current_stage, StageStatus.COMPLETED, persistence.get("stats") or {})
             self._set_article_status(row["article_id"], "CITATIONS_EXTRACTED")
             if self._cancel_requested(job_id):
                 self._cancel_after_stage(job_id)
                 return
 
             current_stage = "citation_analysis"
-            self._stage(job_id, current_stage, StageStatus.RUNNING)
-            analysis = self.client.analysis_stage(
-                current_stage,
-                {"analysis": {
-                    "article_id": row["article_id"],
-                    "extraction": extraction,
-                    "published_at": article.get("published_at"),
-                    "inconsistency_window_days": config["inconsistency_window_days"],
-                }},
-                headers,
-            )
-            self._stage(job_id, current_stage, StageStatus.COMPLETED, analysis.get("stats") or {})
+            if not self._stage_completed(job_id, current_stage):
+                self._stage(job_id, current_stage, StageStatus.RUNNING)
+                analysis = self._analysis_stage(
+                    current_stage,
+                    {"analysis": {
+                        "article_id": row["article_id"],
+                        "extraction": extraction,
+                        "published_at": article.get("published_at"),
+                        "inconsistency_window_days": config["inconsistency_window_days"],
+                    }},
+                    headers,
+                    self._remaining(deadline, current_stage),
+                )
+                self._stage(job_id, current_stage, StageStatus.COMPLETED, analysis.get("stats") or {})
             self._set_article_status(row["article_id"], "ANALYZED")
             self._finish(job_id, JobStatus.COMPLETED)
-            logger.info("job_completed job_id=%s", job_id)
+            logger.info(
+                "job_completed job_id=%s duration_ms=%d attempt=%d worker_identity=%s",
+                job_id, monotonic_ms(job_started), attempt_number, worker_identity(),
+            )
         except Exception as exc:
-            logger.exception("job_failed job_id=%s error_type=%s", job_id, type(exc).__name__)
+            logger.exception(
+                "job_failed job_id=%s error_type=%s duration_ms=%d attempt=%d worker_identity=%s",
+                job_id, type(exc).__name__, monotonic_ms(job_started),
+                attempt_number, worker_identity(),
+            )
             summary = safe_error_summary(exc)
             if current_stage:
                 try:
-                    self._stage(job_id, current_stage, StageStatus.FAILED, error_code=type(exc).__name__, error_summary=summary)
+                    self._stage(job_id, current_stage, StageStatus.FAILED, error_code=error_code(exc), error_summary=summary)
                 except Exception:
                     logger.exception("job_failure_stage_persist_failed job_id=%s", job_id)
-            self._schedule_retry_or_finish(job_id, type(exc).__name__, summary)
+            self._schedule_retry_or_finish(job_id, error_code(exc), summary)
             if current_stage:
                 logger.error("job_failed job_id=%s stage=%s error_type=%s", job_id, current_stage, type(exc).__name__)
+
+    def _remaining(self, deadline: float, stage: str) -> float:
+        remaining = deadline - time.perf_counter()
+        if remaining <= 0:
+            raise TimeoutError(f"job deadline exhausted before {stage}")
+        return min(self.settings.stage_timeout_seconds, remaining)
+
+    def _article(self, article_id: str, headers: dict[str, str], timeout: float) -> dict[str, Any]:
+        if "timeout" in inspect.signature(self.client.article).parameters:
+            return self.client.article(article_id, headers, timeout)
+        return self.client.article(article_id, headers)
+
+    def _analysis_stage(
+        self, stage: str, payload: dict[str, Any], headers: dict[str, str], timeout: float
+    ) -> dict[str, Any]:
+        if "timeout" in inspect.signature(self.client.analysis_stage).parameters:
+            return self.client.analysis_stage(stage, payload, headers, timeout)
+        return self.client.analysis_stage(stage, payload, headers)
+
+    def _analysis_stage_bulk(
+        self, stage: str, payload: list[dict[str, Any]], headers: dict[str, str], timeout: float
+    ) -> dict[str, Any]:
+        if "timeout" in inspect.signature(self.client.analysis_stage_bulk).parameters:
+            return self.client.analysis_stage_bulk(stage, payload, headers, timeout)
+        return self.client.analysis_stage_bulk(stage, payload, headers)
+
+    def _stage_completed(self, job_id: str, stage: str) -> bool:
+        with self.database.connection() as connection:
+            return connection.execute(
+                "SELECT 1 FROM job_stages WHERE job_id=? AND stage=? AND status=? LIMIT 1",
+                (job_id, stage, StageStatus.COMPLETED.value),
+            ).fetchone() is not None
+
+    def _stage_result(self, job_id: str, stage: str) -> Any:
+        with self.database.connection() as connection:
+            row = connection.execute(
+                "SELECT metadata_json FROM jobs WHERE job_id=?", (job_id,)
+            ).fetchone()
+        metadata = json.loads(row["metadata_json"] or "{}") if row else {}
+        return metadata.get("_stage_results", {}).get(stage)
+
+    def _save_stage_result(self, job_id: str, stage: str, result: Any) -> None:
+        with self.database.lock, self.database.connection() as connection:
+            row = connection.execute(
+                "SELECT metadata_json FROM jobs WHERE job_id=?", (job_id,)
+            ).fetchone()
+            metadata = json.loads(row["metadata_json"] or "{}")
+            stage_results = metadata.setdefault("_stage_results", {})
+            stage_results[stage] = result
+            connection.execute(
+                "UPDATE jobs SET metadata_json=? WHERE job_id=?",
+                (json.dumps(metadata), job_id),
+            )
 
     def _schedule_retry_or_finish(self, job_id: str, code: str, summary: str) -> None:
         should_retry = False
         final_status: JobStatus | None = None
         with self.database.lock, self.database.connection() as connection:
             row = connection.execute(
-                "SELECT retry_count, cancel_requested, status FROM jobs WHERE job_id=?",
+                "SELECT retry_count, cancel_requested, status, started_at FROM jobs WHERE job_id=?",
                 (job_id,),
             ).fetchone()
             if row is None or row["status"] != JobStatus.RUNNING.value:
                 return
-            if not row["cancel_requested"] and row["retry_count"] < MAX_AUTOMATIC_RETRIES:
+            elapsed = (
+                (datetime.now(timezone.utc) - datetime.fromisoformat(row["started_at"])).total_seconds()
+                if row["started_at"] else 0
+            )
+            delay = min(
+                self.settings.retry_max_delay_seconds,
+                self.settings.retry_backoff_seconds * (2 ** max(0, int(row["retry_count"]) - 1)),
+            )
+            can_retry = (
+                not row["cancel_requested"]
+                and row["retry_count"] + 1 < self.settings.max_job_attempts
+                and elapsed + delay < self.settings.max_job_duration_seconds
+            )
+            if can_retry:
                 updated = connection.execute(
                     "UPDATE jobs SET status=?, retry_count=retry_count+1, completed_at=NULL, "
                     "error_code=?, error_summary=? WHERE job_id=? AND status=? AND cancel_requested=0",
@@ -318,6 +461,8 @@ class JobCoordinator:
                 if task:
                     self._refresh_task_status(connection, task["task_id"])
         if should_retry:
+            if delay:
+                time.sleep(delay)
             self._submit(job_id)
             logger.warning("job_retry_scheduled job_id=%s", job_id)
         elif final_status is not None:
@@ -332,6 +477,7 @@ class JobCoordinator:
         """
         logger.info("bundled_task_started task_id=%s job_count=%s", task_id, len(job_ids))
         rows: dict[str, Any] = {}
+        task_deadline = time.perf_counter() + self.settings.max_job_duration_seconds
         try:
             with self.database.lock, self.database.connection() as connection:
                 for job_id in job_ids:
@@ -351,9 +497,10 @@ class JobCoordinator:
                     self._finish(job_id, JobStatus.CANCELLED, "CANCEL_REQUESTED", "Cancellation requested before bundled execution")
                     continue
                 self._stage(job_id, "article_retrieval", StageStatus.RUNNING)
-                articles[job_id] = self.client.article(
+                articles[job_id] = self._article(
                     row["article_id"],
                     {"x-job-id": job_id, "x-correlation-id": row["correlation_id"], "x-request-id": row["trace_id"]},
+                    self._remaining(task_deadline, "article_retrieval"),
                 )
                 self._stage(job_id, "article_retrieval", StageStatus.COMPLETED, {"article_id": row["article_id"]})
                 self._set_article_status(row["article_id"], "INGESTED")
@@ -370,9 +517,10 @@ class JobCoordinator:
                 for job_id in active
             ]
             self._run_bundled_stage(active, "citation_extraction")
-            extraction_response = self.client.analysis_stage_bulk(
+            extraction_response = self._analysis_stage_bulk(
                 "citation_extraction", extraction_payload,
                 {"x-task-id": task_id, "x-request-id": str(uuid4())},
+                self._remaining(task_deadline, "citation_extraction"),
             )
             extractions = extraction_response.get("results", [])
             if len(extractions) != len(active):
@@ -389,9 +537,10 @@ class JobCoordinator:
                 })
             self._complete_bundled_stage(active, "citation_extraction", {"item_count": len(active)})
             self._run_bundled_stage(active, "extraction_persistence")
-            self.client.analysis_stage_bulk(
+            self._analysis_stage_bulk(
                 "extraction_persistence", persistence_payload,
                 {"x-task-id": task_id, "x-request-id": str(uuid4())},
+                self._remaining(task_deadline, "extraction_persistence"),
             )
             self._complete_bundled_stage(active, "extraction_persistence", {"item_count": len(active)})
             for job_id in active:
@@ -409,9 +558,10 @@ class JobCoordinator:
                     }
                 })
             self._run_bundled_stage(active, "citation_analysis")
-            result = self.client.analysis_stage_bulk(
+            result = self._analysis_stage_bulk(
                 "citation_analysis", analysis_payload,
                 {"x-task-id": task_id, "x-request-id": str(uuid4())},
+                self._remaining(task_deadline, "citation_analysis"),
             )
             self._complete_bundled_stage(active, "citation_analysis", {
                 "item_count": len(active),
@@ -468,6 +618,14 @@ class JobCoordinator:
         current = self.get(job_id)
         if current["status"] not in {JobStatus.FAILED.value, JobStatus.CANCELLED.value}:
             raise ValueError("Only FAILED or CANCELLED jobs can be retried")
+        if current["retry_count"] + 1 >= self.settings.max_job_attempts:
+            raise ValueError("Maximum job attempts exhausted")
+        if current.get("started_at"):
+            elapsed = (
+                datetime.now(timezone.utc) - datetime.fromisoformat(current["started_at"])
+            ).total_seconds()
+            if elapsed >= self.settings.max_job_duration_seconds:
+                raise ValueError("Job deadline exhausted")
         with self.database.lock, self.database.connection() as connection:
             updated = connection.execute(
                 "UPDATE jobs SET status=?, retry_count=retry_count+1, cancel_requested=0, "
@@ -761,10 +919,22 @@ class JobCoordinator:
                 if row["cancel_requested"] and status == JobStatus.COMPLETED
                 else status
             )
+            completed_at = timestamp()
+            started_at = connection.execute(
+                "SELECT started_at FROM jobs WHERE job_id=?", (job_id,)
+            ).fetchone()["started_at"]
+            duration = wall_duration_ms(started_at, completed_at) if started_at else None
             connection.execute(
                 "UPDATE jobs SET status=?, current_stage=NULL, completed_at=?, "
-                "error_code=?, error_summary=? WHERE job_id=?",
-                (effective_status.value, timestamp(), code, summary, job_id),
+                "duration_ms=?, error_code=?, error_summary=? WHERE job_id=?",
+                (
+                    effective_status.value,
+                    completed_at,
+                    duration,
+                    code,
+                    summary,
+                    job_id,
+                ),
             )
             task = connection.execute(
                 "SELECT task_id FROM task_jobs WHERE job_id=?", (job_id,)
@@ -871,3 +1041,12 @@ class JobCoordinator:
                         (error_code, error_summary, existing["stage_id"]),
                     )
             connection.execute("UPDATE jobs SET current_stage=? WHERE job_id=?", (name if status == StageStatus.RUNNING else None, job_id))
+            active_stages = connection.execute(
+                "SELECT COUNT(*) AS count FROM job_stages WHERE status='RUNNING'"
+            ).fetchone()["count"]
+        logger.info(
+            "stage_transition job_id=%s stage=%s status=%s active_stages=%d "
+            "process_id=%d thread_id=%d configured_workers=%d",
+            job_id, name, status.value, active_stages, os.getpid(),
+            threading.get_ident(), self.max_workers,
+        )

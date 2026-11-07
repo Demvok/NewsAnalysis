@@ -21,8 +21,8 @@ const simplifyStance = value => {
 };
 const stanceTone = value => simplifyStance(value) > 0 ? "positive" : simplifyStance(value) < 0 ? "negative" : "neutral";
 const colorForSpeaker = personUuid => colors[[...String(personUuid)].reduce((hash, character) => hash + character.charCodeAt(0), 0) % colors.length];
-const BUBBLE_MIN_SIZE = 6;
-const BUBBLE_MAX_SIZE = 38;
+const BUBBLE_MIN_SIZE = 12;
+const BUBBLE_MAX_SIZE = 50;
 // Tune these two values to change the smallest/largest rendered bubbles.
 const SIMILARITY_MAGNETS = [.55, .65, .75, .85, .9, .95];
 const snapSimilarity = value => {
@@ -102,12 +102,13 @@ function decorateTopicRelevance(data, searchMode, phrase, activeTopic, similarit
 
 function Kpis({ kpis }) {
   const stanceCategory = value => value == null ? "Unavailable" : value > .12 ? "Leaning supportive" : value < -.12 ? "Leaning opposed" : "Broadly neutral";
+  const spreadCategory = value => value == null ? "Unavailable" : value < .15 ? "Very consistent" : value < .35 ? "Mostly consistent" : value < .65 ? "Mixed positions" : "Wide variation";
   const inconsistencyPercent = (kpis.inconsistency_frequency || 0) * 100;
   const inconsistencyCategory = inconsistencyPercent >= 20 ? "Frequent" : inconsistencyPercent >= 8 ? "Occasional" : "Rare";
   const items = [
     ["Average", stanceCategory(kpis.average_stance), simplifyStance(kpis.average_stance), "stance / 5", stanceTone(kpis.average_stance)],
     ["Median", stanceCategory(kpis.median_stance), simplifyStance(kpis.median_stance), "stance / 5", stanceTone(kpis.median_stance)],
-    ["Spread", "Variation between citations", simplifyStance(kpis.std_stance), "std / 5", "subdued"],
+    ["Spread", spreadCategory(kpis.std_stance), simplifyStance(kpis.std_stance), "std / 5", kpis.std_stance >= .65 ? "negative" : kpis.std_stance >= .35 ? "neutral" : "positive"],
     ["Inconsistency", inconsistencyCategory, `${fmt(inconsistencyPercent, 1)}%`, "of citations", inconsistencyPercent >= 20 ? "negative" : inconsistencyPercent >= 8 ? "neutral" : "positive"],
   ];
   return <div className="kpi-strip">{items.map(([label, category, value, detail, tone]) => <article className={`kpi ${tone}`} key={label}><span>{label}</span><strong>{category}</strong><b>{value}</b><small>{detail}</small></article>)}</div>;
@@ -227,7 +228,7 @@ function Timeline({ citations, selectedSpeaker, topicSearchActive, similarityThr
         ...averageLine,
         name: "All speakers average",
         data: weightedDrift(timelineCitations),
-        lineStyle: { ...averageLine.lineStyle, color: "#91a8ff", type: "solid", opacity: .7 },
+        lineStyle: { ...averageLine.lineStyle, color: "#91a8ff", type: "dashed", opacity: .7 },
         z: 2,
       });
     }
@@ -273,7 +274,7 @@ function Timeline({ citations, selectedSpeaker, topicSearchActive, similarityThr
         trigger: "item",
         enterable: true,
         showDelay: 320,
-        hideDelay: 800,
+        hideDelay: 550,
         transitionDuration: .15,
         confine: true,
         backgroundColor: "#172b40",

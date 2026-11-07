@@ -23,6 +23,7 @@ from .telemetry import emit_event, sanitized_error
 
 logger = get_logger("analysis", "analysis")
 STORAGE_URL = os.getenv("STORAGE_URL", "http://data-storage:8000").rstrip("/")
+STORAGE_REQUEST_TIMEOUT = max(0.1, float(os.getenv("STORAGE_REQUEST_TIMEOUT_SECONDS", "30")))
 PERSON_MIN_SIMILARITY = float(os.getenv("PERSON_MIN_COSINE_SIMILARITY", "0.85"))
 PERSON_AUTO_MERGE_SIMILARITY = float(
     os.getenv("PERSON_AUTO_MERGE_COSINE_SIMILARITY", "0.93")
@@ -510,7 +511,7 @@ def _resolve_person_with_stats(
                 "limit": SEMANTIC_SEARCH_TOP_K,
                 "min_similarity": PERSON_REVIEW_MIN_SIMILARITY,
             },
-            timeout=30.0,
+            timeout=STORAGE_REQUEST_TIMEOUT,
         )
         response.raise_for_status()
         matches = _json_list_response(response)
@@ -600,7 +601,7 @@ def _resolve_person_with_stats(
         },
     )
 
-    response = httpx.post(f"{STORAGE_URL}/people", json=person, timeout=30.0)
+    response = httpx.post(f"{STORAGE_URL}/people", json=person, timeout=STORAGE_REQUEST_TIMEOUT)
     response.raise_for_status()
     resolved = response.json()
     if not isinstance(resolved, dict) or not str(resolved.get("person_uuid") or "").strip():
@@ -633,7 +634,7 @@ def _resolve_topic_with_stats(
                 "limit": SEMANTIC_SEARCH_TOP_K,
                 "min_similarity": TOPIC_REVIEW_MIN_SIMILARITY,
             },
-            timeout=30.0,
+            timeout=STORAGE_REQUEST_TIMEOUT,
         )
         response.raise_for_status()
         matches = _json_list_response(response)
@@ -707,7 +708,7 @@ def _resolve_topic_with_stats(
         },
     )
 
-    response = httpx.post(f"{STORAGE_URL}/topics", json=topic, timeout=30.0)
+    response = httpx.post(f"{STORAGE_URL}/topics", json=topic, timeout=STORAGE_REQUEST_TIMEOUT)
     response.raise_for_status()
     resolved = response.json()
     if not isinstance(resolved, dict) or not str(resolved.get("topic_uuid") or "").strip():
@@ -800,7 +801,7 @@ def persist_extraction(
         citations_response = httpx.post(
             f"{STORAGE_URL}/citations/bulk",
             json=citations,
-            timeout=30.0,
+            timeout=STORAGE_REQUEST_TIMEOUT,
         )
         citations_response.raise_for_status()
         _json_list_response(
@@ -907,7 +908,7 @@ def persist_citation_analysis(
     citations_response = httpx.post(
         f"{STORAGE_URL}/citations/bulk",
         json=citations,
-        timeout=30.0,
+        timeout=STORAGE_REQUEST_TIMEOUT,
     )
     citations_response.raise_for_status()
     stored_citations = _json_list_response(
@@ -1132,7 +1133,7 @@ def persist_citation_analysis(
         attitudes_response = httpx.post(
             f"{STORAGE_URL}/attitudes/bulk",
             json=attitudes,
-            timeout=30.0,
+            timeout=STORAGE_REQUEST_TIMEOUT,
         )
         attitudes_response.raise_for_status()
         _add_stats(stats, _bulk_stats(attitudes_response))
@@ -1258,7 +1259,7 @@ def persist_inconsistencies(
                     "exclude_citation_uuid": citation_uuid,
                     "limit": 1000,
                 },
-                timeout=30.0,
+                timeout=STORAGE_REQUEST_TIMEOUT,
             )
             search_response.raise_for_status()
             history_attributes["historical_candidate_count"] = len(
@@ -1329,7 +1330,7 @@ def persist_inconsistencies(
                     "confidence": comparison.confidence,
                     "inconsistency_comment": comparison.comment,
                 },
-                timeout=30.0,
+                timeout=STORAGE_REQUEST_TIMEOUT,
             )
             if response.is_error:
                 logger.error(

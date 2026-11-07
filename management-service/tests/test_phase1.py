@@ -10,7 +10,7 @@ os.environ["MANAGEMENT_DATA_DIR"] = tempfile.mkdtemp()
 os.environ["MANAGEMENT_DATABASE_PATH"] = str(Path(os.environ["MANAGEMENT_DATA_DIR"]) / "management.db")
 
 from app.database import ManagementDatabase  # noqa: E402
-from app.models import ExecutionMode, JobCreateRequest, JobStatus, TaskCreateRequest  # noqa: E402
+from app.models import ExecutionMode, JobCreateRequest, JobStatus, StageStatus, TaskCreateRequest  # noqa: E402
 from app.orchestration import JobCoordinator  # noqa: E402
 
 
@@ -59,6 +59,16 @@ class ManagementPhase1Tests(unittest.TestCase):
         recovered = self.coordinator.get(job["job_id"])
         self.assertEqual(recovered["status"], JobStatus.FAILED.value)
         self.assertEqual(recovered["error_code"], "MANAGEMENT_RESTART")
+
+    def test_completed_stage_result_is_reused_for_recovery(self):
+        request = JobCreateRequest(article_id=uuid4())
+        job = self.coordinator.create(request, "stage-recovery", schedule=False)
+        stage = "citation_extraction"
+        result = {"speakers": [{"citations": []}]}
+        self.coordinator._save_stage_result(job["job_id"], stage, result)
+        self.coordinator._stage(job["job_id"], stage, StageStatus.COMPLETED, {})
+        self.assertTrue(self.coordinator._stage_completed(job["job_id"], stage))
+        self.assertEqual(self.coordinator._stage_result(job["job_id"], stage), result)
 
     def test_completed_job_has_pipeline_history(self):
         request = JobCreateRequest(article_id=uuid4())
