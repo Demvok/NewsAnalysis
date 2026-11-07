@@ -41,8 +41,11 @@ class RunResponse(BaseModel):
     model_ids: list[str]
     repetitions: int
     prompt_version: str
+    configurations: list[dict[str, Any]] = Field(default_factory=list)
     created_at: str
     completed_at: str | None = None
+    started_at: str | None = None
+    progress: dict[str, Any] = Field(default_factory=dict)
+    error: str | None = None
     results: list[dict[str, Any]] = Field(default_factory=list)
     summary: dict[str, Any] = Field(default_factory=dict)
-

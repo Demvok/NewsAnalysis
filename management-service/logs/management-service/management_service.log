@@ -1151,3 +1151,128 @@ RuntimeError: permanent
 2026-11-07T17:30:27+0200 DEBUG [asyncio] Using proactor: IocpProactor
 2026-11-07T17:30:27+0200 INFO [newsanalysis.management_service.main] http_request method=POST path=/internal/events/bulk status=422 duration_ms=0 request_id=f6987ffa-933a-4e9a-95c2-a63a0a8d0ef8
 2026-11-07T17:30:27+0200 INFO [httpx] HTTP Request: POST http://testserver/internal/events/bulk "HTTP/1.1 422 Unprocessable Entity"
+2026-11-07T21:29:43+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-07T21:29:43+0200 INFO [newsanalysis.management_service.main] http_request method=GET path=/health status=200 duration_ms=5 request_id=354f8f12-08fe-427d-aff1-16fbf6898a5c
+2026-11-07T21:29:43+0200 INFO [httpx] HTTP Request: GET http://testserver/health "HTTP/1.1 200 OK"
+2026-11-07T21:29:43+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-07T21:29:43+0200 INFO [newsanalysis.management_service.main] http_request method=POST path=/api/jobs status=422 duration_ms=3 request_id=58779a7b-a515-422e-9001-db85b77f3091
+2026-11-07T21:29:43+0200 INFO [httpx] HTTP Request: POST http://testserver/api/jobs "HTTP/1.1 422 Unprocessable Entity"
+2026-11-07T21:29:43+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-07T21:29:43+0200 INFO [newsanalysis.management_service.main] http_request method=GET path=/api/knowledge/summary status=200 duration_ms=2 request_id=935811ed-d1e4-472a-9077-f1a4e21da840
+2026-11-07T21:29:43+0200 INFO [httpx] HTTP Request: GET http://testserver/api/knowledge/summary "HTTP/1.1 200 OK"
+2026-11-07T21:29:43+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-07T21:29:43+0200 INFO [newsanalysis.management_service.main] http_request method=GET path=/api/knowledge/topics status=200 duration_ms=3 request_id=91ef6f36-7e46-4c29-a790-bf302162c806
+2026-11-07T21:29:43+0200 INFO [httpx] HTTP Request: GET http://testserver/api/knowledge/topics?limit=10 "HTTP/1.1 200 OK"
+2026-11-07T21:29:43+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-07T21:29:43+0200 INFO [newsanalysis.management_service.main] runtime_settings_updated fields=['request_timeout_seconds']
+2026-11-07T21:29:43+0200 INFO [newsanalysis.management_service.main] http_request method=PATCH path=/api/settings status=200 duration_ms=3 request_id=a518c6bd-9be9-4f07-8cee-093cdaf568f2
+2026-11-07T21:29:43+0200 INFO [httpx] HTTP Request: PATCH http://testserver/api/settings "HTTP/1.1 200 OK"
+2026-11-07T21:29:44+0200 INFO [newsanalysis.management_service.orchestration] bundled_task_started task_id=e4b3a7f4-1b6e-422c-b007-bf07edc37aa6 job_count=2
+2026-11-07T21:29:44+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=67b4a08a-7c9e-43f6-a051-484e55512f30 stage=article_retrieval status=RUNNING active_stages=1 process_id=64944 thread_id=68264 configured_workers=1
+2026-11-07T21:29:44+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=67b4a08a-7c9e-43f6-a051-484e55512f30 stage=article_retrieval status=COMPLETED active_stages=0 process_id=64944 thread_id=68264 configured_workers=1
+2026-11-07T21:29:44+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=a96e3a31-f573-44f7-a2e2-0a5ed6383ccf stage=article_retrieval status=RUNNING active_stages=1 process_id=64944 thread_id=68264 configured_workers=1
+2026-11-07T21:29:44+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=a96e3a31-f573-44f7-a2e2-0a5ed6383ccf stage=article_retrieval status=COMPLETED active_stages=0 process_id=64944 thread_id=68264 configured_workers=1
+2026-11-07T21:29:44+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=67b4a08a-7c9e-43f6-a051-484e55512f30 stage=citation_extraction status=RUNNING active_stages=1 process_id=64944 thread_id=68264 configured_workers=1
+2026-11-07T21:29:44+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=a96e3a31-f573-44f7-a2e2-0a5ed6383ccf stage=citation_extraction status=RUNNING active_stages=2 process_id=64944 thread_id=68264 configured_workers=1
+2026-11-07T21:29:44+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=67b4a08a-7c9e-43f6-a051-484e55512f30 stage=citation_extraction status=COMPLETED active_stages=1 process_id=64944 thread_id=68264 configured_workers=1
+2026-11-07T21:29:44+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=a96e3a31-f573-44f7-a2e2-0a5ed6383ccf stage=citation_extraction status=COMPLETED active_stages=0 process_id=64944 thread_id=68264 configured_workers=1
+2026-11-07T21:29:44+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=67b4a08a-7c9e-43f6-a051-484e55512f30 stage=extraction_persistence status=RUNNING active_stages=1 process_id=64944 thread_id=68264 configured_workers=1
+2026-11-07T21:29:44+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=a96e3a31-f573-44f7-a2e2-0a5ed6383ccf stage=extraction_persistence status=RUNNING active_stages=2 process_id=64944 thread_id=68264 configured_workers=1
+2026-11-07T21:29:44+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=67b4a08a-7c9e-43f6-a051-484e55512f30 stage=extraction_persistence status=COMPLETED active_stages=1 process_id=64944 thread_id=68264 configured_workers=1
+2026-11-07T21:29:44+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=a96e3a31-f573-44f7-a2e2-0a5ed6383ccf stage=extraction_persistence status=COMPLETED active_stages=0 process_id=64944 thread_id=68264 configured_workers=1
+2026-11-07T21:29:44+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=67b4a08a-7c9e-43f6-a051-484e55512f30 stage=citation_analysis status=RUNNING active_stages=1 process_id=64944 thread_id=68264 configured_workers=1
+2026-11-07T21:29:44+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=a96e3a31-f573-44f7-a2e2-0a5ed6383ccf stage=citation_analysis status=RUNNING active_stages=2 process_id=64944 thread_id=68264 configured_workers=1
+2026-11-07T21:29:44+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=67b4a08a-7c9e-43f6-a051-484e55512f30 stage=citation_analysis status=COMPLETED active_stages=1 process_id=64944 thread_id=68264 configured_workers=1
+2026-11-07T21:29:44+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=a96e3a31-f573-44f7-a2e2-0a5ed6383ccf stage=citation_analysis status=COMPLETED active_stages=0 process_id=64944 thread_id=68264 configured_workers=1
+2026-11-07T21:29:44+0200 INFO [newsanalysis.management_service.orchestration] bundled_task_completed task_id=e4b3a7f4-1b6e-422c-b007-bf07edc37aa6 job_count=2
+2026-11-07T21:29:44+0200 INFO [newsanalysis.management_service.orchestration] job_started job_id=189202f0-c200-4c96-a190-18c965c94652 article_id=c3d9d03a-03e1-4e1a-9823-7758570118e3 mode=per_article attempt=1 queue_wait_ms=47 active_jobs=1 configured_workers=1 process_id=64944 thread_id=66664 worker_identity=pid=64944 thread=management-job_0
+2026-11-07T21:29:44+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=189202f0-c200-4c96-a190-18c965c94652 stage=article_retrieval status=RUNNING active_stages=1 process_id=64944 thread_id=66664 configured_workers=1
+2026-11-07T21:29:44+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=189202f0-c200-4c96-a190-18c965c94652 stage=article_retrieval status=COMPLETED active_stages=0 process_id=64944 thread_id=66664 configured_workers=1
+2026-11-07T21:29:44+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=189202f0-c200-4c96-a190-18c965c94652 stage=analysis status=RUNNING active_stages=1 process_id=64944 thread_id=66664 configured_workers=1
+2026-11-07T21:29:45+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=189202f0-c200-4c96-a190-18c965c94652 stage=analysis status=COMPLETED active_stages=0 process_id=64944 thread_id=66664 configured_workers=1
+2026-11-07T21:29:45+0200 INFO [newsanalysis.management_service.orchestration] job_completed job_id=189202f0-c200-4c96-a190-18c965c94652 duration_ms=221 attempt=1 worker_identity=pid=64944 thread=management-job_0
+2026-11-07T21:29:45+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=84c0986b-0cd6-4c0f-913b-e9a87b170b1f stage=citation_extraction status=COMPLETED active_stages=0 process_id=64944 thread_id=66232 configured_workers=1
+2026-11-07T21:29:45+0200 INFO [newsanalysis.management_service.orchestration] job_started job_id=c881be54-4130-4450-8ab8-53a956ba660d article_id=410a2d78-9c5e-41f4-8095-65d39ce19f29 mode=per_article attempt=1 queue_wait_ms=68 active_jobs=1 configured_workers=1 process_id=64944 thread_id=68604 worker_identity=pid=64944 thread=management-job_0
+2026-11-07T21:29:45+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=c881be54-4130-4450-8ab8-53a956ba660d stage=article_retrieval status=RUNNING active_stages=1 process_id=64944 thread_id=68604 configured_workers=1
+2026-11-07T21:29:45+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=c881be54-4130-4450-8ab8-53a956ba660d stage=article_retrieval status=COMPLETED active_stages=0 process_id=64944 thread_id=68604 configured_workers=1
+2026-11-07T21:29:45+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=c881be54-4130-4450-8ab8-53a956ba660d stage=analysis status=RUNNING active_stages=1 process_id=64944 thread_id=68604 configured_workers=1
+2026-11-07T21:29:45+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=c881be54-4130-4450-8ab8-53a956ba660d stage=analysis status=COMPLETED active_stages=0 process_id=64944 thread_id=68604 configured_workers=1
+2026-11-07T21:29:45+0200 INFO [newsanalysis.management_service.orchestration] job_completed job_id=c881be54-4130-4450-8ab8-53a956ba660d duration_ms=275 attempt=1 worker_identity=pid=64944 thread=management-job_0
+2026-11-07T21:29:45+0200 INFO [newsanalysis.management_service.orchestration] job_started job_id=41c4992f-e0ca-4d25-b801-d7d96ff7603a article_id=11d9acfe-fad0-436c-b382-f7846a8a0576 mode=per_article attempt=1 queue_wait_ms=63 active_jobs=1 configured_workers=1 process_id=64944 thread_id=66664 worker_identity=pid=64944 thread=management-job_0
+2026-11-07T21:29:46+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=41c4992f-e0ca-4d25-b801-d7d96ff7603a stage=article_retrieval status=RUNNING active_stages=1 process_id=64944 thread_id=66664 configured_workers=1
+2026-11-07T21:29:46+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=41c4992f-e0ca-4d25-b801-d7d96ff7603a stage=article_retrieval status=COMPLETED active_stages=0 process_id=64944 thread_id=66664 configured_workers=1
+2026-11-07T21:29:46+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=41c4992f-e0ca-4d25-b801-d7d96ff7603a stage=analysis status=RUNNING active_stages=1 process_id=64944 thread_id=66664 configured_workers=1
+2026-11-07T21:29:46+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=41c4992f-e0ca-4d25-b801-d7d96ff7603a stage=analysis status=COMPLETED active_stages=0 process_id=64944 thread_id=66664 configured_workers=1
+2026-11-07T21:29:46+0200 INFO [newsanalysis.management_service.orchestration] job_completed job_id=41c4992f-e0ca-4d25-b801-d7d96ff7603a duration_ms=280 attempt=1 worker_identity=pid=64944 thread=management-job_0
+2026-11-07T21:29:46+0200 INFO [newsanalysis.management_service.orchestration] job_started job_id=a12c8a4b-cfb3-4b4c-ba6c-2596b1ae7901 article_id=1852fdd8-067d-4420-9d3c-1941c1001ff5 mode=per_article attempt=1 queue_wait_ms=63 active_jobs=1 configured_workers=1 process_id=64944 thread_id=64784 worker_identity=pid=64944 thread=management-job_0
+2026-11-07T21:29:46+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=a12c8a4b-cfb3-4b4c-ba6c-2596b1ae7901 stage=article_retrieval status=RUNNING active_stages=1 process_id=64944 thread_id=64784 configured_workers=1
+2026-11-07T21:29:46+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=a12c8a4b-cfb3-4b4c-ba6c-2596b1ae7901 stage=article_retrieval status=COMPLETED active_stages=0 process_id=64944 thread_id=64784 configured_workers=1
+2026-11-07T21:29:46+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=a12c8a4b-cfb3-4b4c-ba6c-2596b1ae7901 stage=analysis status=RUNNING active_stages=1 process_id=64944 thread_id=64784 configured_workers=1
+2026-11-07T21:29:46+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=a12c8a4b-cfb3-4b4c-ba6c-2596b1ae7901 stage=analysis status=COMPLETED active_stages=0 process_id=64944 thread_id=64784 configured_workers=1
+2026-11-07T21:29:46+0200 INFO [newsanalysis.management_service.orchestration] job_completed job_id=a12c8a4b-cfb3-4b4c-ba6c-2596b1ae7901 duration_ms=309 attempt=1 worker_identity=pid=64944 thread=management-job_0
+2026-11-07T21:29:47+0200 INFO [newsanalysis.management_service.orchestration] job_started job_id=9411492a-48f9-495d-881d-3f666e0d8a17 article_id=abf46df3-29c1-4a20-91bb-85cff483749a mode=per_article attempt=1 queue_wait_ms=231 active_jobs=1 configured_workers=1 process_id=64944 thread_id=67716 worker_identity=pid=64944 thread=management-job_0
+2026-11-07T21:29:47+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=9411492a-48f9-495d-881d-3f666e0d8a17 stage=article_retrieval status=RUNNING active_stages=1 process_id=64944 thread_id=67716 configured_workers=1
+2026-11-07T21:29:47+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=9411492a-48f9-495d-881d-3f666e0d8a17 stage=article_retrieval status=COMPLETED active_stages=0 process_id=64944 thread_id=67716 configured_workers=1
+2026-11-07T21:29:47+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=9411492a-48f9-495d-881d-3f666e0d8a17 stage=analysis status=RUNNING active_stages=1 process_id=64944 thread_id=67716 configured_workers=1
+2026-11-07T21:29:47+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=9411492a-48f9-495d-881d-3f666e0d8a17 stage=analysis status=COMPLETED active_stages=0 process_id=64944 thread_id=67716 configured_workers=1
+2026-11-07T21:29:47+0200 INFO [newsanalysis.management_service.orchestration] job_completed job_id=9411492a-48f9-495d-881d-3f666e0d8a17 duration_ms=259 attempt=1 worker_identity=pid=64944 thread=management-job_0
+2026-11-07T21:29:47+0200 INFO [newsanalysis.management_service.orchestration] job_started job_id=f51eef53-bf07-43b5-8b99-6378a1ee3990 article_id=bdae10ff-78f0-4842-9340-84ac19900b92 mode=per_article attempt=1 queue_wait_ms=407 active_jobs=1 configured_workers=1 process_id=64944 thread_id=67716 worker_identity=pid=64944 thread=management-job_0
+2026-11-07T21:29:47+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=f51eef53-bf07-43b5-8b99-6378a1ee3990 stage=article_retrieval status=RUNNING active_stages=1 process_id=64944 thread_id=67716 configured_workers=1
+2026-11-07T21:29:47+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=f51eef53-bf07-43b5-8b99-6378a1ee3990 stage=article_retrieval status=COMPLETED active_stages=0 process_id=64944 thread_id=67716 configured_workers=1
+2026-11-07T21:29:47+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=f51eef53-bf07-43b5-8b99-6378a1ee3990 stage=analysis status=RUNNING active_stages=1 process_id=64944 thread_id=67716 configured_workers=1
+2026-11-07T21:29:47+0200 INFO [newsanalysis.management_service.orchestration] stage_transition job_id=f51eef53-bf07-43b5-8b99-6378a1ee3990 stage=analysis status=COMPLETED active_stages=0 process_id=64944 thread_id=67716 configured_workers=1
+2026-11-07T21:29:47+0200 INFO [newsanalysis.management_service.orchestration] job_completed job_id=f51eef53-bf07-43b5-8b99-6378a1ee3990 duration_ms=276 attempt=1 worker_identity=pid=64944 thread=management-job_0
+2026-11-07T21:29:47+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-07T21:29:47+0200 INFO [newsanalysis.management_service.main] http_request method=POST path=/internal/events status=202 duration_ms=45 request_id=d64f5a05-b3a1-4c88-9bdc-ad1b2c1f01c6
+2026-11-07T21:29:47+0200 INFO [httpx] HTTP Request: POST http://testserver/internal/events "HTTP/1.1 202 Accepted"
+2026-11-07T21:29:47+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-07T21:29:47+0200 INFO [newsanalysis.management_service.main] http_request method=POST path=/internal/events status=202 duration_ms=43 request_id=36b3f6c3-f135-426e-b15d-8593b3afc189
+2026-11-07T21:29:47+0200 INFO [httpx] HTTP Request: POST http://testserver/internal/events "HTTP/1.1 202 Accepted"
+2026-11-07T21:29:47+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-07T21:29:47+0200 INFO [newsanalysis.management_service.main] http_request method=GET path=/api/metrics/llm status=200 duration_ms=31 request_id=7035b59a-e6a0-4a6a-9fde-9497be01aec9
+2026-11-07T21:29:47+0200 INFO [httpx] HTTP Request: GET http://testserver/api/metrics/llm "HTTP/1.1 200 OK"
+2026-11-07T21:29:47+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-07T21:29:47+0200 INFO [newsanalysis.management_service.main] http_request method=GET path=/api/metrics/jobs status=200 duration_ms=35 request_id=41fd31a3-4926-4ab9-ad20-514df54f7cfd
+2026-11-07T21:29:47+0200 INFO [httpx] HTTP Request: GET http://testserver/api/metrics/jobs?job_id=a995d584-163d-4134-bdea-b9fbf58f4416 "HTTP/1.1 200 OK"
+2026-11-07T21:29:47+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-07T21:29:47+0200 INFO [newsanalysis.management_service.main] http_request method=GET path=/api/metrics/llm status=200 duration_ms=16 request_id=7a050238-42d2-445c-8e3d-28a4c6b74359
+2026-11-07T21:29:47+0200 INFO [httpx] HTTP Request: GET http://testserver/api/metrics/llm?job_id=a995d584-163d-4134-bdea-b9fbf58f4416 "HTTP/1.1 200 OK"
+2026-11-07T21:29:47+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-07T21:29:47+0200 INFO [newsanalysis.management_service.main] http_request method=POST path=/internal/events status=202 duration_ms=46 request_id=2fb5ac56-16c1-4883-af54-bb2360a5006e
+2026-11-07T21:29:47+0200 INFO [httpx] HTTP Request: POST http://testserver/internal/events "HTTP/1.1 202 Accepted"
+2026-11-07T21:29:47+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-07T21:29:48+0200 INFO [newsanalysis.management_service.main] http_request method=GET path=/api/logs status=200 duration_ms=27 request_id=090728e1-a4fe-465d-9594-f73e8b6dec8c
+2026-11-07T21:29:48+0200 INFO [httpx] HTTP Request: GET http://testserver/api/logs?trace_id=640d9a16-cf21-43b5-b199-6bd4f0648107 "HTTP/1.1 200 OK"
+2026-11-07T21:29:48+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-07T21:29:48+0200 INFO [newsanalysis.management_service.main] http_request method=GET path=/api/logs/errors status=200 duration_ms=7 request_id=d18de771-5767-414d-906d-40bedff57c78
+2026-11-07T21:29:48+0200 INFO [httpx] HTTP Request: GET http://testserver/api/logs/errors "HTTP/1.1 200 OK"
+2026-11-07T21:29:48+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-07T21:29:48+0200 INFO [newsanalysis.management_service.main] http_request method=POST path=/internal/events status=202 duration_ms=43 request_id=61cf6420-5a38-4bc6-9c91-451ec9d82bb8
+2026-11-07T21:29:48+0200 INFO [httpx] HTTP Request: POST http://testserver/internal/events "HTTP/1.1 202 Accepted"
+2026-11-07T21:29:48+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-07T21:29:48+0200 INFO [newsanalysis.management_service.main] http_request method=GET path=/api/metrics/llm status=200 duration_ms=30 request_id=20f73b9f-8390-46cf-8a14-bdebdc9ccd66
+2026-11-07T21:29:48+0200 INFO [httpx] HTTP Request: GET http://testserver/api/metrics/llm "HTTP/1.1 200 OK"
+2026-11-07T21:29:48+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-07T21:29:48+0200 INFO [newsanalysis.management_service.main] http_request method=POST path=/api/experiments status=201 duration_ms=46 request_id=ee0075b5-fad7-4acd-b45b-7f583ff28c64
+2026-11-07T21:29:48+0200 INFO [httpx] HTTP Request: POST http://testserver/api/experiments "HTTP/1.1 201 Created"
+2026-11-07T21:29:48+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-07T21:29:48+0200 INFO [newsanalysis.management_service.main] http_request method=POST path=/api/experiments status=201 duration_ms=40 request_id=bd949635-a588-4506-b91f-c5b82b3137a0
+2026-11-07T21:29:48+0200 INFO [httpx] HTTP Request: POST http://testserver/api/experiments "HTTP/1.1 201 Created"
+2026-11-07T21:29:48+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-07T21:29:48+0200 INFO [newsanalysis.management_service.main] http_request method=POST path=/api/experiments/compare status=200 duration_ms=30 request_id=ffe5bab8-5385-47c3-a7c1-0434023eca80
+2026-11-07T21:29:48+0200 INFO [httpx] HTTP Request: POST http://testserver/api/experiments/compare "HTTP/1.1 200 OK"
+2026-11-07T21:29:48+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-07T21:29:48+0200 INFO [newsanalysis.management_service.main] http_request method=POST path=/api/experiments status=201 duration_ms=47 request_id=0d89e8f4-748e-468c-9ef5-1d9c4f178392
+2026-11-07T21:29:48+0200 INFO [httpx] HTTP Request: POST http://testserver/api/experiments "HTTP/1.1 201 Created"
+2026-11-07T21:29:48+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-07T21:29:48+0200 INFO [newsanalysis.management_service.main] http_request method=GET path=/api/experiments/b67ea03d-fc4d-49ef-bb7f-c3e7c396f782 status=200 duration_ms=37 request_id=e2b01293-1a0d-457a-aeda-0b0e027ade43
+2026-11-07T21:29:48+0200 INFO [httpx] HTTP Request: GET http://testserver/api/experiments/b67ea03d-fc4d-49ef-bb7f-c3e7c396f782 "HTTP/1.1 200 OK"
+2026-11-07T21:29:48+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-07T21:29:48+0200 INFO [newsanalysis.management_service.main] http_request method=GET path=/api/experiments/b67ea03d-fc4d-49ef-bb7f-c3e7c396f782/export status=200 duration_ms=9 request_id=2e436470-2e3c-4c27-b7ff-dfcc4da3437a
+2026-11-07T21:29:48+0200 INFO [httpx] HTTP Request: GET http://testserver/api/experiments/b67ea03d-fc4d-49ef-bb7f-c3e7c396f782/export?format=csv "HTTP/1.1 200 OK"
+2026-11-07T21:29:48+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-07T21:29:48+0200 INFO [newsanalysis.management_service.main] http_request method=POST path=/api/experiments status=201 duration_ms=53 request_id=26dcf830-06a0-4683-a380-5eb0e0969754
+2026-11-07T21:29:48+0200 INFO [httpx] HTTP Request: POST http://testserver/api/experiments "HTTP/1.1 201 Created"
+2026-11-07T21:29:48+0200 DEBUG [asyncio] Using proactor: IocpProactor
+2026-11-07T21:29:48+0200 INFO [newsanalysis.management_service.main] http_request method=POST path=/api/experiments/bd4e43eb-5835-4154-872f-95cac13ce072/evaluation status=200 duration_ms=39 request_id=b1d49592-5c4c-4492-9b8f-14ac49ed80de
+2026-11-07T21:29:48+0200 INFO [httpx] HTTP Request: POST http://testserver/api/experiments/bd4e43eb-5835-4154-872f-95cac13ce072/evaluation "HTTP/1.1 200 OK"

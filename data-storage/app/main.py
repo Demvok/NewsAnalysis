@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse
 from openai import OpenAI
 from pydantic import ValidationError
 from sqlalchemy import Float, String, cast, delete, exists, func, or_, select
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import aliased
 
@@ -64,7 +64,7 @@ from app.logger import get_logger
 from app.telemetry import emit_event, shutdown_telemetry, telemetry_metrics
 
 logger = get_logger("main", "data_storage")
-app = FastAPI(title="NewsAnalysis-DataStorage", version="0.2.0")
+app = FastAPI(title="NewsAnalysis-DataStorage", version="1.0.0")
 
 
 @app.on_event("shutdown")
@@ -473,7 +473,7 @@ def recreate_database_endpoint() -> dict[str, str]:
     status_code=200,
     tags=["Articles - Temporary"],
     summary="Import temporary article files",
-    description="Temporary, idempotent import of JSON articles from the application's _tmp directory.",
+    description="Temporary, idempotent import of JSON articles from the application's _data directory.",
 )
 def import_temp_articles() -> dict[str, int | str]:
     try:
@@ -497,10 +497,16 @@ def import_temp_articles() -> dict[str, int | str]:
                     skipped += 1
                     continue
 
-                article = DimArticle(**payload.model_dump(exclude_none=True))
-                session.add(article)
-                session.flush()
-                imported += 1
+                statement = (
+                    pg_insert(DimArticle)
+                    .values(payload.model_dump(exclude_none=True))
+                    .on_conflict_do_nothing()
+                )
+                result = session.execute(statement)
+                if result.rowcount:
+                    imported += 1
+                else:
+                    skipped += 1
     except IntegrityError as exc:
         logger.exception("Failed to import temporary articles")
         raise HTTPException(status_code=409, detail="Temporary article import conflicts with existing records") from exc

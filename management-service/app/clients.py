@@ -242,7 +242,7 @@ class ServiceClient:
     def import_temp_articles(self) -> dict[str, Any]:
         response = httpx.post(
             f"{self.settings.storage_url}/articles/import-temp",
-            timeout=self.settings.request_timeout_seconds,
+            timeout=self.settings.import_timeout_seconds,
         )
         response.raise_for_status()
         payload = response.json()

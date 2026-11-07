@@ -16,6 +16,7 @@ class Settings:
     management_events_url: str
     max_concurrent_jobs: int
     request_timeout_seconds: float
+    import_timeout_seconds: float
     analysis_timeout_seconds: float
     analysis_log_dir: Path
     storage_log_dir: Path
@@ -41,6 +42,9 @@ class Settings:
             management_events_url=os.getenv("MANAGEMENT_EVENTS_URL", "").strip(),
             max_concurrent_jobs=max(1, int(os.getenv("MANAGEMENT_MAX_CONCURRENT_JOBS", "1"))),
             request_timeout_seconds=float(os.getenv("MANAGEMENT_REQUEST_TIMEOUT_SECONDS", "10")),
+            import_timeout_seconds=max(
+                1.0, float(os.getenv("MANAGEMENT_IMPORT_TIMEOUT_SECONDS", "120"))
+            ),
             analysis_timeout_seconds=float(os.getenv("MANAGEMENT_ANALYSIS_TIMEOUT_SECONDS", "1800")),
             analysis_log_dir=Path(os.getenv("ANALYSIS_LOG_DIR", "/var/log/newsanalysis/analysis")),
             storage_log_dir=Path(os.getenv("STORAGE_LOG_DIR", "/var/log/newsanalysis/data-storage")),

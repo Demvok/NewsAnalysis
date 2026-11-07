@@ -78,10 +78,31 @@ def run_case(settings: Settings, case: BenchmarkCase, config: ModelConfig) -> di
     return result
 
 
-def run_cases(settings: Settings, cases: list[BenchmarkCase], configs: list[ModelConfig], repetitions: int) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+def run_cases(
+    settings: Settings,
+    cases: list[BenchmarkCase],
+    configs: list[ModelConfig],
+    repetitions: int,
+    progress_callback=None,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     results = []
-    for config in configs:
-        for _ in range(repetitions):
+    total = len(cases) * len(configs) * repetitions
+    completed = 0
+    for config_index, config in enumerate(configs):
+        for repetition in range(repetitions):
             for case in cases:
-                results.append(run_case(settings, case, config))
+                result = run_case(settings, case, config)
+                result["configuration_index"] = config_index
+                result["repetition"] = repetition + 1
+                results.append(result)
+                completed += 1
+                if progress_callback:
+                    progress_callback({
+                        "completed": completed,
+                        "total": total,
+                        "percent": round(completed / total * 100, 1) if total else 100,
+                        "current_test_id": case.test_id,
+                        "current_model_id": config.model_id,
+                        "repetition": repetition + 1,
+                    }, result)
     return results, summarize(results)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import threading
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException
@@ -41,7 +42,7 @@ def datasets() -> list[dict]:
 
 @app.get("/api/runs", response_model=list[RunResponse])
 def list_runs() -> list[dict]:
-    return load_runs(settings.results_dir)
+    return [{**run, "results": []} for run in load_runs(settings.results_dir)]
 
 
 @app.post("/api/runs", response_model=RunResponse, status_code=201)
@@ -59,6 +60,9 @@ def create_run(request: RunCreateRequest) -> dict:
         "prompt_version": request.prompt_version,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "completed_at": None,
+        "started_at": None,
+        "progress": {"completed": 0, "total": 0, "percent": 0},
+        "error": None,
         "results": [],
         "summary": {},
         "configurations": [item.model_dump(mode="json") for item in request.configurations],
@@ -67,7 +71,55 @@ def create_run(request: RunCreateRequest) -> dict:
     return run
 
 
-@app.post("/api/runs/{run_id}/start", response_model=RunResponse)
+def _update_run(run_id: str, updates: dict) -> None:
+    runs = {run["run_id"]: run for run in load_runs(settings.results_dir)}
+    run = runs.get(run_id)
+    if run is None:
+        return
+    run.update(updates)
+    save_run(settings.results_dir, run)
+
+
+def _execute_run(run: dict) -> None:
+    run_id = run["run_id"]
+    try:
+        cases = load_cases(settings.data_dir, run["dataset"])
+        configs = [
+            ModelConfig.model_validate(item)
+            for item in run.get("configurations", [])
+        ] or [ModelConfig(model_id=settings.models[model]) for model in run["model_ids"]]
+        total = len(cases) * len(configs) * run["repetitions"]
+        _update_run(run_id, {
+            "status": "RUNNING",
+            "started_at": datetime.now(timezone.utc).isoformat(),
+            "progress": {"completed": 0, "total": total, "percent": 0},
+            "results": [],
+            "error": None,
+        })
+
+        def on_progress(progress: dict, result: dict) -> None:
+            current = next((item for item in load_runs(settings.results_dir) if item["run_id"] == run_id), None)
+            results = list((current or {}).get("results", []))
+            results.append(result)
+            _update_run(run_id, {"progress": progress, "results": results})
+
+        results, summary = run_cases(settings, cases, configs, run["repetitions"], on_progress)
+        _update_run(run_id, {
+            "status": "COMPLETED",
+            "completed_at": datetime.now(timezone.utc).isoformat(),
+            "progress": {"completed": len(results), "total": total, "percent": 100},
+            "results": results,
+            "summary": summary,
+        })
+    except Exception as exc:
+        _update_run(run_id, {
+            "status": "FAILED",
+            "completed_at": datetime.now(timezone.utc).isoformat(),
+            "error": str(exc),
+        })
+
+
+@app.post("/api/runs/{run_id}/start", response_model=RunResponse, status_code=202)
 def start_run(run_id: str) -> dict:
     runs = {run["run_id"]: run for run in load_runs(settings.results_dir)}
     run = runs.get(run_id)
@@ -75,21 +127,12 @@ def start_run(run_id: str) -> dict:
         raise HTTPException(status_code=404, detail="Benchmark run not found")
     if run["status"] == "RUNNING":
         raise HTTPException(status_code=409, detail="Benchmark run is already running")
-    cases = load_cases(settings.data_dir, run["dataset"])
-    configs = [
-        ModelConfig.model_validate(item)
-        for item in run.get("configurations", [])
-    ] or [ModelConfig(model_id=settings.models[model]) for model in run["model_ids"]]
+    if run["status"] == "COMPLETED":
+        raise HTTPException(status_code=409, detail="Completed benchmark runs are immutable")
     run["status"] = "RUNNING"
+    run["started_at"] = datetime.now(timezone.utc).isoformat()
     save_run(settings.results_dir, run)
-    try:
-        results, summary = run_cases(settings, cases, configs, run["repetitions"])
-        run.update(status="COMPLETED", completed_at=datetime.now(timezone.utc).isoformat(), results=results, summary=summary)
-    except Exception as exc:
-        run.update(status="FAILED", completed_at=datetime.now(timezone.utc).isoformat(), error=str(exc))
-        save_run(settings.results_dir, run)
-        raise HTTPException(status_code=502, detail=f"Benchmark execution failed: {exc}") from exc
-    save_run(settings.results_dir, run)
+    threading.Thread(target=_execute_run, args=(run,), daemon=True, name=f"benchmark-{run_id}").start()
     return run
 
 
