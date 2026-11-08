@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 import tempfile
+import time
+import threading
 import unittest
 from pathlib import Path
 from uuid import uuid4
@@ -69,6 +71,47 @@ class ManagementPhase1Tests(unittest.TestCase):
         self.coordinator._stage(job["job_id"], stage, StageStatus.COMPLETED, {})
         self.assertTrue(self.coordinator._stage_completed(job["job_id"], stage))
         self.assertEqual(self.coordinator._stage_result(job["job_id"], stage), result)
+
+    def test_completed_article_retrieval_result_is_reused(self):
+        request = JobCreateRequest(article_id=uuid4())
+        job = self.coordinator.create(request, "article-recovery", schedule=False)
+        article = {"article_title": "saved", "article_content": "content"}
+        self.coordinator._save_stage_result(job["job_id"], "article_retrieval", article)
+        self.coordinator._stage(job["job_id"], "article_retrieval", StageStatus.COMPLETED, {})
+        self.assertEqual(self.coordinator._stage_result(job["job_id"], "article_retrieval"), article)
+
+    def test_task_job_workers_are_not_process_serialized(self):
+        active = 0
+        maximum = 0
+        gate = threading.Barrier(2)
+
+        def run(_job_id):
+            nonlocal active, maximum
+            active += 1
+            maximum = max(maximum, active)
+            gate.wait(timeout=2)
+            active -= 1
+
+        self.coordinator.run = run
+        first = threading.Thread(target=self.coordinator._run_task_job, args=("first",))
+        second = threading.Thread(target=self.coordinator._run_task_job, args=("second",))
+        first.start()
+        second.start()
+        first.join(timeout=3)
+        second.join(timeout=3)
+        self.assertEqual(maximum, 2)
+
+    def test_retrying_jobs_are_resumed_after_restart(self):
+        request = JobCreateRequest(article_id=uuid4())
+        job = self.coordinator.create(request, "retry-recovery", schedule=False)
+        with self.database.connection() as connection:
+            connection.execute(
+                "UPDATE jobs SET status=?, retry_count=? WHERE job_id=?",
+                (JobStatus.RETRYING.value, 1, job["job_id"]),
+            )
+        self.coordinator.recover()
+        self.coordinator.executor.shutdown(wait=True)
+        self.assertEqual(self.coordinator.get(job["job_id"])["status"], JobStatus.COMPLETED.value)
 
     def test_completed_job_has_pipeline_history(self):
         request = JobCreateRequest(article_id=uuid4())
@@ -151,7 +194,11 @@ class ManagementPhase1Tests(unittest.TestCase):
         task = self.coordinator.create_task(
             TaskCreateRequest(article_ids=[uuid4(), uuid4()])
         )
-        self.coordinator.executor.shutdown(wait=True)
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            if self.coordinator.task(task["task_id"])["status"] == "COMPLETED":
+                break
+            time.sleep(0.01)
         with self.database.connection() as connection:
             row = connection.execute(
                 "SELECT status, completed_at FROM tasks WHERE task_id=?",
@@ -159,6 +206,20 @@ class ManagementPhase1Tests(unittest.TestCase):
             ).fetchone()
         self.assertEqual(row["status"], "COMPLETED")
         self.assertIsNotNone(row["completed_at"])
+        refreshed = self.coordinator.task(task["task_id"])
+        self.assertIsNotNone(refreshed["elapsed_time_ms"])
+        self.assertIsNotNone(refreshed["estimated_total_time_ms"])
+        self.assertEqual(refreshed["remaining_time_ms"], 0)
+        self.assertIsNotNone(refreshed["execution_time_per_job_ms"])
+
+    def test_task_submission_is_bounded_by_worker_capacity(self):
+        submitted: list[str] = []
+        self.coordinator._submit = submitted.append
+        task = self.coordinator.create_task(
+            TaskCreateRequest(article_ids=[uuid4(), uuid4(), uuid4()])
+        )
+        self.assertEqual(len(submitted), self.coordinator.max_workers)
+        self.assertEqual(len(task["job_ids"]), 3)
 
 
 if __name__ == "__main__":

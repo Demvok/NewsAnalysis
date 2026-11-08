@@ -4,6 +4,7 @@ import os
 import tempfile
 import threading
 import time
+from datetime import datetime, timezone, timedelta
 import unittest
 from pathlib import Path
 from uuid import uuid4
@@ -156,9 +157,39 @@ class ManagementPhase2Tests(unittest.TestCase):
         self.assertEqual(execution["job_wall_clock_duration_ms"], 2000)
         self.assertEqual(execution["queue_wait_ms"], 250)
         self.assertEqual(execution["retry_count"], 1)
+        self.assertEqual(execution["estimated_total_time_ms"], 2000)
+        self.assertEqual(execution["remaining_time_ms"], 0)
+        self.assertEqual(execution["estimate_source"], "completed_actual")
         llm = self.client.get(f"/api/metrics/llm?job_id={job_id}").json()["execution"]
         self.assertEqual(llm["job_wall_clock_duration_ms"], execution["job_wall_clock_duration_ms"])
         self.assertEqual(llm["critical_path_duration_ms"], execution["critical_path_duration_ms"])
+
+    def test_running_execution_metrics_use_history_for_eta(self):
+        current_job_id = str(uuid4())
+        historical_job_id = str(uuid4())
+        now = datetime.now(timezone.utc)
+        current_started = (now - timedelta(seconds=2)).isoformat()
+        historical_started = (now - timedelta(seconds=20)).isoformat()
+        historical_completed = (now - timedelta(seconds=10)).isoformat()
+        with main.database.connection() as connection:
+            for job_id, status, started, completed in (
+                (current_job_id, "RUNNING", current_started, None),
+                (historical_job_id, "COMPLETED", historical_started, historical_completed),
+            ):
+                connection.execute(
+                    """INSERT INTO jobs
+                       (job_id,job_type,article_id,status,created_at,started_at,completed_at,
+                        retry_count,correlation_id,trace_id,config_json,metadata_json)
+                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    (job_id, "analysis", "article", status, started, started, completed,
+                     0, "corr-" + job_id, "trace-" + job_id, "{}", "{}"),
+                )
+        response = self.client.get(f"/api/metrics/jobs?job_id={current_job_id}")
+        self.assertEqual(response.status_code, 200)
+        execution = response.json()["execution"]
+        self.assertEqual(execution["estimate_source"], "moving_average")
+        self.assertGreater(execution["estimated_total_time_ms"], execution["elapsed_time_ms"])
+        self.assertGreater(execution["remaining_time_ms"], 0)
 
 
 

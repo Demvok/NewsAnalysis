@@ -9,6 +9,7 @@ from app.stance import (
     StanceEvaluation,
     calculate_stance,
 )
+from app.prompts import TopicStanceReevaluation
 
 
 def evaluation(
@@ -112,3 +113,15 @@ def test_missing_factor_is_rejected():
             endorsement=3,
             commitment=3,
         )
+
+
+def test_topic_stance_reevaluation_normalizes_five_point_confidence():
+    result = TopicStanceReevaluation(
+        direction="SUPPORT",
+        endorsement=3,
+        commitment=3,
+        conditionality=0,
+        confidence=5.01,
+    )
+
+    assert result.confidence == 1

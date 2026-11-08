@@ -495,6 +495,13 @@ class TopicStanceReevaluation(BaseModel):
     confidence: float = Field(ge=0, le=1)
     reason: str = ""
 
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def normalize_confidence(cls, value: object) -> object:
+        if isinstance(value, (int, float)) and value > 1:
+            return min(value / 5, 1)
+        return value
+
 
 TOPIC_STANCE_REEVALUATION_PROMPT = ModelCompatibleChatPromptTemplate.from_messages([
     (

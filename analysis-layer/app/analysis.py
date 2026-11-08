@@ -1266,25 +1266,25 @@ def persist_inconsistencies(
                 search_response.json()
             )
         historical_candidates = search_response.json()
-        propagation_request = models.TopicPropagationRequest(
-            target_topic_uuid=UUID(topic_uuid),
-            citations=[
-                models.TopicPropagationCitation(
-                    citation_uuid=UUID(str(historical["citation_uuid"])),
-                    citation_topic_uuid=UUID(str(historical["topic_uuid"])),
-                    original_stance=historical.get("stance"),
-                    original_stance_confidence=historical.get("stance_confidence"),
-                )
-                for historical in historical_candidates
-                if historical.get("topic_uuid")
-                and historical.get("stance") is not None
-            ],
-        )
-        propagated_history = (
-            propagate_topic_stances(propagation_request)
-            if propagation_request.citations
-            else []
-        )
+        propagation_citations = [
+            models.TopicPropagationCitation(
+                citation_uuid=UUID(str(historical["citation_uuid"])),
+                citation_topic_uuid=UUID(str(historical["topic_uuid"])),
+                original_stance=historical.get("stance"),
+                original_stance_confidence=historical.get("stance_confidence"),
+            )
+            for historical in historical_candidates
+            if historical.get("topic_uuid")
+            and historical.get("stance") is not None
+        ]
+        if propagation_citations:
+            propagation_request = models.TopicPropagationRequest(
+                target_topic_uuid=UUID(topic_uuid),
+                citations=propagation_citations,
+            )
+            propagated_history = propagate_topic_stances(propagation_request)
+        else:
+            propagated_history = []
         propagated_by_citation = {
             str(item.citation_uuid): item for item in propagated_history
         }
@@ -1313,8 +1313,8 @@ def persist_inconsistencies(
                     person_uuid,
                     historical.get("topic_uuid"),
                     topic_uuid,
-                    relative_stance.relevance if relative_stance else 0.0,
-                    relative_stance.polarity if relative_stance else 0.0,
+                    relative_stance.topic_relevance if relative_stance else 0.0,
+                    relative_stance.topic_relation_polarity if relative_stance else 0.0,
                 )
                 continue
             comparisons += 1
@@ -1323,8 +1323,8 @@ def persist_inconsistencies(
                 "person_uuid=%s topic_uuid=%s relevance=%.3f polarity=%.3f",
                 person_uuid,
                 topic_uuid,
-                relative_stance.relevance,
-                relative_stance.polarity,
+                relative_stance.topic_relevance,
+                relative_stance.topic_relation_polarity,
             )
             comparison = LLM.compare_attitudes(
                 topic_name=topic_name,

@@ -816,8 +816,8 @@ def create_people_bulk(payload: list[PersonPayload], response: Response) -> list
                     if has_person_details:
                         existing.aliases = values["aliases"]
                         existing.aliases_vector = values["aliases_vector"]
+                session.flush()
                 results.append(_as_dict(existing))
-            session.flush()
         _set_bulk_stats(response, created_new, retrieved_from_db)
         logger.info(
             "db_write operation=bulk_upsert model=DimPerson created_new=%d retrieved_from_db=%d",
@@ -975,8 +975,8 @@ def create_citations_bulk(payload: list[CitationPayload], response: Response) ->
                     for field, value in values.items():
                         if field not in {"origin_article_id", "person_uuid", "exact_quote"}:
                             setattr(existing, field, value)
+                session.flush()
                 results.append(_as_dict(existing))
-            session.flush()
         _set_bulk_stats(response, created_new, retrieved_from_db)
         logger.info(
             "db_write operation=bulk_upsert model=DimCitation created_new=%d retrieved_from_db=%d",
@@ -1168,8 +1168,8 @@ def create_topics_bulk(payload: list[TopicPayload], response: Response) -> list[
                     for field, value in values.items():
                         if field != "topic_uuid":
                             setattr(existing, field, value)
+                session.flush()
                 results.append(_as_dict(existing))
-            session.flush()
         _set_bulk_stats(response, created_new, retrieved_from_db)
         logger.info(
             "db_write operation=bulk_upsert model=DimTopic created_new=%d retrieved_from_db=%d",

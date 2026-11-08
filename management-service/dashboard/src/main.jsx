@@ -649,6 +649,98 @@ function DataManager({ notify }) {
   </Page>;
 }
 
+function SvgBarChart({ rows, valueKey, label, inverse = false }) {
+  const values = rows.map(row => Number(row[valueKey])).filter(Number.isFinite);
+  const max = Math.max(...values, 1);
+  return <div className="svg-chart" aria-label={label}>
+    {rows.map(row => {
+      const value = Number(row[valueKey]);
+      const width = Number.isFinite(value) ? Math.max(2, value / max * 100) : 0;
+      return <div className="svg-bar-row" key={row.model}><span>{row.model}</span><div><i className={inverse ? "inverse" : ""} style={{ width: `${width}%` }} /></div><b>{Number.isFinite(value) ? formatNumber(value, 3) : "—"}</b></div>;
+    })}
+  </div>;
+}
+
+function SvgScatter({ rows }) {
+  const points = rows.filter(row => Number.isFinite(Number(row.latency)) && Number.isFinite(Number(row.quality)));
+  const maxX = Math.max(...points.map(row => Number(row.latency)), 1);
+  return <div className="scatter-chart" aria-label="Quality versus latency scatter plot">
+    <div className="scatter-axis"><span>Quality ↑</span><span>Latency →</span></div>
+    <svg viewBox="0 0 640 220" role="img">
+      <line x1="45" y1="15" x2="45" y2="185" /><line x1="45" y1="185" x2="620" y2="185" />
+      {points.map(row => {
+        const x = 55 + Number(row.latency) / maxX * 550;
+        const y = 175 - Number(row.quality) * 150;
+        return <g key={row.model}><circle cx={x} cy={y} r="7" /><text x={x + 10} y={y + 4}>{row.model}</text></g>;
+      })}
+    </svg>
+  </div>;
+}
+
+function reportRows(report) {
+  if (!report) return [];
+  if (Array.isArray(report.model_comparison)) return report.model_comparison.map(row => ({
+    model: row.model, quality: Number(row.topic_micro_f1 ?? row.citation_f1),
+    citation: row.citation_f1, person: row.person_f1, topic: row.topic_micro_f1,
+    stance: row.stance_mae, json: row.json_validity_rate, latency: row.average_execution_time_ms,
+    tokens: row.tokens_per_second,
+  }));
+  if (Array.isArray(report.models)) return report.models.map(row => ({
+    model: row.model, quality: row.citation_f1_micro ?? row.citation_f1,
+    citation: row.citation_f1_micro ?? row.citation_f1, person: row.person_f1_micro ?? row.person_f1,
+    topic: row.topic_f1_micro ?? row.topic_micro_f1, stance: row.stance_mae,
+    json: row.json_validity_rate, latency: row.average_execution_time_ms,
+    tokens: row.output_tokens_mean ?? row.tokens_per_second,
+  }));
+  if (report.summary) return Object.entries(report.summary).map(([model, row]) => ({
+    model, quality: row.topic_exact?.f1, citation: row.citation_exact?.f1,
+    span: row.citation_span?.f1, person: row.person_exact?.f1, topic: row.topic_exact?.f1,
+    stance: row.stance?.full_coverage_mae, coverage: row.stance?.coverage,
+    json: report.paired_cases ? report.paired_cases.filter(item => item.model_key === model && item.evaluation?.structured_output?.json_valid).length / Math.max(1, report.dataset?.case_count || 1) : null,
+    latency: row.performance?.latency_mean_ms, tokens: row.performance?.generation_tokens_per_second_mean,
+  }));
+  return [];
+}
+
+function ReportTable({ title, rows }) {
+  if (!Array.isArray(rows) || !rows.length) return null;
+  const columns = [...new Set(rows.flatMap(row => Object.keys(row)))];
+  return <section className="report-table-section"><h3>{title}</h3><div className="analytics-table"><table><thead><tr>{columns.map(column => <th key={column}>{column.replaceAll("_", " ")}</th>)}</tr></thead><tbody>{rows.map((row, index) => <tr key={index}>{columns.map(column => <td key={column} title={String(row[column] ?? "")}>{typeof row[column] === "object" ? JSON.stringify(row[column]) : String(row[column] ?? "—")}</td>)}</tr>)}</tbody></table></div></section>;
+}
+
+function ReportAnalytics({ reports, selected, onSelect, notify }) {
+  const [loading, setLoading] = useState(false);
+  const [tab, setTab] = useState("comparison");
+  const load = async meta => {
+    setLoading(true);
+    try { onSelect({ meta, data: await api(`/benchmarks/reports/${meta.id}`) }); }
+    catch (error) { notify(error.message, true); }
+    finally { setLoading(false); }
+  };
+  const data = selected?.data;
+  const rows = reportRows(data);
+  const original = data?.model_comparison || [];
+  const audit = data?.models || [];
+  const targeted = data?.summary ? rows : [];
+  const allRows = original.length ? original : (audit.length ? audit : targeted);
+  const kpis = allRows.length ? [
+    ["Models compared", allRows.length],
+    ["Cases", data.synthetic_case_count || data.dataset?.case_count || "—"],
+    ["Best quality", formatNumber(Math.max(...allRows.map(row => Number(row.topic_micro_f1 ?? row.topic_f1_micro ?? row.topic ?? row.quality)).filter(Number.isFinite)), 3)],
+    ["Fastest mean", formatDuration(Math.min(...allRows.map(row => Number(row.average_execution_time_ms ?? row.latency)).filter(Number.isFinite)))],
+  ] : [];
+  return <Panel title="Completed report analytics" kicker="Original, audited, and targeted results are read from preserved JSON artifacts">
+    <div className="report-toolbar"><select value={selected?.meta?.id || ""} onChange={event => { const meta = reports.find(item => item.id === event.target.value); if (meta) load(meta); }}><option value="">Select a completed report…</option>{reports.map(item => <option key={item.id} value={item.id}>{item.label} · {item.report_id}</option>)}</select>{loading && <span className="muted">Loading report…</span>}</div>
+    {!data ? <Empty>Select a report to see all stored measurements, comparisons, cases, and charts.</Empty> : <><div className="metric-grid compact report-kpis">{kpis.map(([label, value]) => <MetricCard key={label} label={label} value={value} detail={selected.meta.label} />)}</div>
+      <div className="report-tabs"><button className={tab === "comparison" ? "active" : "secondary"} onClick={() => setTab("comparison")}>Comparison</button><button className={tab === "performance" ? "active" : "secondary"} onClick={() => setTab("performance")}>Performance</button><button className={tab === "cases" ? "active" : "secondary"} onClick={() => setTab("cases")}>Cases / raw data</button><button className={tab === "metadata" ? "active" : "secondary"} onClick={() => setTab("metadata")}>Method / metadata</button></div>
+      {tab === "comparison" && <><div className="report-analytics-grid"><div><h3>Quality metrics</h3><SvgBarChart rows={rows} valueKey="quality" label="Quality comparison" /><h3>Topic / citation / person</h3><div className="analytics-table"><table><thead><tr><th>Model</th><th>Citation</th><th>Span</th><th>Person</th><th>Topic</th><th>Stance MAE</th><th>Coverage</th><th>JSON</th></tr></thead><tbody>{rows.map(row => <tr key={row.model}><td className="mono">{row.model}</td><td>{formatNumber(row.citation, 3)}</td><td>{formatNumber(row.span, 3)}</td><td>{formatNumber(row.person, 3)}</td><td>{formatNumber(row.topic, 3)}</td><td>{formatNumber(row.stance, 3)}</td><td>{formatNumber(row.coverage, 3)}</td><td>{formatNumber(row.json, 3)}</td></tr>)}</tbody></table></div></div><div><h3>Quality vs processing time</h3><SvgScatter rows={rows} /><h3>Latency</h3><SvgBarChart rows={rows} valueKey="latency" label="Latency comparison" inverse /><h3>Throughput</h3><SvgBarChart rows={rows} valueKey="tokens" label="Token throughput comparison" /></div></div><ReportTable title="Original model comparison" rows={data.model_comparison} /><ReportTable title="Real-news exploratory evaluation" rows={data.real_news_reference_evaluation} /><ReportTable title="Configuration comparison" rows={data.configuration_comparison} /><ReportTable title="Stability repetitions" rows={data.stability} /></>}
+      {tab === "performance" && <div className="report-analytics-grid"><div><h3>Performance distribution</h3><div className="analytics-table"><table><thead><tr><th>Model</th><th>Mean latency</th><th>Median</th><th>Tokens/s</th><th>Input tokens</th><th>Output tokens</th><th>Output chars</th><th>Output words</th></tr></thead><tbody>{rows.map(row => { const source = data.summary?.[row.model]?.performance || {}; return <tr key={row.model}><td className="mono">{row.model}</td><td>{formatDuration(row.latency)}</td><td>{formatDuration(source.latency_median_ms)}</td><td>{formatNumber(row.tokens, 2)}</td><td>{formatNumber(source.input_tokens_mean, 0)}</td><td>{formatNumber(source.output_tokens_mean, 0)}</td><td>{formatNumber(source.output_chars_mean, 0)}</td><td>{formatNumber(source.output_words_mean, 0)}</td></tr>; })}</tbody></table></div></div><div><h3>Execution observations</h3><pre className="json-preview">{JSON.stringify(data.hardware || data.limitations || {}, null, 2)}</pre></div></div>}
+      {tab === "cases" && <div className="analytics-table"><table><thead><tr><th>Case</th><th>Model</th><th>Time</th><th>JSON</th><th>Input</th><th>Output</th><th>Details</th></tr></thead><tbody>{(data.paired_cases || data.raw_results?.synthetic || []).slice(0, 100).map((item, index) => <tr key={`${item.test_id}-${index}`}><td>{item.test_id}</td><td className="mono">{item.model_key || item.model_id || item.configuration_label}</td><td>{formatDuration(item.evaluation?.performance?.execution_time_ms || item.execution_time_ms)}</td><td><Status value={item.evaluation?.structured_output?.json_valid ? "VALID" : item.evaluation?.structured_output ? "INVALID" : "—"} /></td><td>{formatNumber(item.evaluation?.performance?.input_tokens || item.input_tokens, 0)}</td><td>{formatNumber(item.evaluation?.performance?.output_tokens || item.output_tokens, 0)}</td><td><details><summary>Inspect</summary><pre className="json-preview">{JSON.stringify(item, null, 2)}</pre></details></td></tr>)}</tbody></table></div>}
+      {tab === "metadata" && <div className="report-metadata-grid"><pre className="json-preview">{JSON.stringify(data.evaluation_changes || data.methodology || data.limitations || {}, null, 2)}</pre><pre className="json-preview">{JSON.stringify(data.dataset || { synthetic_case_count: data.synthetic_case_count, real_case_count: data.real_case_count, models: data.models }, null, 2)}</pre></div>}
+    </>}
+  </Panel>;
+}
+
 function Experiments({ notify }) {
   const [runs, setRuns] = useState([]);
   const [models, setModels] = useState([]);
@@ -656,10 +748,12 @@ function Experiments({ notify }) {
   const [form, setForm] = useState({ experiment_type: "EXP-01", dataset: "synthetic", model_ids: [], repetitions: "1", alternative_temperature: "0.7" });
   const [error, setError] = useState(null);
   const [selectedRun, setSelectedRun] = useState(null);
+  const [reports, setReports] = useState([]);
+  const [selectedReport, setSelectedReport] = useState(null);
   const load = async () => {
     try {
-      const [runData, modelData, datasetData] = await Promise.all([api("/benchmarks/runs"), api("/benchmarks/models"), api("/benchmarks/datasets")]);
-      setRuns(runData); setModels(modelData); setDatasets(datasetData);
+      const [runData, modelData, datasetData, reportData] = await Promise.all([api("/benchmarks/runs"), api("/benchmarks/models"), api("/benchmarks/datasets"), api("/benchmarks/reports")]);
+      setRuns(runData); setModels(modelData); setDatasets(datasetData); setReports(reportData);
       if (!form.model_ids.length && modelData.length) setForm(current => ({ ...current, model_ids: modelData.map(item => item.id) }));
     } catch (e) { setError(e); }
   };
@@ -694,12 +788,13 @@ function Experiments({ notify }) {
   const metric = (name, digits = 3) => selectedRun?.summary?.[name] == null ? "—" : formatNumber(selectedRun.summary[name], digits);
   const resultRows = detailResults.slice().reverse();
   return <Page title="Benchmarks" subtitle="Isolated model, configuration, and stability evaluation." refresh={load}>
+    <ReportAnalytics reports={reports} selected={selectedReport} onSelect={setSelectedReport} notify={notify} />
     <Panel title="Create benchmark run" kicker="Synthetic labels are predefined; real-news results are exploratory"><form className="experiment-form" onSubmit={create}><label>Experiment type<select value={form.experiment_type} onChange={e => setForm({ ...form, experiment_type: e.target.value })}><option value="EXP-01">EXP-01 — model comparison</option><option value="EXP-02">EXP-02 — configuration comparison</option><option value="EXP-03">EXP-03 — stability testing</option></select></label><label>Dataset<select value={form.dataset} onChange={e => setForm({ ...form, dataset: e.target.value })}>{datasets.map(item => <option key={item.id} value={item.id}>{item.id} ({item.case_count})</option>)}</select></label><label>Repetitions<input type="number" min="1" max="3" value={form.repetitions} onChange={e => setForm({ ...form, repetitions: e.target.value })} /></label>{form.experiment_type === "EXP-02" && <label>Alternative temperature<input type="number" min="0" max="2" step="0.1" value={form.alternative_temperature} onChange={e => setForm({ ...form, alternative_temperature: e.target.value })} /></label>}<label>Models<select multiple value={form.model_ids} onChange={e => setForm({ ...form, model_ids: [...e.target.selectedOptions].map(option => option.value) })}>{models.map(item => <option key={item.id} value={item.id}>{item.id}</option>)}</select><small className="field-help">Ctrl/Cmd-click to select multiple models.</small></label><button type="submit" disabled={!form.model_ids.length}>Create run</button></form></Panel>
     <Panel title="Benchmark runs" actions={<span className="muted">{runs.length} saved runs</span>}>{error ? <ErrorState error={error} retry={load} /> : runs.length ? <div className="table-scroll"><table><thead><tr><th>Run</th><th>Type</th><th>Dataset</th><th>Status</th><th>Progress</th><th>Summary</th><th>Actions</th></tr></thead><tbody>{runs.map(run => <tr key={run.run_id}><td><button className="link-button" onClick={() => inspect(run)}>{run.run_id}</button><small className="mono">{formatDate(run.created_at)}</small></td><td>{run.experiment_type}</td><td>{run.dataset}</td><td><Status value={run.status} /></td><td>{run.progress?.total ? `${run.progress.completed}/${run.progress.total} (${run.progress.percent}%)` : "—"}</td><td>{run.summary?.cases ? `${run.summary.cases} cases · ${formatDuration(run.summary.average_execution_time_ms)}` : "—"}</td><td>{run.status === "CREATED" || run.status === "FAILED" ? <button onClick={() => start(run)}>Start</button> : <button className="secondary" onClick={() => inspect(run)}>View</button>}</td></tr>)}</tbody></table></div> : <Empty>No benchmark runs have been created.</Empty>}</Panel>
     {selectedRun && <Panel title={`Run ${selectedRun.run_id}`} kicker={`${selectedRun.experiment_type} · ${selectedRun.dataset}`} actions={<div className="filter-row"><button className="secondary" onClick={() => window.open(`/api/benchmarks/runs/${selectedRun.run_id}`, "_blank")}>Open JSON</button><button className="secondary" onClick={() => setSelectedRun(null)}>Close</button></div>}>
       <div className="benchmark-progress"><div className="progress-header"><Status value={selectedRun.status} /><strong>{selectedRun.progress?.completed || 0} / {selectedRun.progress?.total || "?"} cases</strong><span>{percent}%</span></div><div className="progress-track"><i style={{ width: `${percent}%` }} /></div>{selectedRun.progress?.current_test_id && <small>Latest: {selectedRun.progress.current_test_id} · {selectedRun.progress.current_model_id}</small>}{selectedRun.error && <div className="error-state">{selectedRun.error}</div>}</div>
       <section className="metric-grid compact"><MetricCard label="Average time" value={formatDuration(selectedRun.summary?.average_execution_time_ms)} detail="Measured model calls" /><MetricCard label="JSON validity" value={`${Math.round((selectedRun.summary?.json_validity_rate || 0) * 100)}%`} detail="Valid JSON responses" /><MetricCard label="Schema compliance" value={`${Math.round((selectedRun.summary?.schema_compliance_rate || 0) * 100)}%`} detail="Required output fields" /><MetricCard label="Failures" value={`${Math.round((selectedRun.summary?.failure_rate || 0) * 100)}%`} detail="Invalid or failed outputs" /><MetricCard label="Median time" value={formatDuration(selectedRun.summary?.median_execution_time_ms)} detail="Per case" /><MetricCard label="Stability" value={selectedRun.summary?.stability?.agreement_rate == null ? "—" : `${Math.round(selectedRun.summary.stability.agreement_rate * 100)}%`} detail="Repeated output agreement" /></section>
-      <div className="benchmark-detail-grid"><div><h3>Quality overview</h3>{[["Citation F1","citation_extraction","f1"],["Person F1","person_identification","f1"],["Topic F1","topic_identification","f1"],["Stance MAE","stance_estimation","mae"]].map(([label, group, key]) => { const values = resultRows.map(item => item.evaluation?.[group]?.[key]).filter(value => typeof value === "number"); const value = values.length ? values.reduce((a, b) => a + b, 0) / values.length : null; const width = key === "mae" ? Math.max(0, 100 - (value || 0) * 100) : (value || 0) * 100; return <div className="benchmark-bar" key={label}><span>{label}</span><div><i style={{ width: `${Math.min(100, width)}%` }} /></div><b>{value == null ? "—" : formatNumber(value, 3)}</b></div>; })}</div><div><h3>Configuration</h3><pre className="json-preview">{JSON.stringify({ model_ids: selectedRun.model_ids, repetitions: selectedRun.repetitions, prompt_version: selectedRun.prompt_version, configurations: selectedRun.configurations }, null, 2)}</pre></div></div>
+      <div className="benchmark-detail-grid"><div><h3>Quality overview</h3>{[["Citation F1","citation_extraction","f1"],["Person F1","person_identification","f1"],["Topic F1","topic_identification","f1"],["Stance MAE","stance_estimation","mae"]].map(([label, group, key]) => { const value = selectedRun.summary?.[group]?.[key]; const width = key === "mae" ? Math.max(0, 100 - (value || 0) * 100) : (value || 0) * 100; return <div className="benchmark-bar" key={label}><span>{label}</span><div><i style={{ width: `${Math.min(100, width)}%` }} /></div><b>{value == null ? "—" : formatNumber(value, 3)}</b></div>; })}</div><div><h3>Configuration</h3><pre className="json-preview">{JSON.stringify({ model_ids: selectedRun.model_ids, repetitions: selectedRun.repetitions, prompt_version: selectedRun.prompt_version, configurations: selectedRun.configurations }, null, 2)}</pre></div></div>
       {resultRows.length > 0 && <><h3>Case results and responses</h3><div className="table-scroll benchmark-results"><table><thead><tr><th>Case</th><th>Model</th><th>Rep.</th><th>Time</th><th>JSON</th><th>Citation F1</th><th>Person F1</th><th>Topic F1</th><th>Raw / parsed</th></tr></thead><tbody>{resultRows.map((item, index) => <tr key={`${item.test_id}-${index}`}><td>{item.test_id}</td><td className="mono">{item.model_id}</td><td>{item.repetition || 1}</td><td>{formatDuration(item.evaluation?.performance?.execution_time_ms)}</td><td><Status value={item.evaluation?.structured_output?.schema_compliant ? "VALID" : "INVALID"} /></td><td>{formatNumber(item.evaluation?.citation_extraction?.f1, 3)}</td><td>{formatNumber(item.evaluation?.person_identification?.f1, 3)}</td><td>{formatNumber(item.evaluation?.topic_identification?.f1, 3)}</td><td><details><summary>Inspect</summary><div className="response-grid"><div><b>Input</b><pre className="json-preview">{JSON.stringify(item.input, null, 2)}</pre></div><div><b>Parsed response</b><pre className="json-preview">{JSON.stringify(item.parsed_response, null, 2)}</pre></div><div><b>Raw response</b><pre className="json-preview">{JSON.stringify(item.raw_response, null, 2)}</pre></div></div></details></td></tr>)}</tbody></table></div></>}
     </Panel>}
   </Page>;

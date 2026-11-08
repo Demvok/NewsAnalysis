@@ -72,7 +72,8 @@ services:
     ports:
       - "7100:7100"
     volumes:
-      - benchmark_results:/app/results
+      - ./benchmark-service/reports:/app/results
+      - ./benchmark-service/data:/app/data:ro
     depends_on:
       - analysis-layer
 

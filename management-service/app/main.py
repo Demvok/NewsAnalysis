@@ -180,6 +180,16 @@ def benchmark_datasets() -> Any:
     return client.benchmark("GET", "/api/datasets")
 
 
+@app.get("/api/benchmarks/reports", tags=["Benchmarks"])
+def benchmark_reports() -> Any:
+    return client.benchmark("GET", "/api/reports")
+
+
+@app.get("/api/benchmarks/reports/{report_id:path}", tags=["Benchmarks"])
+def benchmark_report(report_id: str) -> Any:
+    return client.benchmark("GET", f"/api/reports/{report_id}")
+
+
 @app.get("/api/benchmarks/runs", tags=["Benchmarks"])
 def benchmark_runs() -> Any:
     return client.benchmark("GET", "/api/runs")
@@ -390,24 +400,35 @@ def _execution_metrics(connection, job_ids: list[str]) -> dict[str, Any]:
     job_wall_clock = sum(wall) / len(wall) if wall else None
     active_elapsed = sum(elapsed) / len(elapsed) if elapsed else None
     historical_jobs = connection.execute(
-        """SELECT started_at, completed_at FROM jobs
+        f"""SELECT started_at, completed_at FROM jobs
            WHERE status IN ('COMPLETED', 'FAILED')
+             AND job_id NOT IN ({placeholders})
              AND started_at IS NOT NULL AND completed_at IS NOT NULL
            ORDER BY completed_at DESC LIMIT 50""",
+        job_ids,
     ).fetchall()
     historical = [_elapsed_ms(row["started_at"], row["completed_at"]) for row in historical_jobs]
     baseline = _moving_average(list(reversed([value for value in historical if value is not None])))
-    estimate_total = job_wall_clock or active_elapsed
-    estimate_source = "observed"
-    if estimate_total is None and baseline is not None:
+    if job_wall_clock is not None:
+        estimate_total = job_wall_clock
+        estimate_source = "completed_actual"
+    elif baseline is not None:
         estimate_total = baseline
         estimate_source = "moving_average"
+    else:
+        estimate_total = None
+        estimate_source = None
     return {
         "job_wall_clock_duration_ms": job_wall_clock,
         "elapsed_time_ms": job_wall_clock if job_wall_clock is not None else active_elapsed,
         "estimated_total_time_ms": estimate_total,
-        "remaining_time_ms": max(0, estimate_total - active_elapsed) if estimate_total is not None and active_elapsed is not None else None,
-        "estimate_source": estimate_source if estimate_total is not None else None,
+        "remaining_time_ms": (
+            0 if job_wall_clock is not None
+            else max(0, estimate_total - active_elapsed)
+            if estimate_total is not None and active_elapsed is not None
+            else None
+        ),
+        "estimate_source": estimate_source,
         "stage_estimates": {stage: _moving_average(values) for stage, values in completed_stage_durations.items()},
         "queue_wait_ms": sum(row["queue_wait_ms"] or 0 for row in jobs) / len(jobs),
         "critical_path_duration_ms": _interval_duration(stage_intervals),
