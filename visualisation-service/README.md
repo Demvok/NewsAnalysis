@@ -9,7 +9,8 @@ waiting for production data. The `live data` switch enables
 
 - free-form topic phrases matched against canonical topic embeddings;
 - optional `general_topic_field` filtering;
-- configurable `min_similarity`;
+- percentile-based similarity retention with an optional manual `min_similarity`
+  control (0.5–1.0);
 - speaker prominence, stance distribution, citation timelines, and evidence links;
 - a fixed-height Apache ECharts Canvas timeline with native horizontal zoom,
   compressed empty periods, confidence-weighted bubbles, and inconsistency
