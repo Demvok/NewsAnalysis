@@ -19,6 +19,7 @@ class ManagementDatabase:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         connection = sqlite3.connect(self.path, timeout=30)
         connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA busy_timeout=30000")
         try:
             yield connection
             connection.commit()
@@ -30,12 +31,15 @@ class ManagementDatabase:
 
     def initialize(self) -> None:
         with self.lock, self.connection() as connection:
+            connection.execute("PRAGMA journal_mode=WAL")
+            connection.execute("PRAGMA synchronous=NORMAL")
             connection.executescript(
                 """
                 CREATE TABLE IF NOT EXISTS jobs (
                     job_id TEXT PRIMARY KEY, job_type TEXT NOT NULL, article_id TEXT NOT NULL,
                     status TEXT NOT NULL, current_stage TEXT, created_at TEXT NOT NULL,
                     started_at TEXT, completed_at TEXT, retry_count INTEGER NOT NULL DEFAULT 0,
+                    queue_wait_ms INTEGER, duration_ms INTEGER, worker_identity TEXT,
                     correlation_id TEXT NOT NULL, trace_id TEXT NOT NULL,
                     idempotency_key TEXT, config_json TEXT NOT NULL,
                     metadata_json TEXT NOT NULL, error_code TEXT, error_summary TEXT,
@@ -67,11 +71,16 @@ class ManagementDatabase:
                     output_tokens_estimated INTEGER,
                     throughput_tokens_per_second REAL, model TEXT, provider TEXT,
                     finish_reason TEXT, retry_count INTEGER NOT NULL DEFAULT 0,
+                    attempt_number INTEGER, queue_wait_ms INTEGER,
+                    job_duration_ms INTEGER, stage_duration_ms INTEGER,
+                    worker_identity TEXT,
                     error_category TEXT, error_detail TEXT,
                     attributes_json TEXT NOT NULL, debug_content_json TEXT
                 );
                 CREATE INDEX IF NOT EXISTS idx_telemetry_timestamp ON telemetry_events(timestamp);
                 CREATE INDEX IF NOT EXISTS idx_telemetry_job ON telemetry_events(job_id);
+                CREATE INDEX IF NOT EXISTS idx_telemetry_job_stage_status
+                    ON telemetry_events(job_id, event_type, status);
                 CREATE INDEX IF NOT EXISTS idx_telemetry_trace ON telemetry_events(trace_id);
                 CREATE INDEX IF NOT EXISTS idx_telemetry_type ON telemetry_events(event_type);
                 CREATE TABLE IF NOT EXISTS experiments (
@@ -109,6 +118,32 @@ class ManagementDatabase:
             )
             self._migrate_jobs(connection)
             self._migrate_job_stages(connection)
+            telemetry_columns = {
+                row["name"] for row in connection.execute("PRAGMA table_info(telemetry_events)").fetchall()
+            }
+            job_columns = {
+                row["name"] for row in connection.execute("PRAGMA table_info(jobs)").fetchall()
+            }
+            for name, definition in (
+                ("queue_wait_ms", "INTEGER"),
+                ("duration_ms", "INTEGER"),
+                ("worker_identity", "TEXT"),
+            ):
+                if name not in job_columns:
+                    connection.execute(f"ALTER TABLE jobs ADD COLUMN {name} {definition}")
+            for name, definition in (
+                ("attempt_number", "INTEGER"),
+                ("queue_wait_ms", "INTEGER"),
+                ("job_duration_ms", "INTEGER"),
+                ("stage_duration_ms", "INTEGER"),
+                ("worker_identity", "TEXT"),
+            ):
+                if name not in telemetry_columns:
+                    connection.execute(f"ALTER TABLE telemetry_events ADD COLUMN {name} {definition}")
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_jobs_status_created "
+                "ON jobs(status, created_at DESC)"
+            )
             task_columns = {
                 row["name"] for row in connection.execute("PRAGMA table_info(tasks)").fetchall()
             }
@@ -125,6 +160,40 @@ class ManagementDatabase:
                 "UPDATE jobs SET status='FAILED', completed_at=?, error_code='MANAGEMENT_RESTART', "
                 "error_summary='Management service restarted while the job was active' "
                 "WHERE status IN ('PENDING','RUNNING','RETRYING')",
+                (datetime.now(timezone.utc).isoformat(),),
+            )
+            connection.execute(
+                """UPDATE tasks
+                   SET status=CASE
+                       WHEN EXISTS (
+                           SELECT 1 FROM task_jobs tj JOIN jobs j ON j.job_id=tj.job_id
+                           WHERE tj.task_id=tasks.task_id
+                             AND j.status IN ('PENDING','RUNNING','RETRYING')
+                       ) THEN 'RUNNING'
+                       WHEN EXISTS (
+                           SELECT 1 FROM task_jobs tj JOIN jobs j ON j.job_id=tj.job_id
+                           WHERE tj.task_id=tasks.task_id AND j.status='CANCELLED'
+                       ) THEN 'CANCELLED'
+                       WHEN EXISTS (
+                           SELECT 1 FROM task_jobs tj JOIN jobs j ON j.job_id=tj.job_id
+                           WHERE tj.task_id=tasks.task_id AND j.status='FAILED'
+                       ) THEN CASE WHEN EXISTS (
+                           SELECT 1 FROM task_jobs tj JOIN jobs j ON j.job_id=tj.job_id
+                           WHERE tj.task_id=tasks.task_id AND j.status='COMPLETED'
+                       ) THEN 'PARTIAL' ELSE 'FAILED' END
+                       ELSE 'COMPLETED'
+                   END,
+                   completed_at=CASE
+                       WHEN EXISTS (
+                           SELECT 1 FROM task_jobs tj JOIN jobs j ON j.job_id=tj.job_id
+                           WHERE tj.task_id=tasks.task_id
+                             AND j.status IN ('PENDING','RUNNING','RETRYING')
+                       ) THEN NULL
+                       ELSE COALESCE(completed_at,?)
+                   END
+                   WHERE EXISTS (
+                       SELECT 1 FROM task_jobs tj WHERE tj.task_id=tasks.task_id
+                   )""",
                 (datetime.now(timezone.utc).isoformat(),),
             )
 

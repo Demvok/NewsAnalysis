@@ -44,7 +44,7 @@ def configure_logging(service_name: str) -> logging.Logger:
 
     default_level = os.getenv("LOG_LEVEL", "INFO")
     service_logger.setLevel(_configured_level(service_name, default_level))
-    log_directory = Path(os.getenv("LOG_DIR", "logs"))
+    log_directory = Path(os.getenv("LOG_DIR", "logs/management-service"))
     log_directory.mkdir(parents=True, exist_ok=True)
 
     formatter = logging.Formatter(_DEFAULT_FORMAT, datefmt=_DATE_FORMAT)

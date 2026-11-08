@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
+import threading
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -168,6 +170,67 @@ app = FastAPI(
 )
 
 
+@app.get("/api/benchmarks/models", tags=["Benchmarks"])
+def benchmark_models() -> Any:
+    return client.benchmark("GET", "/api/models")
+
+
+@app.get("/api/benchmarks/datasets", tags=["Benchmarks"])
+def benchmark_datasets() -> Any:
+    return client.benchmark("GET", "/api/datasets")
+
+
+@app.get("/api/benchmarks/reports", tags=["Benchmarks"])
+def benchmark_reports() -> Any:
+    return client.benchmark("GET", "/api/reports")
+
+
+@app.get("/api/benchmarks/reports/{report_id:path}", tags=["Benchmarks"])
+def benchmark_report(report_id: str) -> Any:
+    return client.benchmark("GET", f"/api/reports/{report_id}")
+
+
+@app.get("/api/benchmarks/runs", tags=["Benchmarks"])
+def benchmark_runs() -> Any:
+    return client.benchmark("GET", "/api/runs")
+
+
+@app.post("/api/benchmarks/runs", tags=["Benchmarks"])
+def create_benchmark_run(payload: dict[str, Any]) -> Any:
+    return client.benchmark("POST", "/api/runs", payload)
+
+
+@app.post("/api/benchmarks/runs/{run_id}/start", tags=["Benchmarks"])
+def start_benchmark_run(run_id: str) -> Any:
+    return client.benchmark("POST", f"/api/runs/{run_id}/start")
+
+
+@app.get("/api/benchmarks/runs/{run_id}", tags=["Benchmarks"])
+def get_benchmark_run(run_id: str) -> Any:
+    return client.benchmark("GET", f"/api/runs/{run_id}")
+
+
+@app.on_event("startup")
+def recover_jobs() -> None:
+    global _retention_thread
+    coordinator.recover()
+    _retention_stop.clear()
+    _retention_thread = threading.Thread(
+        target=_retention_loop, name="telemetry-retention", daemon=True
+    )
+    _retention_thread.start()
+
+
+@app.on_event("shutdown")
+def shutdown_coordinator() -> None:
+    global _retention_thread
+    _retention_stop.set()
+    if _retention_thread:
+        _retention_thread.join(timeout=2)
+        _retention_thread = None
+    coordinator.shutdown()
+
+
 @app.middleware("http")
 async def request_logging_middleware(request: Request, call_next):
     request_id = request.headers.get("x-request-id") or str(uuid4())
@@ -199,15 +262,244 @@ def parse_datetime(value: str | None) -> datetime | None:
     return datetime.fromisoformat(value) if value else None
 
 
+def _percentile(values: list[float], fraction: float) -> float | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    index = min(len(ordered) - 1, max(0, int((len(ordered) - 1) * fraction)))
+    return ordered[index]
+
+
+def _interval_duration(intervals: list[tuple[datetime, datetime]]) -> int:
+    merged: list[list[datetime]] = []
+    for started, completed in sorted(intervals):
+        if completed <= started:
+            continue
+        if merged and started <= merged[-1][1]:
+            merged[-1][1] = max(merged[-1][1], completed)
+        else:
+            merged.append([started, completed])
+    return int(sum((completed - started).total_seconds() * 1000 for started, completed in merged))
+
+
+def _now_aware() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _elapsed_ms(started_at: str | None, completed_at: str | None = None) -> int | None:
+    if not started_at:
+        return None
+    started = datetime.fromisoformat(started_at)
+    completed = datetime.fromisoformat(completed_at) if completed_at else _now_aware()
+    if started.tzinfo is None:
+        started = started.replace(tzinfo=timezone.utc)
+    if completed.tzinfo is None:
+        completed = completed.replace(tzinfo=timezone.utc)
+    return max(0, int((completed - started).total_seconds() * 1000))
+
+
+def _event_duration_ms(row) -> int | None:
+    if row["duration_ms"] is not None:
+        return row["duration_ms"]
+    if row["started_at"] and row["completed_at"]:
+        return _elapsed_ms(row["started_at"], row["completed_at"])
+    return None
+
+
+def _moving_average(values: list[float]) -> float | None:
+    if not values:
+        return None
+    recent = values[-20:]
+    weights = range(1, len(recent) + 1)
+    return sum(value * weight for value, weight in zip(recent, weights)) / sum(weights)
+
+
+def _execution_metrics(connection, job_ids: list[str]) -> dict[str, Any]:
+    empty = {
+        "job_wall_clock_duration_ms": None,
+        "elapsed_time_ms": None,
+        "estimated_total_time_ms": None,
+        "remaining_time_ms": None,
+        "estimate_source": None,
+        "queue_wait_ms": None,
+        "critical_path_duration_ms": None,
+        "summed_llm_busy_time_ms": 0,
+        "llm_queue_wait_ms": 0,
+        "embedding_time_ms": 0,
+        "storage_time_ms": 0,
+        "telemetry_time_ms": 0,
+        "retry_count": 0,
+        "timeout_count": 0,
+        "llm_call_count": 0,
+        "tokens": {
+            "input_measured": 0, "output_measured": 0,
+            "input_estimated": 0, "output_estimated": 0,
+            "input_source": "none", "output_source": "none",
+        },
+        "latency_ms": {"p50": None, "average": None, "p95": None, "p99": None},
+    }
+    if not job_ids:
+        return empty
+    placeholders = ",".join("?" for _ in job_ids)
+    jobs = connection.execute(
+        f"SELECT * FROM jobs WHERE job_id IN ({placeholders})", job_ids
+    ).fetchall()
+    events = connection.execute(
+        f"SELECT * FROM telemetry_events WHERE job_id IN ({placeholders})", job_ids
+    ).fetchall()
+    wall = []
+    elapsed = []
+    for row in jobs:
+        if row["started_at"] and row["completed_at"]:
+            wall.append(_elapsed_ms(row["started_at"], row["completed_at"]))
+        elif row["started_at"]:
+            elapsed.append(_elapsed_ms(row["started_at"]))
+    stage_intervals = []
+    llm_durations = []
+    llm_queue_wait = 0
+    embedding = storage = telemetry = 0
+    timeout_count = 0
+    latency = []
+    measured_input = measured_output = estimated_input = estimated_output = 0
+    measured_input_present = measured_output_present = False
+    completed_stage_durations: dict[str, list[float]] = {}
+    for event in events:
+        if event["started_at"] and event["completed_at"] and event["event_type"] == "pipeline_stage":
+            stage_intervals.append((
+                datetime.fromisoformat(event["started_at"]),
+                datetime.fromisoformat(event["completed_at"]),
+            ))
+            if event["stage"] and event["duration_ms"] is not None:
+                completed_stage_durations.setdefault(event["stage"], []).append(event["duration_ms"])
+        if event["event_type"] == "llm_call" and event["status"] in {"completed", "failed"}:
+            duration = _event_duration_ms(event)
+            if duration is not None:
+                llm_durations.append(duration)
+                latency.append(duration)
+            if event["input_tokens"] is not None:
+                measured_input += event["input_tokens"]
+                measured_input_present = True
+            if event["output_tokens"] is not None:
+                measured_output += event["output_tokens"]
+                measured_output_present = True
+            estimated_input += event["input_tokens_estimated"] or 0
+            estimated_output += event["output_tokens_estimated"] or 0
+            attributes = json.loads(event["attributes_json"] or "{}")
+            llm_queue_wait += attributes.get("provider_queue_wait_ms") or 0
+            timeout_count += int(event["error_category"] == "timeout")
+        if event["event_type"] == "embedding_request" and event["status"] in {"completed", "failed"}:
+            embedding += _event_duration_ms(event) or 0
+        if event["event_type"] == "api_request_completed":
+            attributes = json.loads(event["attributes_json"] or "{}")
+            path = attributes.get("path", "")
+            if path == "/internal/events/bulk":
+                telemetry += _event_duration_ms(event) or 0
+            elif event["service"] == "data-storage":
+                storage += _event_duration_ms(event) or 0
+    retry_count = sum(row["retry_count"] or 0 for row in jobs)
+    job_wall_clock = sum(wall) / len(wall) if wall else None
+    active_elapsed = sum(elapsed) / len(elapsed) if elapsed else None
+    historical_jobs = connection.execute(
+        f"""SELECT started_at, completed_at FROM jobs
+           WHERE status IN ('COMPLETED', 'FAILED')
+             AND job_id NOT IN ({placeholders})
+             AND started_at IS NOT NULL AND completed_at IS NOT NULL
+           ORDER BY completed_at DESC LIMIT 50""",
+        job_ids,
+    ).fetchall()
+    historical = [_elapsed_ms(row["started_at"], row["completed_at"]) for row in historical_jobs]
+    baseline = _moving_average(list(reversed([value for value in historical if value is not None])))
+    if job_wall_clock is not None:
+        estimate_total = job_wall_clock
+        estimate_source = "completed_actual"
+    elif baseline is not None:
+        estimate_total = baseline
+        estimate_source = "moving_average"
+    else:
+        estimate_total = None
+        estimate_source = None
+    return {
+        "job_wall_clock_duration_ms": job_wall_clock,
+        "elapsed_time_ms": job_wall_clock if job_wall_clock is not None else active_elapsed,
+        "estimated_total_time_ms": estimate_total,
+        "remaining_time_ms": (
+            0 if job_wall_clock is not None
+            else max(0, estimate_total - active_elapsed)
+            if estimate_total is not None and active_elapsed is not None
+            else None
+        ),
+        "estimate_source": estimate_source,
+        "stage_estimates": {stage: _moving_average(values) for stage, values in completed_stage_durations.items()},
+        "queue_wait_ms": sum(row["queue_wait_ms"] or 0 for row in jobs) / len(jobs),
+        "critical_path_duration_ms": _interval_duration(stage_intervals),
+        "summed_llm_busy_time_ms": sum(llm_durations),
+        "llm_queue_wait_ms": llm_queue_wait,
+        "embedding_time_ms": embedding,
+        "storage_time_ms": storage,
+        "telemetry_time_ms": telemetry,
+        "retry_count": retry_count,
+        "timeout_count": timeout_count,
+        "llm_call_count": len(llm_durations),
+        "tokens": {
+            "input_measured": measured_input,
+            "output_measured": measured_output,
+            "input_estimated": estimated_input,
+            "output_estimated": estimated_output,
+            "input_source": "measured" if measured_input_present else ("estimated" if estimated_input else "none"),
+            "output_source": "measured" if measured_output_present else ("estimated" if estimated_output else "none"),
+        },
+        "latency_ms": {
+            "p50": _percentile(latency, 0.50),
+            "average": sum(latency) / len(latency) if latency else None,
+            "p95": _percentile(latency, 0.95),
+            "p99": _percentile(latency, 0.99),
+        },
+    }
+
+
+_retention_stop = threading.Event()
+_retention_thread: threading.Thread | None = None
+
+
+def _cleanup_telemetry() -> None:
+    cutoff = datetime.now(timezone.utc).timestamp() - settings.telemetry_retention_days * 86400
+    with database.lock, database.connection() as connection:
+        connection.execute(
+            "DELETE FROM telemetry_events WHERE strftime('%s', timestamp) < ?", (int(cutoff),)
+        )
+        connection.execute(
+            "DELETE FROM events WHERE strftime('%s', timestamp) < ?", (int(cutoff),)
+        )
+
+
+def _retention_loop() -> None:
+    interval = max(60.0, float(os.getenv("MANAGEMENT_TELEMETRY_CLEANUP_INTERVAL_SECONDS", "3600")))
+    while not _retention_stop.wait(interval):
+        try:
+            _cleanup_telemetry()
+        except Exception:
+            logger.exception("telemetry_retention_cleanup_failed")
+
+
 def job_response(value: dict[str, Any]) -> JobResponse:
+    with database.connection() as connection:
+        tokens = _execution_metrics(connection, [str(value["job_id"])])["tokens"]
+    token_source = "measured" if tokens["input_source"] == "measured" or tokens["output_source"] == "measured" else (
+        "estimated" if tokens["input_source"] == "estimated" or tokens["output_source"] == "estimated" else "none"
+    )
     return JobResponse(
         job_id=value["job_id"], job_type=value["job_type"], article_id=value["article_id"],
         status=value["status"], current_stage=value.get("current_stage"),
         created_at=parse_datetime(value["created_at"]), started_at=parse_datetime(value.get("started_at")),
         completed_at=parse_datetime(value.get("completed_at")), retry_count=value["retry_count"],
+        queue_wait_ms=value.get("queue_wait_ms"), duration_ms=value.get("duration_ms"),
+        worker_identity=value.get("worker_identity"),
         error_code=value.get("error_code"), error_summary=value.get("error_summary"),
         correlation_id=value["correlation_id"], trace_id=value["trace_id"],
         metadata=value.get("metadata", {}),
+        input_tokens=tokens["input_measured"], output_tokens=tokens["output_measured"],
+        input_tokens_estimated=tokens["input_estimated"], output_tokens_estimated=tokens["output_estimated"],
+        token_source=token_source,
     )
 
 
@@ -253,9 +545,10 @@ def service_status(service_name: str) -> ServiceDependency:
 def list_jobs(
     status: JobStatus | None = None,
     article_id: UUID | None = None,
+    task_id: UUID | None = None,
     limit: int = Query(50, ge=1, le=500),
 ) -> list[JobResponse]:
-    return [job_response(item) for item in coordinator.list(status.value if status else None, str(article_id) if article_id else None, limit)]
+    return [job_response(item) for item in coordinator.list(status.value if status else None, str(article_id) if article_id else None, str(task_id) if task_id else None, limit)]
 
 
 @app.post("/api/jobs", response_model=JobResponse, status_code=202, tags=["Jobs"])
@@ -271,7 +564,7 @@ def create_job(
     return job_response(value)
 
 
-@app.get("/api/jobs/{job_id}", response_model=JobResponse, tags=["Jobs"])
+@app.get("/api/jobs/{job_id:uuid}", response_model=JobResponse, tags=["Jobs"])
 def get_job(job_id: UUID) -> JobResponse:
     try:
         return job_response(coordinator.get(str(job_id)))
@@ -279,12 +572,12 @@ def get_job(job_id: UUID) -> JobResponse:
         raise HTTPException(status_code=404, detail="Job not found") from None
 
 
-@app.get("/api/jobs/{job_id}/progress", response_model=JobResponse, tags=["Jobs"])
+@app.get("/api/jobs/{job_id:uuid}/progress", response_model=JobResponse, tags=["Jobs"])
 def job_progress(job_id: UUID) -> JobResponse:
     return get_job(job_id)
 
 
-@app.get("/api/jobs/{job_id}/stages", response_model=list[StageResponse], tags=["Jobs"])
+@app.get("/api/jobs/{job_id:uuid}/stages", response_model=list[StageResponse], tags=["Jobs"])
 def job_stages(job_id: UUID) -> list[StageResponse]:
     try:
         return [stage_response(item) for item in coordinator.stages(str(job_id))]
@@ -293,9 +586,12 @@ def job_stages(job_id: UUID) -> list[StageResponse]:
 
 
 @app.get("/api/articles", tags=["Tasks"])
-def available_articles(limit: int = Query(100, ge=1, le=500)) -> list[dict[str, Any]]:
+def available_articles(
+    limit: int = Query(100, ge=1, le=500),
+    status: str | None = Query(default=None, min_length=1),
+) -> list[dict[str, Any]]:
     try:
-        return client.articles(limit)
+        return client.articles(limit, status)
     except Exception as exc:
         logger.warning("article_listing_failed error_type=%s", type(exc).__name__)
         raise HTTPException(status_code=503, detail="Article storage is unavailable") from exc
@@ -314,6 +610,7 @@ def knowledge_summary() -> KnowledgeSummaryResponse:
 def knowledge_records(
     resource: str,
     query: str | None = Query(default=None, min_length=1),
+    query_field: str = Query("all", min_length=1),
     limit: int = Query(100, ge=1, le=500),
 ) -> list[dict[str, Any]]:
     try:
@@ -434,6 +731,7 @@ def _knowledge_detail(resource: str, identifier: str) -> dict[str, Any]:
 def data_records(
     resource: str,
     query: str | None = Query(default=None, min_length=1),
+    query_field: str = Query("all", min_length=1),
     semantic_query: str | None = Query(default=None, min_length=2),
     status: str | None = Query(default=None, min_length=1),
     category: str | None = Query(default=None, min_length=1),
@@ -449,6 +747,7 @@ def data_records(
     page_size: int = Query(25, ge=1, le=100),
 ) -> dict[str, Any]:
     try:
+        paged_storage = resource in {"articles", "people", "citations", "attitudes", "inconsistencies"}
         if query and resource in {"articles", "people", "citations", "topics", "inconsistencies"}:
             try:
                 direct = client.knowledge_detail(resource, query.strip())
@@ -477,7 +776,7 @@ def data_records(
                     "pages": 1,
                     "stance_counts": {},
                 }
-        if resource == "topics" and not semantic_query:
+        if resource == "topics" and not semantic_query and query_field in {"all", "topic_name"}:
             browse = client.browse_topics(
                 limit=page_size,
                 offset=(page - 1) * page_size,
@@ -493,10 +792,11 @@ def data_records(
                 "pages": (browse["total"] + page_size - 1) // page_size,
                 "stance_counts": {},
             }
-        if resource in {"attitudes", "inconsistencies"}:
-            browse = client.browse_knowledge(resource, 500, 0, {
+        if resource in {"articles", "people", "citations", "attitudes", "inconsistencies"}:
+            browse = client.browse_knowledge(resource, page_size, (page - 1) * page_size, {
                 key: value for key, value in (
-                    ("status", category_value if category == "status" else (status if resource in {"attitudes", "inconsistencies"} else None)),
+                    ("query", query if resource in {"articles", "people", "citations"} else None),
+                    ("status", category_value if category == "status" else status),
                     ("stance", category_value if resource == "attitudes" and category == "stance" else None),
                     ("classification", category_value if resource == "inconsistencies" and category == "classification" else None),
                     ("person_uuid", person_uuid),
@@ -520,15 +820,20 @@ def data_records(
             stance_counts = {}
         if query:
             needle = query.casefold()
-            records = [item for item in records if needle in json.dumps(item, default=str).casefold()]
-        if status and resource not in {"attitudes", "inconsistencies"}:
+            if query_field == "all":
+                records = [item for item in records if needle in json.dumps(item, default=str).casefold()]
+            else:
+                records = [item for item in records if needle in str(item.get(query_field, "")).casefold()]
+        if status and not paged_storage and resource not in {"attitudes", "inconsistencies"}:
             records = [item for item in records if str(item.get("status", "")).casefold() == status.casefold()]
-        if category and category_value and resource not in {"attitudes", "inconsistencies"}:
+        if category and category_value and not paged_storage and resource not in {"attitudes", "inconsistencies"}:
             records = [item for item in records if str(item.get(category, "")).casefold() == category_value.casefold()]
-        total = len(records) if query or semantic_query or (
-            resource not in {"attitudes", "inconsistencies"} and (category or status)
+        total = len(records) if (query and not paged_storage) or semantic_query or (
+            not paged_storage and resource not in {"attitudes", "inconsistencies"} and (category or status)
         ) else total_from_storage
         start = (page - 1) * page_size
+        if resource in {"articles", "people", "citations", "attitudes", "inconsistencies"}:
+            start = 0
         return {
             "items": records[start:start + page_size],
             "total": total,
@@ -606,6 +911,8 @@ def delete_data_record(resource: str, identifier: str) -> Response:
 def create_task(request: TaskCreateRequest) -> TaskResponse:
     try:
         return coordinator.create_task(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except Exception as exc:
         logger.exception("task_creation_failed")
         raise HTTPException(status_code=502, detail="Could not create processing task") from exc
@@ -614,10 +921,10 @@ def create_task(request: TaskCreateRequest) -> TaskResponse:
 @app.post("/api/tasks/fresh", response_model=TaskResponse, status_code=202, tags=["Tasks"])
 def create_fresh_task(
     name: str = Query("Fresh articles", min_length=1, max_length=200),
-    limit: int = Query(20, ge=1, le=100),
+    status: str = Query("NEW", min_length=1, max_length=40),
 ) -> TaskResponse:
     try:
-        articles = client.articles(limit)
+        articles = client.all_articles(status.strip().upper())
         with database.connection() as connection:
             existing = {
                 row["article_id"] for row in connection.execute(
@@ -640,7 +947,7 @@ def list_tasks(limit: int = Query(50, ge=1, le=200)) -> list[TaskResponse]:
     return [TaskResponse.model_validate(item) for item in coordinator.list_tasks(limit)]
 
 
-@app.get("/api/tasks/{task_id}", response_model=TaskResponse, tags=["Tasks"])
+@app.get("/api/tasks/{task_id:uuid}", response_model=TaskResponse, tags=["Tasks"])
 def get_task(task_id: UUID) -> TaskResponse:
     try:
         return TaskResponse.model_validate(coordinator.task(str(task_id)))
@@ -648,53 +955,67 @@ def get_task(task_id: UUID) -> TaskResponse:
         raise HTTPException(status_code=404, detail="Task not found") from None
 
 
-@app.get("/api/tasks/{task_id}/analytics", tags=["Tasks"])
+@app.get("/api/tasks/{task_id:uuid}/analytics", tags=["Tasks"])
 def task_analytics(task_id: UUID) -> dict[str, Any]:
     with database.connection() as connection:
         task = connection.execute("SELECT task_id FROM tasks WHERE task_id=?", (str(task_id),)).fetchone()
         if task is None:
             raise HTTPException(status_code=404, detail="Task not found")
-        jobs = connection.execute("SELECT job_id FROM task_jobs WHERE task_id=?", (str(task_id),)).fetchall()
-        job_ids = [row["job_id"] for row in jobs]
-        if not job_ids:
-            return {"stages": [], "llm": {}, "totals": {}}
-        placeholders = ",".join("?" for _ in job_ids)
-        rows = connection.execute(
-            f"SELECT * FROM telemetry_events WHERE job_id IN ({placeholders}) ORDER BY timestamp",
-            job_ids,
+        stages = connection.execute(
+            """SELECT COALESCE(te.stage, 'Unspecified') AS stage,
+                      COUNT(*) AS events, COALESCE(SUM(te.duration_ms), 0) AS duration_ms,
+                      SUM(te.status='completed') AS completed,
+                      COALESCE(SUM(json_extract(te.attributes_json, '$.citation_count')), 0) AS citations,
+                      COALESCE(SUM(json_extract(te.attributes_json, '$.topic_count')), 0) AS topics,
+                      COALESCE(SUM(json_extract(te.attributes_json, '$.speaker_count')), 0) AS people,
+                      COALESCE(SUM(json_extract(te.attributes_json, '$.attitude_count')), 0) AS attitudes,
+                      COALESCE(SUM(json_extract(te.attributes_json, '$.created_records') +
+                                  json_extract(te.attributes_json, '$.created_new')), 0) AS created_records,
+                      COALESCE(SUM(json_extract(te.attributes_json, '$.retrieved_records') +
+                                  json_extract(te.attributes_json, '$.retrieved_from_db')), 0) AS retrieved_records
+               FROM telemetry_events te JOIN task_jobs tj ON tj.job_id=te.job_id
+               WHERE tj.task_id=? AND te.event_type='pipeline_stage'
+               GROUP BY te.stage ORDER BY MIN(te.timestamp)""", (str(task_id),)
         ).fetchall()
-    stage_map: dict[str, dict[str, Any]] = {}
-    totals = {"events": len(rows), "citations": 0, "topics": 0, "people": 0, "attitudes": 0, "created_records": 0, "retrieved_records": 0}
-    llm_calls = 0
-    output_tokens = 0
-    input_tokens = 0
-    for row in rows:
-        attributes = json.loads(row["attributes_json"] or "{}")
-        if row["event_type"] == "llm_call":
-            llm_calls += 1
-            input_tokens += row["input_tokens"] or row["input_tokens_estimated"] or 0
-            output_tokens += row["output_tokens"] or row["output_tokens_estimated"] or 0
-        if row["event_type"] != "pipeline_stage":
-            continue
-        stage_name = row["stage"] or "Unspecified"
-        stage = stage_map.setdefault(stage_name, {"stage": stage_name, "events": 0, "duration_ms": 0, "citations": 0, "topics": 0, "people": 0, "attitudes": 0, "created_records": 0, "retrieved_records": 0, "completed": 0})
-        stage["events"] += 1
-        stage["duration_ms"] += row["duration_ms"] or 0
-        stage["completed"] += row["status"] == "completed"
-        for key in ("citation_count", "topic_count", "speaker_count", "attitude_count"):
-            output_key = {"citation_count": "citations", "topic_count": "topics", "speaker_count": "people", "attitude_count": "attitudes"}[key]
-            value = attributes.get(key, 0) or 0
-            stage[output_key] += value
-            totals[output_key] += value
-        for key in ("created_records", "created_new", "retrieved_records", "retrieved_from_db"):
-            value = attributes.get(key, 0) or 0
-            target = "created_records" if key in {"created_records", "created_new"} else "retrieved_records"
-            stage[target] += value
-            totals[target] += value
-    return {"stages": list(stage_map.values()), "llm": {"calls": llm_calls, "input_tokens": input_tokens, "output_tokens": output_tokens, "tok_per_second": output_tokens / max(sum(item["duration_ms"] for item in stage_map.values()) / 1000, 1)}, "totals": totals}
+        totals = connection.execute(
+            """SELECT COUNT(*) AS events,
+                      COALESCE(SUM(CASE WHEN te.event_type='llm_call' THEN 1 ELSE 0 END), 0) AS calls,
+                      COALESCE(SUM(CASE WHEN te.event_type='llm_call'
+                               THEN COALESCE(te.input_tokens, te.input_tokens_estimated, 0) ELSE 0 END), 0) AS input_tokens,
+                      COALESCE(SUM(CASE WHEN te.event_type='llm_call'
+                               THEN COALESCE(te.output_tokens, te.output_tokens_estimated, 0) ELSE 0 END), 0) AS output_tokens
+               FROM telemetry_events te JOIN task_jobs tj ON tj.job_id=te.job_id
+               WHERE tj.task_id=?""", (str(task_id),)
+        ).fetchone()
+        if not stages and not totals["events"]:
+            return {"stages": [], "llm": {}, "totals": {}}
+    stage_values = [dict(row) for row in stages]
+    return {
+        "stages": stage_values,
+        "llm": {
+            "calls": totals["calls"],
+            "input_tokens": totals["input_tokens"],
+            "output_tokens": totals["output_tokens"],
+            "tok_per_second": totals["output_tokens"] / max(sum(item["duration_ms"] for item in stage_values) / 1000, 1),
+        },
+        "totals": {
+            "events": totals["events"],
+            "citations": sum(item["citations"] for item in stage_values),
+            "topics": sum(item["topics"] for item in stage_values),
+            "people": sum(item["people"] for item in stage_values),
+            "attitudes": sum(item["attitudes"] for item in stage_values),
+            "created_records": sum(item["created_records"] for item in stage_values),
+            "retrieved_records": sum(item["retrieved_records"] for item in stage_values),
+        },
+    }
 
 
-@app.post("/api/tasks/{task_id}/cancel", response_model=TaskResponse, tags=["Tasks"])
+@app.post("/api/jobs/cancel-all", tags=["Jobs"])
+def cancel_all_jobs() -> dict[str, int]:
+    return coordinator.cancel_all()
+
+
+@app.post("/api/tasks/{task_id:uuid}/cancel", response_model=TaskResponse, tags=["Tasks"])
 def cancel_task(task_id: UUID) -> TaskResponse:
     try:
         return TaskResponse.model_validate(coordinator.cancel_task(str(task_id)))
@@ -702,7 +1023,7 @@ def cancel_task(task_id: UUID) -> TaskResponse:
         raise HTTPException(status_code=404, detail="Task not found") from None
 
 
-@app.delete("/api/tasks/{task_id}", status_code=204, tags=["Tasks"])
+@app.delete("/api/tasks/{task_id:uuid}", status_code=204, tags=["Tasks"])
 def delete_task(task_id: UUID) -> Response:
     try:
         coordinator.delete_task(str(task_id))
@@ -713,7 +1034,7 @@ def delete_task(task_id: UUID) -> Response:
     return Response(status_code=204)
 
 
-@app.post("/api/jobs/{job_id}/cancel", response_model=JobResponse, tags=["Jobs"])
+@app.post("/api/jobs/{job_id:uuid}/cancel", response_model=JobResponse, tags=["Jobs"])
 def cancel_job(job_id: UUID) -> JobResponse:
     try:
         return job_response(coordinator.cancel(str(job_id)))
@@ -721,7 +1042,7 @@ def cancel_job(job_id: UUID) -> JobResponse:
         raise HTTPException(status_code=404, detail="Job not found") from None
 
 
-@app.post("/api/jobs/{job_id}/retry", response_model=JobResponse, status_code=202, tags=["Jobs"])
+@app.post("/api/jobs/{job_id:uuid}/retry", response_model=JobResponse, status_code=202, tags=["Jobs"])
 def retry_job(job_id: UUID) -> JobResponse:
     try:
         return job_response(coordinator.retry(str(job_id)))
@@ -731,7 +1052,7 @@ def retry_job(job_id: UUID) -> JobResponse:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
-@app.delete("/api/jobs/{job_id}", status_code=204, tags=["Jobs"])
+@app.delete("/api/jobs/{job_id:uuid}", status_code=204, tags=["Jobs"])
 def delete_job(job_id: UUID) -> Response:
     try:
         coordinator.delete(str(job_id))
@@ -742,12 +1063,43 @@ def delete_job(job_id: UUID) -> Response:
     return Response(status_code=204)
 
 
+@app.post("/api/jobs/bulk/retry", response_model=list[JobResponse], status_code=202, tags=["Jobs"])
+def retry_jobs(job_ids: list[UUID] = Body(..., min_length=1, max_length=500)) -> list[JobResponse]:
+    results = []
+    for job_id in job_ids:
+        try:
+            results.append(job_response(coordinator.retry(str(job_id))))
+        except (KeyError, ValueError) as exc:
+            logger.warning("bulk_retry_skipped job_id=%s error=%s", job_id, type(exc).__name__)
+    return results
+
+
+@app.post("/api/jobs/bulk/delete", status_code=204, tags=["Jobs"])
+def delete_jobs(job_ids: list[UUID] = Body(..., min_length=1, max_length=500)) -> Response:
+    for job_id in job_ids:
+        try:
+            coordinator.delete(str(job_id))
+        except (KeyError, ValueError):
+            continue
+    return Response(status_code=204)
+
+
 @app.get("/api/settings", response_model=RuntimeSettingsResponse, tags=["Settings"])
 def get_settings() -> RuntimeSettingsResponse:
     return RuntimeSettingsResponse(
         request_timeout_seconds=settings.request_timeout_seconds,
         analysis_timeout_seconds=settings.analysis_timeout_seconds,
-        configurable_fields=["request_timeout_seconds", "analysis_timeout_seconds"],
+        max_job_duration_seconds=settings.max_job_duration_seconds,
+        max_job_attempts=settings.max_job_attempts,
+        stage_timeout_seconds=settings.stage_timeout_seconds,
+        llm_request_timeout_seconds=settings.llm_request_timeout_seconds,
+        retry_backoff_seconds=settings.retry_backoff_seconds,
+        retry_max_delay_seconds=settings.retry_max_delay_seconds,
+        configurable_fields=[
+            "request_timeout_seconds", "analysis_timeout_seconds",
+            "max_job_duration_seconds", "max_job_attempts", "stage_timeout_seconds",
+            "llm_request_timeout_seconds", "retry_backoff_seconds", "retry_max_delay_seconds",
+        ],
     )
 
 
@@ -758,8 +1110,23 @@ def update_settings(request: RuntimeSettingsUpdate) -> RuntimeSettingsResponse:
         settings.request_timeout_seconds = updates["request_timeout_seconds"]
     if "analysis_timeout_seconds" in updates:
         settings.analysis_timeout_seconds = updates["analysis_timeout_seconds"]
+    for field in (
+        "max_job_duration_seconds", "max_job_attempts", "stage_timeout_seconds",
+        "llm_request_timeout_seconds", "retry_backoff_seconds", "retry_max_delay_seconds",
+    ):
+        if field in updates:
+            setattr(settings, field, updates[field])
     logger.info("runtime_settings_updated fields=%s", sorted(updates))
     return get_settings()
+
+
+@app.post("/api/database/flush", status_code=204, tags=["Settings"])
+def flush_management_database() -> Response:
+    with database.lock, database.connection() as connection:
+        for table in ("telemetry_events", "events", "job_stages", "task_jobs", "jobs", "tasks", "experiment_evaluations", "experiment_jobs", "experiments"):
+            connection.execute(f"DELETE FROM {table}")
+    logger.warning("management_database_flushed")
+    return Response(status_code=204)
 
 
 def _safe_snapshot(value: Any) -> Any:
@@ -822,7 +1189,7 @@ def list_experiments(limit: int = Query(50, ge=1, le=200)) -> list[ExperimentRes
         ).fetchone()) for row in rows]
 
 
-@app.get("/api/experiments/{experiment_id}", response_model=ExperimentResponse, tags=["Experiments"])
+@app.get("/api/experiments/{experiment_id:uuid}", response_model=ExperimentResponse, tags=["Experiments"])
 def get_experiment(experiment_id: UUID) -> ExperimentResponse:
     with database.lock, database.connection() as connection:
         _refresh_experiment_status(connection, str(experiment_id))
@@ -832,7 +1199,7 @@ def get_experiment(experiment_id: UUID) -> ExperimentResponse:
         return experiment_response(connection, row)
 
 
-@app.post("/api/experiments/{experiment_id}/start", response_model=ExperimentResponse, status_code=202, tags=["Experiments"])
+@app.post("/api/experiments/{experiment_id:uuid}/start", response_model=ExperimentResponse, status_code=202, tags=["Experiments"])
 def start_experiment(experiment_id: UUID) -> ExperimentResponse:
     experiment_key = str(experiment_id)
     with database.lock, database.connection() as connection:
@@ -889,7 +1256,7 @@ def compare_experiments(request: ExperimentComparisonRequest) -> dict[str, Any]:
         return {"experiments": result, "quality_metrics_note": "Quality metrics are included only when ground-truth evaluation data exists."}
 
 
-@app.post("/api/experiments/{experiment_id}/evaluation", response_model=ExperimentResponse, tags=["Experiments"])
+@app.post("/api/experiments/{experiment_id:uuid}/evaluation", response_model=ExperimentResponse, tags=["Experiments"])
 def add_evaluation(experiment_id: UUID, request: EvaluationCreateRequest) -> ExperimentResponse:
     if request.experiment_id != experiment_id:
         raise HTTPException(status_code=400, detail="Path and body experiment IDs differ")
@@ -911,7 +1278,7 @@ def add_evaluation(experiment_id: UUID, request: EvaluationCreateRequest) -> Exp
         return experiment_response(connection, row)
 
 
-@app.get("/api/experiments/{experiment_id}/export", tags=["Experiments"])
+@app.get("/api/experiments/{experiment_id:uuid}/export", tags=["Experiments"])
 def export_experiment(experiment_id: UUID, format: str = Query("json", pattern="^(json|csv)$")):
     experiment = get_experiment(experiment_id).model_dump(mode="json")
     if format == "json":
@@ -932,59 +1299,71 @@ def export_experiment(experiment_id: UUID, format: str = Query("json", pattern="
                     headers={"Content-Disposition": f'attachment; filename="experiment-{experiment_id}.csv"'})
 
 
-@app.post("/internal/events", status_code=202, tags=["Telemetry"])
-def receive_event(event: EventRequest) -> dict[str, str]:
-    event_id = str(event.event_id or uuid4())
+def _ingest_events(events: list[EventRequest]) -> int:
+    event_rows = []
+    telemetry_rows = []
+    for event in events:
+        event_id = str(event.event_id or uuid4())
+        timestamp = (event.timestamp or datetime.now(timezone.utc)).isoformat()
+        event_rows.append((
+            event_id, timestamp, event.service, event.level, event.event_type,
+            str(event.job_id) if event.job_id else None,
+            str(event.correlation_id) if event.correlation_id else None,
+            str(event.request_id) if event.request_id else None,
+            str(event.article_id) if event.article_id else None, event.stage,
+            event.duration_ms, json.dumps(event.attributes),
+        ))
+        telemetry_rows.append((
+            event_id, timestamp, event.service, event.level, event.event_type,
+            event.operation, event.status, str(event.job_id) if event.job_id else None,
+            str(event.correlation_id) if event.correlation_id else None,
+            str(event.request_id) if event.request_id else None,
+            str(event.article_id) if event.article_id else None, event.stage,
+            str(event.trace_id) if event.trace_id else None,
+            event.span_id, event.parent_span_id,
+            event.started_at.isoformat() if event.started_at else None,
+            event.completed_at.isoformat() if event.completed_at else None,
+            event.duration_ms,
+            event.time_to_first_token_ms, event.input_tokens, event.output_tokens,
+            event.input_tokens_estimated, event.output_tokens_estimated,
+            event.throughput_tokens_per_second, event.model, event.provider,
+            event.finish_reason, event.retry_count, event.attempt_number,
+            event.queue_wait_ms, event.job_duration_ms, event.stage_duration_ms,
+            event.worker_identity, event.error_category, event.error_detail,
+            json.dumps(event.attributes),
+            json.dumps(event.debug_content) if event.debug_content else None,
+        ))
     with database.lock, database.connection() as connection:
-        retention_cutoff = datetime.now(timezone.utc).timestamp() - settings.telemetry_retention_days * 86400
-        connection.execute(
-            "DELETE FROM telemetry_events WHERE strftime('%s', timestamp) < ?",
-            (int(retention_cutoff),),
+        connection.executemany(
+            "INSERT OR IGNORE INTO events VALUES(?,?,?,?,?,?,?,?,?,?,?,?)", [
+                row for row in event_rows
+            ],
         )
-        connection.execute(
-            "DELETE FROM events WHERE strftime('%s', timestamp) < ?",
-            (int(retention_cutoff),),
-        )
-        connection.execute(
-            "INSERT OR IGNORE INTO events VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
-            (
-                event_id, (event.timestamp or datetime.now(timezone.utc)).isoformat(),
-                event.service, event.level, event.event_type, str(event.job_id) if event.job_id else None,
-                str(event.correlation_id) if event.correlation_id else None,
-                str(event.request_id) if event.request_id else None,
-                str(event.article_id) if event.article_id else None, event.stage,
-                event.duration_ms, json.dumps(event.attributes),
-            ),
-        )
-        connection.execute(
+        connection.executemany(
             """INSERT OR IGNORE INTO telemetry_events
             (event_id,timestamp,service,level,event_type,operation,status,job_id,
              correlation_id,request_id,article_id,stage,trace_id,span_id,parent_span_id,
              started_at,completed_at,duration_ms,time_to_first_token_ms,input_tokens,
              output_tokens,input_tokens_estimated,output_tokens_estimated,
              throughput_tokens_per_second,model,provider,finish_reason,retry_count,
+             attempt_number,queue_wait_ms,job_duration_ms,stage_duration_ms,worker_identity,
              error_category,error_detail,attributes_json,debug_content_json)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-            (
-                event_id, (event.timestamp or datetime.now(timezone.utc)).isoformat(),
-                event.service, event.level, event.event_type, event.operation, event.status,
-                str(event.job_id) if event.job_id else None,
-                str(event.correlation_id) if event.correlation_id else None,
-                str(event.request_id) if event.request_id else None,
-                str(event.article_id) if event.article_id else None, event.stage,
-                str(event.trace_id) if event.trace_id else None, event.span_id,
-                event.parent_span_id,
-                event.started_at.isoformat() if event.started_at else None,
-                event.completed_at.isoformat() if event.completed_at else None,
-                event.duration_ms, event.time_to_first_token_ms, event.input_tokens,
-                event.output_tokens, event.input_tokens_estimated,
-                event.output_tokens_estimated, event.throughput_tokens_per_second,
-                event.model, event.provider, event.finish_reason, event.retry_count,
-                event.error_category, event.error_detail, json.dumps(event.attributes),
-                json.dumps(event.debug_content) if event.debug_content else None,
-            ),
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            telemetry_rows,
         )
+    return len(events)
+
+
+@app.post("/internal/events", status_code=202, tags=["Telemetry"])
+def receive_event(event: EventRequest) -> dict[str, str]:
+    _ingest_events([event])
     return {"status": "accepted"}
+
+
+@app.post("/internal/events/bulk", status_code=202, tags=["Telemetry"])
+def receive_events_bulk(events: list[EventRequest] = Body(..., min_length=1, max_length=1000)) -> dict[str, int | str]:
+    accepted = _ingest_events(events)
+    return {"status": "accepted", "accepted": accepted}
 
 
 @app.get("/api/pipeline/history", tags=["Pipeline"])
@@ -1096,23 +1475,46 @@ def delete_logs(
 
 @app.get("/api/metrics/llm", tags=["Telemetry"])
 def llm_metrics(
-    since: datetime | None = None,
-    until: datetime | None = None,
+    since: str | None = None,
+    until: str | None = None,
     model: str | None = None,
     job_id: UUID | None = None,
     article_id: UUID | None = None,
     stage: str | None = None,
 ) -> dict[str, Any]:
-    query = "SELECT * FROM telemetry_events WHERE event_type='llm_call' AND status IN ('completed','failed')"
+    def parse_time(value: str | None, parameter: str) -> datetime | None:
+        if not value:
+            return None
+        shorthand = {"15m": timedelta(minutes=15), "1h": timedelta(hours=1),
+                     "24h": timedelta(hours=24), "7d": timedelta(days=7)}
+        if value in shorthand:
+            return datetime.now(timezone.utc) - shorthand[value]
+        try:
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            raise HTTPException(
+                status_code=422,
+                detail=f"{parameter} must be an ISO datetime or one of: {', '.join(shorthand)}",
+            ) from None
+
+    since_time = parse_time(since, "since")
+    until_time = parse_time(until, "until")
+    query = (
+        "SELECT status, retry_count, duration_ms, time_to_first_token_ms, "
+        "throughput_tokens_per_second, input_tokens, output_tokens, error_category, "
+        "input_tokens_estimated, output_tokens_estimated, model, job_id, article_id, stage "
+        "FROM telemetry_events WHERE event_type='llm_call' AND status IN ('completed','failed')"
+    )
     params: list[Any] = []
-    if since:
-        query += " AND timestamp>=?"; params.append(since.isoformat())
-    if until:
-        query += " AND timestamp<=?"; params.append(until.isoformat())
+    if since_time:
+        query += " AND timestamp>=?"; params.append(since_time.isoformat())
+    if until_time:
+        query += " AND timestamp<=?"; params.append(until_time.isoformat())
     for column, value in (("model", model), ("job_id", str(job_id) if job_id else None),
                           ("article_id", str(article_id) if article_id else None), ("stage", stage)):
         if value:
             query += f" AND {column}=?"; params.append(value)
+    query += " ORDER BY timestamp DESC LIMIT 20000"
     with database.connection() as connection:
         rows = [dict(row) for row in connection.execute(query, params)]
         active_query = (
@@ -1126,39 +1528,52 @@ def llm_metrics(
             "(SELECT job_id FROM jobs WHERE status='RUNNING'))"
         )
         active_params: list[Any] = []
-        if since:
-            active_query += " AND timestamp>=?"; active_params.append(since.isoformat())
-        if until:
-            active_query += " AND timestamp<=?"; active_params.append(until.isoformat())
+        if since_time:
+            active_query += " AND timestamp>=?"; active_params.append(since_time.isoformat())
+        if until_time:
+            active_query += " AND timestamp<=?"; active_params.append(until_time.isoformat())
         for column, value in (("model", model), ("job_id", str(job_id) if job_id else None),
                               ("article_id", str(article_id) if article_id else None), ("stage", stage)):
             if value:
                 active_query += f" AND {column}=?"; active_params.append(value)
         active_rows = list(connection.execute(active_query, active_params))
-    durations = [row["duration_ms"] for row in rows if row["duration_ms"] is not None]
+    durations = [_event_duration_ms(row) for row in rows]
+    durations = [duration for duration in durations if duration is not None]
     ttft = [row["time_to_first_token_ms"] for row in rows if row["time_to_first_token_ms"] is not None]
     throughput = [row["throughput_tokens_per_second"] for row in rows if row["throughput_tokens_per_second"] is not None]
-    def percentile(values: list[float], fraction: float) -> float | None:
-        if not values:
-            return None
-        ordered = sorted(values)
-        index = min(len(ordered) - 1, max(0, int((len(ordered) - 1) * fraction)))
-        return ordered[index]
+    with database.connection() as connection:
+        execution = _execution_metrics(connection, [str(job_id)]) if job_id else None
+    measured_input = sum(row["input_tokens"] or 0 for row in rows)
+    measured_output = sum(row["output_tokens"] or 0 for row in rows)
+    estimated_input = sum(row["input_tokens_estimated"] or 0 for row in rows)
+    estimated_output = sum(row["output_tokens_estimated"] or 0 for row in rows)
     return {
         "call_count": len(rows),
         "active_call_count": len(active_rows),
         "successful_calls": sum(row["status"] == "completed" for row in rows),
         "failed_calls": sum(row["status"] == "failed" for row in rows),
         "retry_count": sum(row["retry_count"] for row in rows),
-        "input_tokens_measured": sum(row["input_tokens"] or 0 for row in rows),
-        "output_tokens_measured": sum(row["output_tokens"] or 0 for row in rows),
-        "input_tokens_estimated": sum(row["input_tokens_estimated"] or 0 for row in rows),
-        "output_tokens_estimated": sum(row["output_tokens_estimated"] or 0 for row in rows),
+        "timeout_count": sum(row["error_category"] == "timeout" for row in rows),
+        "input_tokens_measured": measured_input,
+        "output_tokens_measured": measured_output,
+        "input_tokens_estimated": estimated_input,
+        "output_tokens_estimated": estimated_output,
+        "token_source": {
+            "input": "measured" if measured_input else ("estimated" if estimated_input else "none"),
+            "output": "measured" if measured_output else ("estimated" if estimated_output else "none"),
+        },
         "latency_ms": {"average": sum(durations) / len(durations) if durations else None,
-                       "median": percentile(durations, 0.5), "p95": percentile(durations, 0.95)},
+                       "p50": _percentile(durations, 0.5),
+                       "median": _percentile(durations, 0.5),
+                       "p95": _percentile(durations, 0.95),
+                       "p99": _percentile(durations, 0.99)},
         "time_to_first_token_ms": {"average": sum(ttft) / len(ttft) if ttft else None,
-                                   "median": percentile(ttft, 0.5), "p95": percentile(ttft, 0.95)},
+                                   "p50": _percentile(ttft, 0.5),
+                                   "median": _percentile(ttft, 0.5),
+                                   "p95": _percentile(ttft, 0.95),
+                                   "p99": _percentile(ttft, 0.99)},
         "throughput_tokens_per_second_average": sum(throughput) / len(throughput) if throughput else None,
+        "execution": execution,
     }
 
 
@@ -1175,7 +1590,7 @@ def stage_metrics(limit: int = Query(100, ge=1, le=1000)) -> list[dict[str, Any]
 
 
 @app.get("/api/metrics/jobs", tags=["Telemetry"])
-def job_metrics() -> dict[str, Any]:
+def job_metrics(job_id: UUID | None = None) -> dict[str, Any]:
     with database.connection() as connection:
         counts = connection.execute(
             "SELECT status, COUNT(*) AS count FROM jobs GROUP BY status"
@@ -1183,11 +1598,28 @@ def job_metrics() -> dict[str, Any]:
         completed = connection.execute(
             "SELECT COUNT(*) AS count FROM jobs WHERE status='COMPLETED'"
         ).fetchone()["count"]
-    return {
+        execution = _execution_metrics(connection, [str(job_id)]) if job_id else None
+        telemetry_health = connection.execute(
+            """SELECT COUNT(*) AS received,
+                      SUM(CASE WHEN event_type='telemetry_health' THEN 1 ELSE 0 END) AS health_events,
+                      COALESCE(SUM(CASE WHEN event_type='telemetry_health'
+                                        THEN json_extract(attributes_json, '$.dropped_events')
+                                        ELSE 0 END), 0) AS dropped_events
+               FROM telemetry_events"""
+        ).fetchone()
+    result = {
         "queue_depth": sum(row["count"] for row in counts if row["status"] in {"PENDING", "RETRYING"}),
         "throughput_completed_jobs": completed,
         "by_status": {row["status"]: row["count"] for row in counts},
+        "execution": execution,
+        "telemetry_health": {
+            "received_events": telemetry_health["received"] or 0,
+            "health_events": telemetry_health["health_events"] or 0,
+            "dropped_events": telemetry_health["dropped_events"] or 0,
+            "status": "healthy" if (telemetry_health["dropped_events"] or 0) == 0 else "degraded",
+        },
     }
+    return result
 
 
 @app.get("/api/logs/errors", tags=["Diagnostics"])

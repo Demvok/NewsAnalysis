@@ -110,11 +110,33 @@ class TopicPayload(BaseModel):
 class AttitudePayload(BaseModel):
     topic_uuid: UUID
     citation_uuid: UUID
-    stance: str | None = None
+    direction: Literal["SUPPORT", "OPPOSE", "NEUTRAL", "INSUFFICIENT"]
+    endorsement: int = Field(ge=1, le=4)
+    commitment: int = Field(ge=1, le=4)
+    conditionality: int = Field(ge=0, le=2)
+    stance: float | None = Field(default=None, ge=-1, le=1)
     relevancy_score: float | None = Field(default=None, ge=0, le=1)
     stance_confidence: float | None = Field(default=None, ge=0, le=1)
     stance_summary: str | None = None
     status: str = "NEW"
+
+    @model_validator(mode="after")
+    def validate_stance_direction(self) -> "AttitudePayload":
+        if self.direction == "INSUFFICIENT" and self.stance is not None:
+            raise ValueError("INSUFFICIENT evaluations cannot have a numerical stance")
+        if self.direction == "NEUTRAL" and self.stance != 0:
+            raise ValueError("NEUTRAL evaluations must have stance 0")
+        if self.direction in {"SUPPORT", "OPPOSE"} and self.stance is None:
+            raise ValueError("directional evaluations require a numerical stance")
+        return self
+
+
+class InconsistencySeverity(str, Enum):
+    NONE = "NONE"
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    CRITICAL = "CRITICAL"
 
 
 class InconsistencyPayload(BaseModel):
@@ -125,7 +147,7 @@ class InconsistencyPayload(BaseModel):
     attitude_a: str | None = None
     attitude_b: str | None = None
     classification: Literal["CONSISTENT", "POSITION_CHANGE", "CONTRADICTION", "INSUFFICIENT_EVIDENCE"]
-    severity: str = "NONE"
+    severity: InconsistencySeverity = InconsistencySeverity.NONE
     confidence: float | None = Field(default=None, ge=0, le=1)
     inconsistency_comment: str | None = None
     detected_at: datetime | None = None
@@ -168,7 +190,12 @@ class EmbeddingRequest(BaseModel):
 
 
 class EmbeddingBatchRequest(BaseModel):
-    texts: list[str] = Field(min_length=1, max_length=100)
+    texts: list[str] = Field(max_length=100)
+
+
+class TopicEmbeddingsRequest(BaseModel):
+    topic_uuids: list[UUID] = Field(min_length=1, max_length=500)
+    generate_missing: bool = True
 
 
 class CitationUpdate(BaseModel):
@@ -197,7 +224,11 @@ class TopicUpdate(BaseModel):
 
 
 class AttitudeUpdate(BaseModel):
-    stance: str | None = None
+    direction: Literal["SUPPORT", "OPPOSE", "NEUTRAL", "INSUFFICIENT"] | None = None
+    endorsement: int | None = Field(default=None, ge=1, le=4)
+    commitment: int | None = Field(default=None, ge=1, le=4)
+    conditionality: int | None = Field(default=None, ge=0, le=2)
+    stance: float | None = Field(default=None, ge=-1, le=1)
     relevancy_score: float | None = None
     stance_confidence: float | None = Field(default=None, ge=0, le=1)
     stance_summary: str | None = None

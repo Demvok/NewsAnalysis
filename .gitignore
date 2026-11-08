@@ -7,6 +7,8 @@ Code/utils/__pycache__/
 Code/logs/
 Code/graph/logs/
 __pycache__/
+.pytest_cache/
+.vscode/
 
 *.pyc
 *.sqlite3

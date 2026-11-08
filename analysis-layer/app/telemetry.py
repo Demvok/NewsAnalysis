@@ -2,8 +2,13 @@ from __future__ import annotations
 
 import contextvars
 import hashlib
+import logging
 import os
 import re
+import threading
+import time
+from collections import Counter
+from queue import Empty, Full, Queue
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Any, Iterator
@@ -19,8 +24,147 @@ _context: contextvars.ContextVar[dict[str, str | None]] = contextvars.ContextVar
         "correlation_id": None,
         "trace_id": None,
         "article_id": None,
+        "attempt_number": None,
+        "retry_count": None,
+        "queue_wait_ms": None,
     },
 )
+_active_lock = threading.Lock()
+_active_counts = Counter()
+
+
+@contextmanager
+def track_active(kind: str) -> Iterator[dict[str, int]]:
+    with _active_lock:
+        _active_counts[kind] += 1
+        snapshot = dict(_active_counts)
+    try:
+        yield snapshot
+    finally:
+        with _active_lock:
+            _active_counts[kind] = max(0, _active_counts[kind] - 1)
+
+
+def concurrency_snapshot() -> dict[str, int]:
+    with _active_lock:
+        return dict(_active_counts)
+
+
+class TelemetryDispatcher:
+    """Non-blocking, bounded telemetry transport for this process."""
+
+    def __init__(self) -> None:
+        self.queue_size = max(1, int(os.getenv("TELEMETRY_QUEUE_SIZE", "1000")))
+        self.batch_size = max(1, int(os.getenv("TELEMETRY_BATCH_SIZE", "50")))
+        self.flush_interval = max(0.01, float(os.getenv("TELEMETRY_FLUSH_INTERVAL_SECONDS", "0.5")))
+        self.send_timeout = max(0.01, float(os.getenv("TELEMETRY_SEND_TIMEOUT_SECONDS", "1")))
+        important_capacity = max(1, self.queue_size // 4)
+        self._important: Queue[dict[str, Any]] = Queue(maxsize=important_capacity)
+        self._normal: Queue[dict[str, Any]] = Queue(maxsize=max(1, self.queue_size - important_capacity))
+        self._wake = threading.Event()
+        self._stopping = threading.Event()
+        self._thread: threading.Thread | None = None
+        self._lock = threading.Lock()
+        self._counters = Counter()
+
+    def counters(self) -> dict[str, int]:
+        with self._lock:
+            return dict(self._counters)
+
+    def start(self) -> None:
+        if self._thread and self._thread.is_alive():
+            return
+        self._stopping.clear()
+        self._thread = threading.Thread(target=self._run, name="telemetry-sender", daemon=True)
+        self._thread.start()
+
+    @staticmethod
+    def _important_event(event: dict[str, Any]) -> bool:
+        return event.get("status") in {"failed", "completed"} or event.get("event_type") in {
+            "job_completed", "job_failed", "job_finished",
+        }
+
+    def enqueue(self, event: dict[str, Any]) -> None:
+        self.start()
+        target = self._important if self._important_event(event) else self._normal
+        try:
+            target.put_nowait(event)
+            self._wake.set()
+            return
+        except Full:
+            pass
+        if target is self._important:
+            try:
+                self._normal.get_nowait()
+                with self._lock:
+                    self._counters["evicted_normal_events"] += 1
+                self._normal.put_nowait(event)
+                self._wake.set()
+                return
+            except (Empty, Full):
+                with self._lock:
+                    self._counters["dropped_important_events"] += 1
+        else:
+            with self._lock:
+                self._counters["dropped_events"] += 1
+
+    def _take(self, limit: int) -> list[dict[str, Any]]:
+        batch: list[dict[str, Any]] = []
+        while len(batch) < limit:
+            try:
+                batch.append(self._important.get_nowait())
+                continue
+            except Empty:
+                pass
+            try:
+                batch.append(self._normal.get_nowait())
+            except Empty:
+                break
+        return batch
+
+    def _send(self, batch: list[dict[str, Any]]) -> None:
+        endpoint = os.getenv("MANAGEMENT_EVENTS_URL", "").strip()
+        if not endpoint:
+            return
+        if endpoint.endswith("/events"):
+            endpoint += "/bulk"
+        elif not endpoint.endswith("/events/bulk"):
+            endpoint = endpoint.rstrip("/") + "/internal/events/bulk"
+        started = time.perf_counter()
+        try:
+            response = httpx.post(endpoint, json=batch, timeout=self.send_timeout)
+            response.raise_for_status()
+            with self._lock:
+                self._counters["sent_events"] += len(batch)
+                self._counters["sent_batches"] += 1
+        except httpx.HTTPError:
+            with self._lock:
+                self._counters["send_failures"] += 1
+        finally:
+            logging.getLogger("newsanalysis.analysis.telemetry").debug(
+                "telemetry_batch_send duration_ms=%d event_count=%d",
+                int((time.perf_counter() - started) * 1000), len(batch),
+            )
+
+    def _run(self) -> None:
+        while not self._stopping.is_set() or not self._important.empty() or not self._normal.empty():
+            self._wake.wait(self.flush_interval)
+            self._wake.clear()
+            while True:
+                batch = self._take(self.batch_size)
+                if not batch:
+                    break
+                self._send(batch)
+
+    def flush_and_stop(self) -> None:
+        self._stopping.set()
+        self._wake.set()
+        if self._thread:
+            self._thread.join()
+            self._thread = None
+
+
+_dispatcher = TelemetryDispatcher()
 
 
 def _utc_now() -> str:
@@ -75,6 +219,11 @@ def emit_event(
     provider: str | None = None,
     finish_reason: str | None = None,
     retry_count: int = 0,
+    attempt_number: int | None = None,
+    queue_wait_ms: int | None = None,
+    job_duration_ms: int | None = None,
+    stage_duration_ms: int | None = None,
+    worker_identity: str | None = None,
     span_id: str | None = None,
     parent_span_id: str | None = None,
     article_id: str | UUID | None = None,
@@ -88,12 +237,26 @@ def emit_event(
     if not endpoint:
         return
     context = current_context()
+    if retry_count == 0 and context.get("retry_count") is not None:
+        retry_count = int(context["retry_count"])
+    if attempt_number is None and context.get("attempt_number") is not None:
+        attempt_number = int(context["attempt_number"])
+    if queue_wait_ms is None and context.get("queue_wait_ms") is not None:
+        queue_wait_ms = int(context["queue_wait_ms"])
     if article_id is not None:
         context["article_id"] = str(article_id)
     if context.get("article_id") is None and attributes:
         candidate_article_id = attributes.get("article_id")
         if candidate_article_id:
             context["article_id"] = str(candidate_article_id)
+    attributes = dict(attributes or {})
+    attributes.setdefault("process_id", os.getpid())
+    attributes.setdefault("thread_id", threading.get_ident())
+    attributes.setdefault("thread_name", threading.current_thread().name)
+    attributes.setdefault(
+        "worker_identity",
+        worker_identity or f"pid={os.getpid()} thread={threading.current_thread().name}",
+    )
     payload = {
         "event_id": str(uuid4()),
         "timestamp": _utc_now(),
@@ -115,6 +278,10 @@ def emit_event(
         "provider": provider,
         "finish_reason": finish_reason,
         "retry_count": retry_count,
+        "attempt_number": attempt_number,
+        "queue_wait_ms": queue_wait_ms,
+        "job_duration_ms": job_duration_ms,
+        "stage_duration_ms": stage_duration_ms,
         "span_id": span_id,
         "parent_span_id": parent_span_id,
         "error_category": error_category,
@@ -123,14 +290,18 @@ def emit_event(
         "job_id": context["job_id"],
         "correlation_id": context["correlation_id"],
         "trace_id": context["trace_id"],
-        "attributes": attributes or {},
+        "attributes": attributes,
     }
     prompt_hash = _safe_content(prompt)
     response_hash = _safe_content(response)
     if prompt_hash or response_hash:
         payload["debug_content"] = {"prompt_hash": prompt_hash, "response_hash": response_hash}
-    try:
-        httpx.post(endpoint, json=payload, timeout=1.0)
-    except httpx.HTTPError:
-        # Observability must never change analytical behavior.
-        return
+    _dispatcher.enqueue(payload)
+
+
+def shutdown_telemetry() -> None:
+    _dispatcher.flush_and_stop()
+
+
+def telemetry_metrics() -> dict[str, int]:
+    return _dispatcher.counters()

@@ -12,14 +12,22 @@ class Settings:
     analysis_url: str
     storage_url: str
     llm_url: str
+    benchmark_url: str
     management_events_url: str
     max_concurrent_jobs: int
     request_timeout_seconds: float
+    import_timeout_seconds: float
     analysis_timeout_seconds: float
     analysis_log_dir: Path
     storage_log_dir: Path
     log_dir: Path
     telemetry_retention_days: int
+    max_job_duration_seconds: float
+    max_job_attempts: int
+    stage_timeout_seconds: float
+    llm_request_timeout_seconds: float
+    retry_backoff_seconds: float
+    retry_max_delay_seconds: float
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -30,12 +38,22 @@ class Settings:
             analysis_url=os.getenv("ANALYSIS_URL", "http://analysis-layer:7000").rstrip("/"),
             storage_url=os.getenv("STORAGE_URL", "http://data-storage:8000").rstrip("/"),
             llm_url=os.getenv("LLM_URL", "http://host.docker.internal:1234/v1").rstrip("/"),
+            benchmark_url=os.getenv("BENCHMARK_URL", "http://benchmark-service:7100").rstrip("/"),
             management_events_url=os.getenv("MANAGEMENT_EVENTS_URL", "").strip(),
             max_concurrent_jobs=max(1, int(os.getenv("MANAGEMENT_MAX_CONCURRENT_JOBS", "1"))),
             request_timeout_seconds=float(os.getenv("MANAGEMENT_REQUEST_TIMEOUT_SECONDS", "10")),
+            import_timeout_seconds=max(
+                1.0, float(os.getenv("MANAGEMENT_IMPORT_TIMEOUT_SECONDS", "120"))
+            ),
             analysis_timeout_seconds=float(os.getenv("MANAGEMENT_ANALYSIS_TIMEOUT_SECONDS", "1800")),
             analysis_log_dir=Path(os.getenv("ANALYSIS_LOG_DIR", "/var/log/newsanalysis/analysis")),
             storage_log_dir=Path(os.getenv("STORAGE_LOG_DIR", "/var/log/newsanalysis/data-storage")),
             log_dir=Path(os.getenv("LOG_DIR", "/app/logs")),
             telemetry_retention_days=max(1, int(os.getenv("MANAGEMENT_TELEMETRY_RETENTION_DAYS", "7"))),
+            max_job_duration_seconds=max(1.0, float(os.getenv("MANAGEMENT_MAX_JOB_DURATION_SECONDS", "3600"))),
+            max_job_attempts=max(1, int(os.getenv("MANAGEMENT_MAX_JOB_ATTEMPTS", "3"))),
+            stage_timeout_seconds=max(1.0, float(os.getenv("MANAGEMENT_STAGE_TIMEOUT_SECONDS", "1800"))),
+            llm_request_timeout_seconds=max(1.0, float(os.getenv("MANAGEMENT_LLM_REQUEST_TIMEOUT_SECONDS", "1800"))),
+            retry_backoff_seconds=max(0.0, float(os.getenv("MANAGEMENT_RETRY_BACKOFF_SECONDS", "1"))),
+            retry_max_delay_seconds=max(0.0, float(os.getenv("MANAGEMENT_RETRY_MAX_DELAY_SECONDS", "60"))),
         )

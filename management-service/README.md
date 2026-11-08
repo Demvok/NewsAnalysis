@@ -22,6 +22,8 @@ The Phase 1 API includes:
   for management-side access to the persisted analytical model. Article and
   citation records support the optional `query` parameter.
 - `POST /api/tasks/{id}/cancel` for cooperative cancellation of task jobs.
+- `POST /api/jobs/cancel-all` for cooperative cancellation of all queued and
+  active jobs.
 - safe cancellation requests and retry for failed/cancelled jobs
 - `GET/PATCH /api/settings` for timeout settings
 - `GET /api/pipeline/history`
@@ -32,7 +34,9 @@ The Phase 1 API includes:
   `GET /api/metrics/jobs` for aggregate telemetry.
 - `GET /api/events/stream` for bounded Server-Sent Events delivery. Clients
   can resume using the `last_event_id` query parameter.
-- Management logs are written to both stdout and `LOG_DIR/management_service.log`.
+- Management logs are written to both stdout and
+  `logs/management-service/management_service.log` (the container path is
+  `/var/log/newsanalysis/management-service/management_service.log`).
   `LOG_LEVEL`, `LOG_LEVEL_MANAGEMENT_SERVICE`, and module-specific
   `LOG_LEVEL_MAIN`, `LOG_LEVEL_ORCHESTRATION`, and `LOG_LEVEL_CLIENTS` settings
   control verbosity. HTTP method, path, status, duration, request ID, job ID,
@@ -47,6 +51,10 @@ Compose volume.
 Article analysis is currently synchronous in the analysis service. Therefore,
 cancellation only prevents queued work or requests cancellation after the
 active stage finishes; it does not terminate an in-flight LLM request.
+Only one multi-article task is admitted at a time, and its jobs are processed
+through a single task worker. Standalone jobs use the configured
+`MANAGEMENT_MAX_CONCURRENT_JOBS` limit. Service shutdown marks queued work
+cancelled and requests cancellation for active work before stopping workers.
 
 If the management service restarts while a job is `PENDING`, `RUNNING`, or
 `RETRYING`, the job is marked `FAILED` with
@@ -125,6 +133,11 @@ The management data API uses the following routes:
   `POST /api/data/import-temp` for local testing workflows
 - `DELETE /api/tasks/{id}` for completed, failed, or cancelled task history;
   active tasks must be cancelled and finished before deletion.
+
+Management task history uses compact summaries for list views; full job IDs are
+loaded only for an opened task. Storage browse endpoints return bounded,
+projection-oriented pages for articles, people, and citations so dashboards do
+not transfer article bodies or embedding vectors during normal browsing.
 
 ## Phase 4 experiments
 

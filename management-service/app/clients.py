@@ -14,9 +14,23 @@ from .models import ServiceDependency
 logger = get_logger("clients")
 
 
+class UpstreamTimeoutError(TimeoutError):
+    """An upstream request exceeded its configured timeout."""
+
+
 @dataclass
 class ServiceClient:
     settings: Settings
+
+    def _request_timeout(self, configured: float, remaining: float | None = None) -> float:
+        return max(0.01, min(configured, remaining)) if remaining is not None else configured
+
+    def _analysis_timeout(self, remaining: float | None = None) -> float:
+        configured = min(
+            self.settings.analysis_timeout_seconds,
+            self.settings.llm_request_timeout_seconds,
+        )
+        return self._request_timeout(configured, remaining)
 
     knowledge_resources: ClassVar[tuple[str, ...]] = (
         "articles",
@@ -27,20 +41,26 @@ class ServiceClient:
         "inconsistencies",
     )
 
-    def article(self, article_id: str, headers: dict[str, str]) -> dict[str, Any]:
+    def article(self, article_id: str, headers: dict[str, str], timeout: float | None = None) -> dict[str, Any]:
         logger.debug("storage_article_request article_id=%s", article_id)
-        response = httpx.get(
-            f"{self.settings.storage_url}/articles/{article_id}",
-            headers=headers,
-            timeout=self.settings.request_timeout_seconds,
-        )
+        try:
+            response = httpx.get(
+                f"{self.settings.storage_url}/articles/{article_id}",
+                headers=headers,
+                timeout=self._request_timeout(self.settings.request_timeout_seconds, timeout),
+            )
+        except httpx.TimeoutException as exc:
+            raise UpstreamTimeoutError("storage request timed out") from exc
         response.raise_for_status()
         return response.json()
 
-    def articles(self, limit: int = 100) -> list[dict[str, Any]]:
+    def articles(self, limit: int = 100, status: str | None = None) -> list[dict[str, Any]]:
+        params: dict[str, Any] = {"limit": limit}
+        if status:
+            params["status"] = status
         response = httpx.get(
             f"{self.settings.storage_url}/articles",
-            params={"limit": limit},
+            params=params,
             timeout=self.settings.request_timeout_seconds,
         )
         response.raise_for_status()
@@ -48,6 +68,41 @@ class ServiceClient:
         if not isinstance(payload, list):
             raise ValueError("storage articles response must be a list")
         return [item for item in payload if isinstance(item, dict)]
+
+    def all_articles(self, status: str | None = None) -> list[dict[str, Any]]:
+        page_size = 500
+        offset = 0
+        results: list[dict[str, Any]] = []
+        while True:
+            params: dict[str, Any] = {"limit": page_size, "offset": offset}
+            if status:
+                params["status"] = status
+            response = httpx.get(
+                f"{self.settings.storage_url}/articles",
+                params=params,
+                timeout=self.settings.request_timeout_seconds,
+            )
+            response.raise_for_status()
+            payload = response.json()
+            if not isinstance(payload, list):
+                raise ValueError("storage articles response must be a list")
+            page = [item for item in payload if isinstance(item, dict)]
+            results.extend(page)
+            if len(page) < page_size:
+                return results
+            offset += page_size
+
+    def update_article_status(self, article_id: str, status: str) -> dict[str, Any]:
+        response = httpx.put(
+            f"{self.settings.storage_url}/articles/{article_id}",
+            json={"status": status},
+            timeout=self.settings.request_timeout_seconds,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        if not isinstance(payload, dict):
+            raise ValueError("storage article update response must be an object")
+        return payload
 
     def knowledge_summary(self) -> dict[str, Any]:
         response = httpx.get(
@@ -101,8 +156,8 @@ class ServiceClient:
         return payload
 
     def browse_knowledge(self, resource: str, limit: int = 100, offset: int = 0, filters: dict[str, str] | None = None) -> dict[str, Any]:
-        if resource not in {"attitudes", "inconsistencies"}:
-            raise ValueError("joined browse supports attitudes and inconsistencies")
+        if resource not in self.knowledge_resources:
+            raise ValueError("unsupported knowledge resource")
         response = httpx.get(
             f"{self.settings.storage_url}/{resource}/browse",
             params={"limit": limit, "offset": offset, **(filters or {})},
@@ -187,7 +242,7 @@ class ServiceClient:
     def import_temp_articles(self) -> dict[str, Any]:
         response = httpx.post(
             f"{self.settings.storage_url}/articles/import-temp",
-            timeout=self.settings.request_timeout_seconds,
+            timeout=self.settings.import_timeout_seconds,
         )
         response.raise_for_status()
         payload = response.json()
@@ -234,17 +289,22 @@ class ServiceClient:
             raise ValueError(f"storage {resource} semantic search response must be a list")
         return [item for item in payload if isinstance(item, dict)]
 
-    def analyze(self, payload: dict[str, Any], headers: dict[str, str]) -> dict[str, Any]:
-        response = httpx.post(
-            f"{self.settings.analysis_url}/analysis/citations",
-            json=payload,
-            headers=headers,
-            timeout=self.settings.analysis_timeout_seconds,
-        )
+    def analyze(self, payload: dict[str, Any], headers: dict[str, str], timeout: float | None = None) -> dict[str, Any]:
+        try:
+            response = httpx.post(
+                f"{self.settings.analysis_url}/analysis/citations",
+                json=payload,
+                headers=headers,
+                timeout=self._analysis_timeout(timeout),
+            )
+        except httpx.TimeoutException as exc:
+            raise UpstreamTimeoutError("analysis request timed out") from exc
+        if response.status_code == 504:
+            raise UpstreamTimeoutError("analysis request timed out")
         response.raise_for_status()
         return response.json()
 
-    def analysis_stage(self, stage: str, payload: dict[str, Any], headers: dict[str, str]) -> dict[str, Any]:
+    def analysis_stage(self, stage: str, payload: dict[str, Any], headers: dict[str, str], timeout: float | None = None) -> dict[str, Any]:
         paths = {
             "citation_extraction": "/analysis/stages/extraction",
             "extraction_persistence": "/analysis/stages/extraction-persistence",
@@ -252,19 +312,27 @@ class ServiceClient:
         }
         if stage not in paths:
             raise ValueError(f"unsupported analysis stage: {stage}")
-        response = httpx.post(
-            f"{self.settings.analysis_url}{paths[stage]}",
-            json=payload,
-            headers=headers,
-            timeout=self.settings.analysis_timeout_seconds,
-        )
+        try:
+            response = httpx.post(
+                f"{self.settings.analysis_url}{paths[stage]}",
+                json=payload,
+                headers=headers,
+                timeout=self._analysis_timeout(timeout),
+            )
+        except httpx.TimeoutException as exc:
+            raise UpstreamTimeoutError(f"analysis stage {stage} timed out") from exc
+        if response.status_code == 504:
+            raise UpstreamTimeoutError(f"analysis stage {stage} timed out")
         response.raise_for_status()
         result = response.json()
         if not isinstance(result, dict):
             raise ValueError("analysis stage response must be an object")
         return result
 
-    def analysis_stage_bulk(self, stage: str, payload: list[dict[str, Any]], headers: dict[str, str]) -> dict[str, Any]:
+    def analysis_stage_bulk(
+        self, stage: str, payload: list[dict[str, Any]], headers: dict[str, str],
+        timeout: float | None = None,
+    ) -> dict[str, Any]:
         paths = {
             "citation_extraction": "/analysis/stages/extraction/bulk",
             "extraction_persistence": "/analysis/stages/extraction-persistence/bulk",
@@ -273,12 +341,17 @@ class ServiceClient:
         if stage not in paths:
             raise ValueError(f"unsupported analysis stage: {stage}")
         logger.info("analysis_bulk_request stage=%s item_count=%s", stage, len(payload))
-        response = httpx.post(
-            f"{self.settings.analysis_url}{paths[stage]}",
-            json=payload,
-            headers=headers,
-            timeout=self.settings.analysis_timeout_seconds,
-        )
+        try:
+            response = httpx.post(
+                f"{self.settings.analysis_url}{paths[stage]}",
+                json=payload,
+                headers=headers,
+                timeout=self._analysis_timeout(timeout),
+            )
+        except httpx.TimeoutException as exc:
+            raise UpstreamTimeoutError(f"analysis bulk stage {stage} timed out") from exc
+        if response.status_code == 504:
+            raise UpstreamTimeoutError(f"analysis bulk stage {stage} timed out")
         response.raise_for_status()
         result = response.json()
         if not isinstance(result, dict):
@@ -343,3 +416,13 @@ class ServiceClient:
                 checked_at=datetime.now(timezone.utc),
             ))
         return result
+
+    def benchmark(self, method: str, path: str, payload: dict[str, Any] | None = None) -> Any:
+        response = httpx.request(
+            method,
+            f"{self.settings.benchmark_url}{path}",
+            json=payload,
+            timeout=self.settings.analysis_timeout_seconds,
+        )
+        response.raise_for_status()
+        return response.json()

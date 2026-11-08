@@ -31,6 +31,7 @@ class TaskStatus(StrEnum):
     RUNNING = "RUNNING"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
+    PARTIAL = "PARTIAL"
     CANCELLED = "CANCELLED"
 
 
@@ -64,20 +65,29 @@ class JobResponse(BaseModel):
     started_at: datetime | None
     completed_at: datetime | None
     retry_count: int
+    queue_wait_ms: int | None = None
+    duration_ms: int | None = None
+    worker_identity: str | None = None
     error_code: str | None
     error_summary: str | None
     correlation_id: UUID
     trace_id: UUID
     metadata: dict[str, Any]
+    input_tokens: int = 0
+    output_tokens: int = 0
+    input_tokens_estimated: int = 0
+    output_tokens_estimated: int = 0
+    token_source: str = "none"
 
 
 class TaskCreateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str = Field(default="Article processing task", min_length=1, max_length=200)
-    article_ids: list[UUID] = Field(min_length=1, max_length=500)
+    article_ids: list[UUID] = Field(min_length=1, max_length=10000)
     inconsistency_window_days: int = Field(default=365, ge=1, le=3650)
     execution_mode: ExecutionMode = ExecutionMode.PER_ARTICLE
+    redo: bool = False
 
 
 class TaskResponse(BaseModel):
@@ -99,6 +109,18 @@ class TaskResponse(BaseModel):
     created_at: datetime
     started_at: datetime | None
     completed_at: datetime | None
+    retry_rate: float = 0
+    execution_time_ms: int | None = None
+    execution_time_per_job_ms: float | None = None
+    elapsed_time_ms: int | None = None
+    estimated_total_time_ms: float | None = None
+    remaining_time_ms: float | None = None
+    estimate_source: str | None = None
+    input_tokens: int = 0
+    output_tokens: int = 0
+    input_tokens_estimated: int = 0
+    output_tokens_estimated: int = 0
+    token_source: str = "none"
 
 
 class StageResponse(BaseModel):
@@ -139,12 +161,24 @@ class KnowledgeSummaryResponse(BaseModel):
 class RuntimeSettingsResponse(BaseModel):
     request_timeout_seconds: float
     analysis_timeout_seconds: float
+    max_job_duration_seconds: float
+    max_job_attempts: int
+    stage_timeout_seconds: float
+    llm_request_timeout_seconds: float
+    retry_backoff_seconds: float
+    retry_max_delay_seconds: float
     configurable_fields: list[str]
 
 
 class RuntimeSettingsUpdate(BaseModel):
     request_timeout_seconds: float | None = Field(default=None, gt=0, le=120)
     analysis_timeout_seconds: float | None = Field(default=None, gt=0, le=7200)
+    max_job_duration_seconds: float | None = Field(default=None, gt=0)
+    max_job_attempts: int | None = Field(default=None, ge=1)
+    stage_timeout_seconds: float | None = Field(default=None, gt=0)
+    llm_request_timeout_seconds: float | None = Field(default=None, gt=0)
+    retry_backoff_seconds: float | None = Field(default=None, ge=0)
+    retry_max_delay_seconds: float | None = Field(default=None, ge=0)
 
 
 class EventRequest(BaseModel):
@@ -176,6 +210,11 @@ class EventRequest(BaseModel):
     provider: str | None = Field(default=None, max_length=100)
     finish_reason: str | None = Field(default=None, max_length=100)
     retry_count: int = Field(default=0, ge=0)
+    attempt_number: int | None = Field(default=None, ge=1)
+    queue_wait_ms: int | None = Field(default=None, ge=0)
+    job_duration_ms: int | None = Field(default=None, ge=0)
+    stage_duration_ms: int | None = Field(default=None, ge=0)
+    worker_identity: str | None = Field(default=None, max_length=200)
     error_category: str | None = Field(default=None, max_length=100)
     error_detail: str | None = Field(default=None, max_length=500)
     debug_content: dict[str, str | None] | None = None

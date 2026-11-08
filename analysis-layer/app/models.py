@@ -7,6 +7,7 @@ from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+from .stance import Commitment, Conditionality, Endorsement, StanceDirection
 
 
 def parse_datetime(value: object) -> object:
@@ -61,6 +62,29 @@ class SpeakerKind(str, Enum):
     GROUP = "GROUP"
     ANONYMOUS_SOURCE = "ANONYMOUS_SOURCE"
     UNRESOLVED = "UNRESOLVED"
+
+    @classmethod
+    def _missing_(cls, value: object) -> "SpeakerKind | None":
+        if not isinstance(value, str):
+            return None
+        normalized = value.strip().upper().replace("-", "_").replace(" ", "_")
+        aliases = {
+            "INDIVIDUAL": cls.PERSON,
+            "HUMAN": cls.PERSON,
+            "EU_LEADER": cls.PERSON,
+            "GOVERNMENT_OFFICIAL": cls.PERSON,
+            "INTERNATIONAL_ORGANIZATION_OFFICIAL": cls.PERSON,
+            "OFFICIAL": cls.PERSON,
+            "COMPANY": cls.ORGANIZATION,
+            "CORPORATION": cls.ORGANIZATION,
+            "GOVERNMENT": cls.ORGANIZATION,
+            "GOVERNMENT_BODY": cls.ORGANIZATION,
+            "INTERNATIONAL_ORGANIZATION": cls.ORGANIZATION,
+            "COLLECTIVE": cls.GROUP,
+            "ANONYMOUS": cls.ANONYMOUS_SOURCE,
+            "UNKNOWN": cls.UNRESOLVED,
+        }
+        return aliases.get(normalized)
 
 
 class CitationCandidate(BaseModel):
@@ -168,7 +192,40 @@ class TopicAttitude(BaseModel):
     topic_name: str
     topic_description: str | None = None
     general_topic_field: str = "UNCLASSIFIED"
-    stance: str | None = None
+    direction: StanceDirection
+    endorsement: Endorsement
+    commitment: Commitment
+    conditionality: Conditionality
+    stance: float | None = Field(default=None, ge=-1, le=1)
     relevancy_score: float = Field(ge=0, le=1)
     stance_summary: str | None = None
     stance_confidence: float | None = Field(default=None, ge=0, le=1)
+
+
+class TopicPropagationCitation(BaseModel):
+    citation_uuid: UUID
+    citation_topic_uuid: UUID
+    original_stance: float | None = Field(default=None, ge=-1, le=1)
+    original_stance_confidence: float | None = Field(default=None, ge=0, le=1)
+
+
+class TopicPropagationRequest(BaseModel):
+    target_topic_uuid: UUID
+    citations: list[TopicPropagationCitation] = Field(min_length=1, max_length=5000)
+    minimum_relevance: float | None = Field(default=None, ge=0, le=1)
+    minimum_polarity: float | None = Field(default=None, ge=0, le=1)
+
+
+class TopicPropagationResult(BaseModel):
+    citation_uuid: UUID
+    citation_topic_uuid: UUID
+    target_topic_uuid: UUID
+    citation_topic_name: str | None = None
+    target_topic_name: str | None = None
+    original_stance: float | None = Field(default=None, ge=-1, le=1)
+    topic_relevance: float | None = Field(default=None, ge=0, le=1)
+    topic_relation_polarity: float | None = Field(default=None, ge=-1, le=1)
+    transferred_stance: float | None = Field(default=None, ge=-1, le=1)
+    transfer_confidence: float | None = Field(default=None, ge=0, le=1)
+    reliable: bool = False
+    status: str

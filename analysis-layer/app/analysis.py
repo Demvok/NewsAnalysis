@@ -3,20 +3,43 @@ from __future__ import annotations
 import time
 import os
 import re
+import threading
+import unicodedata
+from contextlib import contextmanager
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from uuid import UUID
 
 import httpx
 from . import LLM, models
+from .propagation_service import propagate_topic_stances
+from .stance import (
+    StanceEvaluation,
+    calculate_stance,
+    evaluation_status,
+)
 from .logger import get_logger
-from .telemetry import emit_event
+from .telemetry import emit_event, sanitized_error
 
 
 logger = get_logger("analysis", "analysis")
 STORAGE_URL = os.getenv("STORAGE_URL", "http://data-storage:8000").rstrip("/")
+STORAGE_REQUEST_TIMEOUT = max(0.1, float(os.getenv("STORAGE_REQUEST_TIMEOUT_SECONDS", "30")))
 PERSON_MIN_SIMILARITY = float(os.getenv("PERSON_MIN_COSINE_SIMILARITY", "0.85"))
+PERSON_AUTO_MERGE_SIMILARITY = float(
+    os.getenv("PERSON_AUTO_MERGE_COSINE_SIMILARITY", "0.93")
+)
+PERSON_REVIEW_MIN_SIMILARITY = float(
+    os.getenv("PERSON_REVIEW_MIN_COSINE_SIMILARITY", "0.78")
+)
 TOPIC_MIN_SIMILARITY = float(os.getenv("TOPIC_MIN_COSINE_SIMILARITY", "0.85"))
+TOPIC_AUTO_MERGE_SIMILARITY = float(
+    os.getenv("TOPIC_AUTO_MERGE_COSINE_SIMILARITY", "0.93")
+)
+TOPIC_REVIEW_MIN_SIMILARITY = float(
+    os.getenv("TOPIC_REVIEW_MIN_COSINE_SIMILARITY", "0.78")
+)
+SEMANTIC_SEARCH_TOP_K = max(2, int(os.getenv("SEMANTIC_SEARCH_TOP_K", "5")))
 INCONSISTENCY_MIN_SIMILARITY = float(
     os.getenv("INCONSISTENCY_MIN_COSINE_SIMILARITY", "0.75")
 )
@@ -31,6 +54,47 @@ PARALLEL_SPEAKER_ANALYSIS = os.getenv("PARALLEL_SPEAKER_ANALYSIS", "true").lower
     "1", "true", "yes", "on"
 }
 PARALLEL_ANALYSIS_WORKERS = max(1, int(os.getenv("PARALLEL_ANALYSIS_WORKERS", "4")))
+
+
+@contextmanager
+def _telemetry_stage(
+    stage: str,
+    operation: str,
+    *,
+    attributes: dict[str, object] | None = None,
+):
+    started = time.perf_counter()
+    base_attributes = dict(attributes or {})
+    emit_event(
+        "pipeline_stage",
+        operation=operation,
+        stage=stage,
+        event_status="started",
+        attributes=base_attributes,
+    )
+    try:
+        yield base_attributes
+    except Exception as error:
+        emit_event(
+            "pipeline_stage",
+            operation=operation,
+            stage=stage,
+            event_status="failed",
+            duration_ms=int((time.perf_counter() - started) * 1000),
+            error_category=type(error).__name__,
+            error_detail=sanitized_error(error),
+            attributes=base_attributes,
+        )
+        raise
+    else:
+        emit_event(
+            "pipeline_stage",
+            operation=operation,
+            stage=stage,
+            event_status="completed",
+            duration_ms=int((time.perf_counter() - started) * 1000),
+            attributes=base_attributes,
+        )
 
 _VAGUE_SPEAKER_RE = re.compile(
     r"^(an?|some|other|those|people|experts?|industry sources?|"
@@ -81,6 +145,58 @@ def _usable_citation(citation: models.CitationCandidate) -> bool:
     )
 
 
+def _speaker_label(speaker: models.SpeakerExtraction) -> str:
+    """Return a name-like label suitable for citation context."""
+    generic_labels = {
+        "anonymous",
+        "anonymous source",
+        "unknown",
+        "unresolved",
+        "vague source",
+    }
+    name = speaker.speaker_name.strip()
+    if name and _normalized_text(name) not in generic_labels:
+        return name
+    for alias in speaker.aliases:
+        alias = alias.strip()
+        if alias and _normalized_text(alias) not in generic_labels:
+            return alias
+    return name
+
+
+def _include_speaker_in_text(text: str, speaker_label: str) -> str:
+    """Make vague-source evidence self-identifying without changing source text."""
+    if not speaker_label or _normalized_text(speaker_label) in _normalized_text(text):
+        return text
+    return f"{speaker_label}: {text}"
+
+
+def _ensure_vague_speaker_context(
+    speaker: models.SpeakerExtraction,
+) -> models.SpeakerExtraction:
+    """Ensure vague-source citation descriptions retain their speaker identity."""
+    kind = _speaker_kind(speaker)
+    if kind not in {
+        models.SpeakerKind.ANONYMOUS_SOURCE,
+        models.SpeakerKind.UNRESOLVED,
+        models.SpeakerKind.GROUP,
+    } and not speaker.uncertain:
+        return speaker
+    label = _speaker_label(speaker)
+    citations = [
+        citation.model_copy(
+            update={
+                "context": _include_speaker_in_text(citation.context, label),
+                "summarized_quote": _include_speaker_in_text(
+                    citation.summarized_quote, label
+                ),
+            }
+        )
+        for citation in speaker.citations
+    ]
+    return speaker.model_copy(update={"citations": citations})
+
+
 def _prepare_speakers(
     speakers: list[models.SpeakerExtraction],
 ) -> list[models.SpeakerExtraction]:
@@ -88,6 +204,7 @@ def _prepare_speakers(
     prepared: list[models.SpeakerExtraction] = []
     vague_citations: list[models.CitationCandidate] = []
     for speaker in speakers:
+        speaker = _ensure_vague_speaker_context(speaker)
         kind = _speaker_kind(speaker)
         citations = [citation for citation in speaker.citations if _usable_citation(citation)]
         if not citations:
@@ -184,6 +301,36 @@ def _json_list_response(
     return payload
 
 
+def _normalized_text(value: object) -> str:
+    return " ".join(
+        unicodedata.normalize("NFKC", str(value or "")).casefold().split()
+    )
+
+
+def _stance_polarity(value: object) -> int:
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return 0
+    return -1 if numeric < 0 else 1 if numeric > 0 else 0
+
+
+def _person_match_is_safe(candidate: dict[str, object], person: dict[str, object]) -> bool:
+    names = {_normalized_text(person.get("name"))}
+    names.update(_normalized_text(alias) for alias in person.get("aliases", []) or [])
+    candidate_names = {_normalized_text(candidate.get("name"))}
+    candidate_names.update(
+        _normalized_text(alias) for alias in candidate.get("aliases", []) or []
+    )
+    if names & candidate_names:
+        return True
+    return (
+        float(candidate.get("cosine_similarity") or 0) >= PERSON_MIN_SIMILARITY
+        and _normalized_text(candidate.get("person_type"))
+        == _normalized_text(person.get("person_type"))
+    )
+
+
 # Persistence belongs to the analysis workflow so extraction and citation analysis
 # can be executed independently while still sharing the same storage behavior.
 
@@ -236,6 +383,11 @@ def extract_citations(article: models.Article) -> models.CitationExtractionResul
                 normalized_confidences,
             )
         result = models.CitationExtractionResult.model_validate(extraction_payload)
+        result = models.CitationExtractionResult(
+            article_title=result.article_title,
+            status=result.status,
+            speakers=[_ensure_vague_speaker_context(speaker) for speaker in result.speakers],
+        )
         logger.info(
             "analysis_stage=extract_citations status=completed speakers=%d duration=%s",
             len(result.speakers),
@@ -308,16 +460,26 @@ def analyze_speaker_sentiment(speaker: dict):
 def analyze_speaker_topics(speaker: models.SpeakerExtraction):
     """Evaluate topics and stance for all citations attributed to one speaker."""
     started = time.perf_counter()
+    logger.info(
+        "analysis_stage=topic_and_stance status=worker_started speaker=%s "
+        "thread=%s",
+        speaker.speaker_name,
+        threading.current_thread().name,
+    )
     try:
         result = LLM.sentiment_analysis(speaker.model_dump())
         logger.info(
-            "analysis_stage=topic_and_stance status=completed duration=%s",
+            "analysis_stage=topic_and_stance status=completed speaker=%s thread=%s duration=%s",
+            speaker.speaker_name,
+            threading.current_thread().name,
             f"{time.perf_counter() - started:.3f}s",
         )
         return result
     except Exception:
         logger.exception(
-            "analysis_stage=topic_and_stance status=failed duration=%s",
+            "analysis_stage=topic_and_stance status=failed speaker=%s thread=%s duration=%s",
+            speaker.speaker_name,
+            threading.current_thread().name,
             f"{time.perf_counter() - started:.3f}s",
         )
         raise
@@ -334,20 +496,113 @@ def _resolve_person_with_stats(
     search_text = "\n".join(
         [str(person["name"]), *(str(alias) for alias in person.get("aliases", []) or [])]
     )
-    response = httpx.post(
-        f"{STORAGE_URL}/people/search",
-        json={"text": search_text},
-        params={"limit": 1, "min_similarity": PERSON_MIN_SIMILARITY},
-        timeout=30.0,
-    )
-    response.raise_for_status()
-    matches = _json_list_response(response)
-    if matches:
-        if not matches[0].get("person_uuid"):
-            raise ValueError("Storage API returned a person without person_uuid")
-        return matches[0], False
+    with _telemetry_stage(
+        "person_candidate_search",
+        "semantic_candidate_search",
+        attributes={
+            "entity_type": "person",
+            "requested_top_k": SEMANTIC_SEARCH_TOP_K,
+            "min_similarity": PERSON_REVIEW_MIN_SIMILARITY,
+        },
+    ) as search_attributes:
+        response = httpx.post(
+            f"{STORAGE_URL}/people/search",
+            json={"text": search_text},
+            params={
+                "limit": SEMANTIC_SEARCH_TOP_K,
+                "min_similarity": PERSON_REVIEW_MIN_SIMILARITY,
+            },
+            timeout=STORAGE_REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        matches = _json_list_response(response)
+        search_attributes["candidate_count"] = len(matches)
+    for match in matches:
+        similarity = float(match.get("cosine_similarity") or 0)
+        same_type = (
+            _normalized_text(match.get("person_type"))
+            == _normalized_text(person.get("person_type"))
+        )
+        exact_identity = _person_match_is_safe(match, person) and bool(
+            {
+                _normalized_text(person.get("name")),
+                *(
+                    _normalized_text(alias)
+                    for alias in person.get("aliases", []) or []
+                ),
+            }
+            & {
+                _normalized_text(match.get("name")),
+                *(
+                    _normalized_text(alias)
+                    for alias in match.get("aliases", []) or []
+                ),
+            }
+        )
+        if exact_identity or (similarity >= PERSON_AUTO_MERGE_SIMILARITY and same_type):
+            decision = True
+            decision_method = "exact_identity" if exact_identity else "automatic_similarity"
+        elif similarity >= PERSON_REVIEW_MIN_SIMILARITY:
+            with _telemetry_stage(
+                "person_resolution_decision",
+                "semantic_resolution_decision",
+                attributes={
+                    "entity_type": "person",
+                    "similarity": similarity,
+                    "candidate_person_uuid": str(match.get("person_uuid") or ""),
+                },
+            ) as decision_attributes:
+                resolution = LLM.decide_person_resolution(person, match)
+                decision = resolution.same_person
+                decision_attributes.update(
+                    {
+                        "same_person": resolution.same_person,
+                        "decision_confidence": resolution.confidence,
+                    }
+                )
+            decision_method = "llm"
+        else:
+            decision = False
+            decision_method = "below_review_threshold"
+        if decision:
+            if not match.get("person_uuid"):
+                raise ValueError("Storage API returned a person without person_uuid")
+            emit_event(
+                "pipeline_stage",
+                operation="semantic_resolution_outcome",
+                stage="person_resolution_decision",
+                event_status="completed",
+                attributes={
+                    "entity_type": "person",
+                    "decision": "merge",
+                    "decision_method": decision_method,
+                    "candidate_person_uuid": str(match.get("person_uuid")),
+                    "similarity": similarity,
+                },
+            )
+            return match, False
 
-    response = httpx.post(f"{STORAGE_URL}/people", json=person, timeout=30.0)
+    if matches and max(
+        float(match.get("cosine_similarity") or 0) for match in matches
+    ) >= PERSON_REVIEW_MIN_SIMILARITY:
+        logger.info(
+            "person_resolution status=created reason=no_candidate_decision person=%s",
+            person["name"],
+        )
+    emit_event(
+        "pipeline_stage",
+        operation="semantic_resolution_outcome",
+        stage="person_resolution_decision",
+        event_status="completed",
+        attributes={
+            "entity_type": "person",
+            "decision": "create",
+            "decision_method": "no_candidate_accepted",
+            "candidate_count": len(matches),
+        },
+    )
+
+    response = httpx.post(f"{STORAGE_URL}/people", json=person, timeout=STORAGE_REQUEST_TIMEOUT)
     response.raise_for_status()
     resolved = response.json()
     if not isinstance(resolved, dict) or not str(resolved.get("person_uuid") or "").strip():
@@ -364,20 +619,97 @@ def _resolve_topic_with_stats(
     topic: dict[str, object],
 ) -> tuple[dict[str, object], bool]:
     description = str(topic.get("topic_description") or topic["topic_name"])
-    response = httpx.post(
-        f"{STORAGE_URL}/topics/search/text",
-        json={"text": description},
-        params={"limit": 1, "min_similarity": TOPIC_MIN_SIMILARITY},
-        timeout=30.0,
+    with _telemetry_stage(
+        "topic_candidate_search",
+        "semantic_candidate_search",
+        attributes={
+            "entity_type": "topic",
+            "requested_top_k": SEMANTIC_SEARCH_TOP_K,
+            "min_similarity": TOPIC_REVIEW_MIN_SIMILARITY,
+        },
+    ) as search_attributes:
+        response = httpx.post(
+            f"{STORAGE_URL}/topics/search/text",
+            json={"text": description},
+            params={
+                "limit": SEMANTIC_SEARCH_TOP_K,
+                "min_similarity": TOPIC_REVIEW_MIN_SIMILARITY,
+            },
+            timeout=STORAGE_REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        matches = _json_list_response(response)
+        search_attributes["candidate_count"] = len(matches)
+    exact_name = _normalized_text(topic.get("topic_name"))
+    same_field = _normalized_text(topic.get("general_topic_field"))
+    for match in matches:
+        same_name = _normalized_text(match.get("topic_name")) == exact_name
+        same_field_match = (
+            not same_field
+            or _normalized_text(match.get("general_topic_field")) == same_field
+        )
+        similarity = float(match.get("cosine_similarity") or 0)
+        decision = None
+        if same_name and same_field_match:
+            decision = True
+        elif similarity >= TOPIC_AUTO_MERGE_SIMILARITY and same_field_match:
+            decision = True
+        elif similarity >= TOPIC_REVIEW_MIN_SIMILARITY:
+            with _telemetry_stage(
+                "topic_resolution_decision",
+                "semantic_resolution_decision",
+                attributes={
+                    "entity_type": "topic",
+                    "similarity": similarity,
+                    "candidate_topic_uuid": str(match.get("topic_uuid") or ""),
+                },
+            ) as decision_attributes:
+                resolution = LLM.decide_topic_resolution(topic, match)
+                decision_attributes.update(
+                    {
+                        "same_topic": resolution.same_topic,
+                        "reverse_polarity": resolution.reverse_polarity,
+                        "decision_confidence": resolution.confidence,
+                    }
+                )
+                decision = resolution if resolution.same_topic else None
+        if decision:
+            if not match.get("topic_uuid"):
+                raise ValueError("Storage API returned a topic without topic_uuid")
+            if hasattr(decision, "reverse_polarity"):
+                match["_reverse_polarity"] = decision.reverse_polarity
+            emit_event(
+                "pipeline_stage",
+                operation="semantic_resolution_outcome",
+                stage="topic_resolution_decision",
+                event_status="completed",
+                attributes={
+                    "entity_type": "topic",
+                    "decision": "merge",
+                    "candidate_topic_uuid": str(match.get("topic_uuid")),
+                    "similarity": similarity,
+                    "reverse_polarity": bool(match.get("_reverse_polarity", False)),
+                },
+            )
+            return match, False
+    if matches and max(
+        float(match.get("cosine_similarity") or 0) for match in matches
+    ) >= TOPIC_MIN_SIMILARITY:
+        logger.info("topic_resolution status=created reason=no_candidate_decision topic=%s", topic["topic_name"])
+    emit_event(
+        "pipeline_stage",
+        operation="semantic_resolution_outcome",
+        stage="topic_resolution_decision",
+        event_status="completed",
+        attributes={
+            "entity_type": "topic",
+            "decision": "create",
+            "decision_method": "no_candidate_accepted",
+            "candidate_count": len(matches),
+        },
     )
-    response.raise_for_status()
-    matches = _json_list_response(response)
-    if matches:
-        if not matches[0].get("topic_uuid"):
-            raise ValueError("Storage API returned a topic without topic_uuid")
-        return matches[0], False
 
-    response = httpx.post(f"{STORAGE_URL}/topics", json=topic, timeout=30.0)
+    response = httpx.post(f"{STORAGE_URL}/topics", json=topic, timeout=STORAGE_REQUEST_TIMEOUT)
     response.raise_for_status()
     resolved = response.json()
     if not isinstance(resolved, dict) or not str(resolved.get("topic_uuid") or "").strip():
@@ -470,7 +802,7 @@ def persist_extraction(
         citations_response = httpx.post(
             f"{STORAGE_URL}/citations/bulk",
             json=citations,
-            timeout=30.0,
+            timeout=STORAGE_REQUEST_TIMEOUT,
         )
         citations_response.raise_for_status()
         _json_list_response(
@@ -577,7 +909,7 @@ def persist_citation_analysis(
     citations_response = httpx.post(
         f"{STORAGE_URL}/citations/bulk",
         json=citations,
-        timeout=30.0,
+        timeout=STORAGE_REQUEST_TIMEOUT,
     )
     citations_response.raise_for_status()
     stored_citations = _json_list_response(
@@ -602,13 +934,32 @@ def persist_citation_analysis(
         speaker for speaker in analysis_speakers
         if speaker.citations
     ]
-    if PARALLEL_SPEAKER_ANALYSIS and len(analysis_inputs) > 1:
-        with ThreadPoolExecutor(max_workers=PARALLEL_ANALYSIS_WORKERS) as executor:
-            evaluations = list(executor.map(analyze_speaker_topics, analysis_inputs))
-    else:
-        evaluations = [analyze_speaker_topics(speaker) for speaker in analysis_inputs]
+    parallel = PARALLEL_SPEAKER_ANALYSIS and len(analysis_inputs) > 1
+    with _telemetry_stage(
+        "speaker_analysis",
+        "speaker_analysis",
+        attributes={
+            "speaker_count": len(analysis_inputs),
+            "parallel": parallel,
+            "parallel_workers": PARALLEL_ANALYSIS_WORKERS if parallel else 1,
+        },
+    ):
+        if parallel:
+            with ThreadPoolExecutor(
+                max_workers=min(PARALLEL_ANALYSIS_WORKERS, len(analysis_inputs)),
+                thread_name_prefix="speaker-analysis",
+            ) as executor:
+                futures = [
+                    executor.submit(analyze_speaker_topics, speaker)
+                    for speaker in analysis_inputs
+                ]
+                evaluations = [future.result() for future in futures]
+        else:
+            evaluations = [
+                analyze_speaker_topics(speaker) for speaker in analysis_inputs
+            ]
 
-    for speaker_index, (speaker, evaluation) in enumerate(
+    for speaker_index, (speaker, speaker_evaluation) in enumerate(
         zip(analysis_inputs, evaluations), start=1
     ):
         logger.info(
@@ -626,12 +977,11 @@ def persist_citation_analysis(
                 "topic_description": topic.topic_description,
                 "general_topic_field": topic.general_topic_field,
             }
-            for citation in evaluation.evaluated_citations
+            for citation in speaker_evaluation.evaluated_citations
             for topic in citation.evaluated_topics
             if (
                 topic.topic_name.strip()
                 and topic.stance_detected
-                and topic.stance is not None
                 and citation.citation_type != models.CitationType.MENTION
             )
         ]
@@ -675,6 +1025,12 @@ def persist_citation_analysis(
             )
             for source, resolved in resolved_topics
         }
+        reverse_topic_polarity = {
+            source["topic_name"].strip().casefold(): bool(
+                resolved.get("_reverse_polarity", False)
+            )
+            for source, resolved in resolved_topics
+        }
         logger.info("analysis_stage=topic_resolution status=completed article_id=%s speaker=%s topics=%d duration=%.3fs", article_id, speaker.speaker_name, len(resolved_topics), time.perf_counter() - topic_started)
         emit_event(
             "pipeline_stage",
@@ -685,7 +1041,7 @@ def persist_citation_analysis(
             attributes={"article_id": str(article_id), "topic_count": len(resolved_topics)},
         )
         attitudes_by_key: dict[tuple[str, str], dict[str, object]] = {}
-        for citation in evaluation.evaluated_citations:
+        for citation in speaker_evaluation.evaluated_citations:
             citation_uuid = citation_ids.get(
                 (str(person_ids[speaker.speaker_name.strip().casefold()]), citation.exact_quote)
             )
@@ -696,18 +1052,63 @@ def persist_citation_analysis(
                 if topic_uuid is None:
                     continue
                 key = (str(topic_uuid), str(citation_uuid))
+                stance_evaluation = StanceEvaluation(
+                    direction=topic.direction,
+                    endorsement=topic.endorsement,
+                    commitment=topic.commitment,
+                    conditionality=topic.conditionality,
+                )
+                stance = calculate_stance(stance_evaluation)
+                status = evaluation_status(stance_evaluation)
+                stance_confidence = topic.stance_confidence
+                if reverse_topic_polarity.get(topic.topic_name.strip().casefold()):
+                    with _telemetry_stage(
+                        "topic_stance_reevaluation",
+                        "topic_stance_reevaluation",
+                        attributes={
+                            "topic_uuid": str(topic_uuid),
+                            "citation_uuid": str(citation_uuid),
+                            "reason": "reverse_topic_polarity",
+                        },
+                    ) as reevaluation_attributes:
+                        reevaluated = LLM.reevaluate_topic_stance(
+                            canonical_topic_descriptions[
+                                topic.topic_name.strip().casefold()
+                            ],
+                            citation.exact_quote,
+                            citation.context,
+                        )
+                        reevaluation_attributes.update(
+                            {
+                                "reevaluated_direction": reevaluated.direction.value,
+                                "decision_confidence": reevaluated.confidence,
+                            }
+                        )
+                        stance_evaluation = StanceEvaluation(
+                            direction=reevaluated.direction,
+                            endorsement=reevaluated.endorsement,
+                            commitment=reevaluated.commitment,
+                            conditionality=reevaluated.conditionality,
+                        )
+                        stance = calculate_stance(stance_evaluation)
+                        status = evaluation_status(stance_evaluation)
+                        stance_confidence = reevaluated.confidence
                 stance_summary = (topic.stance_summary or "").strip()
                 attitudes_by_key[key] = {
                     "topic_uuid": topic_uuid,
                     "citation_uuid": citation_uuid,
-                    "stance": str(topic.stance) if topic.stance is not None else None,
+                    "direction": stance_evaluation.direction.value,
+                    "endorsement": int(stance_evaluation.endorsement),
+                    "commitment": int(stance_evaluation.commitment),
+                    "conditionality": int(stance_evaluation.conditionality),
+                    "stance": stance,
                     "relevancy_score": topic.relevancy_score,
-                    "stance_confidence": topic.stance_confidence,
+                    "stance_confidence": stance_confidence,
                     "stance_summary": stance_summary or canonical_topic_descriptions.get(
                         topic.topic_name.strip().casefold(),
                         topic.topic_description,
                     ),
-                    "status": "ANALYZED",
+                    "status": status,
                 }
         attitudes = list(attitudes_by_key.values())
         attitude_total += len(attitudes)
@@ -733,7 +1134,7 @@ def persist_citation_analysis(
         attitudes_response = httpx.post(
             f"{STORAGE_URL}/attitudes/bulk",
             json=attitudes,
-            timeout=30.0,
+            timeout=STORAGE_REQUEST_TIMEOUT,
         )
         attitudes_response.raise_for_status()
         _add_stats(stats, _bulk_stats(attitudes_response))
@@ -840,23 +1241,54 @@ def persist_inconsistencies(
         current_quote = current_citations.get(citation_uuid, "")
         if not current_quote.strip() or attitude.get("stance") is None:
             continue
-        search_response = httpx.post(
-            f"{STORAGE_URL}/citations/search/text",
-            json={"text": current_quote},
-            params={
+        with _telemetry_stage(
+            "historical_precheck",
+            "historical_citation_precheck",
+            attributes={
                 "person_uuid": person_uuid,
                 "topic_uuid": topic_uuid,
-                "before": before.isoformat() if before else None,
                 "window_days": window_days,
-                "exclude_citation_uuid": citation_uuid,
-                "limit": INCONSISTENCY_TOP_K,
-                "min_similarity": INCONSISTENCY_MIN_SIMILARITY,
             },
-            timeout=30.0,
-        )
-        search_response.raise_for_status()
-        comparisons += 1
-        for historical in search_response.json():
+        ) as history_attributes:
+            search_response = httpx.get(
+                f"{STORAGE_URL}/citations/history",
+                params={
+                    "person_uuid": person_uuid,
+                    "before": before.isoformat() if before else None,
+                    "window_days": window_days,
+                    "exclude_citation_uuid": citation_uuid,
+                    "limit": 1000,
+                },
+                timeout=STORAGE_REQUEST_TIMEOUT,
+            )
+            search_response.raise_for_status()
+            history_attributes["historical_candidate_count"] = len(
+                search_response.json()
+            )
+        historical_candidates = search_response.json()
+        propagation_citations = [
+            models.TopicPropagationCitation(
+                citation_uuid=UUID(str(historical["citation_uuid"])),
+                citation_topic_uuid=UUID(str(historical["topic_uuid"])),
+                original_stance=historical.get("stance"),
+                original_stance_confidence=historical.get("stance_confidence"),
+            )
+            for historical in historical_candidates
+            if historical.get("topic_uuid")
+            and historical.get("stance") is not None
+        ]
+        if propagation_citations:
+            propagation_request = models.TopicPropagationRequest(
+                target_topic_uuid=UUID(topic_uuid),
+                citations=propagation_citations,
+            )
+            propagated_history = propagate_topic_stances(propagation_request)
+        else:
+            propagated_history = []
+        propagated_by_citation = {
+            str(item.citation_uuid): item for item in propagated_history
+        }
+        for historical in historical_candidates:
             historical_quote = (
                 historical.get("exact_quote")
                 or historical.get("summarized_quote")
@@ -867,20 +1299,37 @@ def persist_inconsistencies(
                 or historical.get("citation_uuid") == citation_uuid
                 or historical_quote.casefold() == current_quote.casefold()
                 or historical.get("citation_type") == models.CitationType.MENTION.value
-                or historical.get("cosine_similarity", 0) < INCONSISTENCY_MIN_SIMILARITY
                 or historical.get("stance") is None
             ):
                 continue
+            relative_stance = propagated_by_citation.get(
+                str(historical["citation_uuid"])
+            )
+            if relative_stance is None or not relative_stance.reliable:
+                logger.info(
+                    "analysis_stage=inconsistency_comparison status=topic_candidate_skipped "
+                    "person_uuid=%s source_topic_uuid=%s target_topic_uuid=%s "
+                    "relevance=%.3f polarity=%.3f",
+                    person_uuid,
+                    historical.get("topic_uuid"),
+                    topic_uuid,
+                    relative_stance.topic_relevance if relative_stance else 0.0,
+                    relative_stance.topic_relation_polarity if relative_stance else 0.0,
+                )
+                continue
+            comparisons += 1
             logger.info(
                 "analysis_stage=inconsistency_comparison status=started "
-                "person_uuid=%s topic_uuid=%s",
+                "person_uuid=%s topic_uuid=%s relevance=%.3f polarity=%.3f",
                 person_uuid,
                 topic_uuid,
+                relative_stance.topic_relevance,
+                relative_stance.topic_relation_polarity,
             )
             comparison = LLM.compare_attitudes(
                 topic_name=topic_name,
                 earlier=historical_quote,
-                earlier_stance=historical.get("stance"),
+                earlier_stance=str(relative_stance.transferred_stance),
                 newer=current_quote,
                 newer_stance=str(attitude.get("stance"))
                 if attitude.get("stance") is not None
@@ -894,14 +1343,14 @@ def persist_inconsistencies(
                     "topic_uuid": topic_uuid,
                     "citation_a_uuid": historical["citation_uuid"],
                     "citation_b_uuid": citation_uuid,
-                    "attitude_a": historical.get("stance"),
-                    "attitude_b": attitude.get("stance"),
+                    "attitude_a": str(relative_stance.transferred_stance),
+                    "attitude_b": str(attitude.get("stance")),
                     "classification": comparison.classification,
-                    "severity": comparison.severity,
+                    "severity": comparison.severity.value,
                     "confidence": comparison.confidence,
                     "inconsistency_comment": comparison.comment,
                 },
-                timeout=30.0,
+                timeout=STORAGE_REQUEST_TIMEOUT,
             )
             if response.is_error:
                 logger.error(
@@ -916,6 +1365,14 @@ def persist_inconsistencies(
                     response.text[:1000],
                 )
             response.raise_for_status()
+            persisted = response.json()
+            if (
+                not isinstance(persisted, dict)
+                or not persisted.get("inconsistency_uuid")
+            ):
+                raise ValueError(
+                    "Inconsistency storage returned no persisted record identifier"
+                )
             _add_stats(stats, _bulk_stats(response))
     stats["comparison_count"] = comparisons
     emit_event(
