@@ -77,3 +77,25 @@ def test_batch_provider_failure_returns_per_item_errors(monkeypatch):
 def test_embedding_dimension_validation():
     with pytest.raises(HTTPException):
         main._validate_vector([0.0])
+
+
+def test_embedding_response_without_indexes_preserves_provider_order(monkeypatch):
+    class Item:
+        def __init__(self, embedding, index=None):
+            self.embedding = embedding
+            self.index = index
+
+    response = Mock(
+        data=[
+            Item([1.0], None),
+            Item([2.0], None),
+        ]
+    )
+    client = Mock()
+    client.embeddings.create.return_value = response
+    monkeypatch.setattr(main, "_embedding_client", client)
+    monkeypatch.setattr(main, "_validate_vector", lambda values: None)
+
+    result = main._embed_texts(["first", "second"])
+
+    assert result == [[1.0], [2.0]]

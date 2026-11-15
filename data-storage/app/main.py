@@ -1517,7 +1517,17 @@ def _embed_texts(texts: list[str]) -> list[list[float]]:
             "status": "completed",
         },
     )
-    embeddings = [item.embedding for item in sorted(response.data, key=lambda item: item.index)]
+    response_items = list(response.data)
+    response_indexes = [getattr(item, "index", None) for item in response_items]
+    if all(isinstance(index, int) for index in response_indexes):
+        response_items.sort(key=lambda item: item.index)
+    else:
+        logger.warning(
+            "Embedding provider omitted response indexes; preserving returned order "
+            "for %d items",
+            len(response_items),
+        )
+    embeddings = [item.embedding for item in response_items]
     if len(embeddings) != len(texts):
         raise HTTPException(
             status_code=503,
