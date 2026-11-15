@@ -18,7 +18,7 @@
   OpenAI-compatible endpoint configured
   by `EMBEDDING_URL` (defaulting to LM Studio at
   `http://host.docker.internal:1234/v1`) using `EMBEDDING_MODEL`
-  (defaulting to `text-embedding-embeddinggemma-300m`).
+  (defaulting to `gemini-embedding-001`).
 
 ## Schema lifecycle
 

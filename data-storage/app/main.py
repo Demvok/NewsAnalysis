@@ -80,7 +80,7 @@ _embedding_client = OpenAI(
     api_key=os.getenv("EMBEDDING_API_KEY", "fake_api_key"),
     timeout=float(os.getenv("EMBEDDING_REQUEST_TIMEOUT_SECONDS", "1800")),
 )
-_embedding_model_name = os.getenv("EMBEDDING_MODEL", "text-embedding-embeddinggemma-300m")
+_embedding_model_name = os.getenv("EMBEDDING_MODEL", "gemini-embedding-001")
 _embedding_output_dimension = os.getenv("EMBEDDING_OUTPUT_DIMENSION", "").strip()
 if _embedding_output_dimension:
     try:
