@@ -20,6 +20,16 @@ const simplifyStance = value => {
   return Math.max(-5, Math.min(5, Math.round(tenPointValue / 2)));
 };
 const stanceTone = value => simplifyStance(value) > 0 ? "positive" : simplifyStance(value) < 0 ? "negative" : "neutral";
+const stanceLabel = value => {
+  const stance = simplifyStance(value);
+  return stance <= -3 ? "Strongly opposed" : stance < 0 ? "Opposed" : stance >= 3 ? "Strongly supportive" : stance > 0 ? "Supportive" : "Neutral";
+};
+const deviationLabel = value => {
+  const deviation = Math.abs(Number(value));
+  return !Number.isFinite(deviation) ? "Unavailable" : deviation < .15 ? "Very consistent" : deviation < .35 ? "Mostly consistent" : deviation < .65 ? "Mixed" : "Wide variation";
+};
+const percentileSliderPosition = value => Number(value);
+const percentileFromSliderPosition = value => Math.max(1, Math.min(100, Math.round(Number(value))));
 const colorForSpeaker = personUuid => colors[[...String(personUuid)].reduce((hash, character) => hash + character.charCodeAt(0), 0) % colors.length];
 const BUBBLE_MIN_SIZE = 12;
 const BUBBLE_MAX_SIZE = 50;
@@ -28,6 +38,13 @@ const SIMILARITY_MAGNETS = [.55, .65, .75, .85, .9, .95];
 const snapSimilarity = value => {
   const nearest = SIMILARITY_MAGNETS.reduce((best, candidate) => Math.abs(candidate - value) < Math.abs(best - value) ? candidate : best, value);
   return Math.abs(nearest - value) <= .012 ? nearest : value;
+};
+const clampSimilarity = value => Math.max(.5, Math.min(1, Number(value)));
+const percentileThreshold = (citations, percentile, fallback) => {
+  const similarities = citations.map(item => Number(item.topic_similarity)).filter(Number.isFinite).sort((a, b) => a - b);
+  if (!similarities.length) return clampSimilarity(fallback);
+  const index = Math.min(similarities.length - 1, Math.max(0, Math.floor((1 - percentile / 100) * (similarities.length - 1))));
+  return clampSimilarity(similarities[index]);
 };
 const cosineWeight = value => {
   const cosine = Number(value);
@@ -44,6 +61,7 @@ const categoricalLabels = {
   conditionality: ["None", "Limited", "High"],
 };
 const categoricalLabel = (field, value) => categoricalLabels[field]?.[Number(value)] || "Not available";
+const directionIsOpposed = value => /oppose|against|negative/i.test(String(value || ""));
 
 async function loadLive(params) {
   const requestId = globalThis.crypto?.randomUUID?.() || String(Date.now());
@@ -55,7 +73,7 @@ async function loadLive(params) {
 function filterMock(data, phrase, fields, threshold) {
   const citations = data.citations
     .map(item => ({ ...item, topic_similarity: phrase ? (`${item.topic_name} ${item.quote}`.toLowerCase().includes(phrase.toLowerCase()) ? .9 : .42) : null }))
-    .filter(item => (!fields.length || fields.includes(item.general_topic_field)) && (!phrase || item.topic_similarity >= threshold));
+    .filter(item => (!fields.length || fields.includes(item.general_topic_field)) && (threshold == null || !phrase || item.topic_similarity >= threshold));
   const speakers = data.speakers.filter(item => citations.some(citation => citation.person_uuid === item.person_uuid));
   return { ...data, citations, speakers };
 }
@@ -119,7 +137,18 @@ function cleanTags(fields) {
 }
 
 function Speakers({ speakers, selected, onSelect }) {
-  return <div className="speaker-strip">{speakers.slice(0, 8).map(speaker => <button className={`speaker-card ${selected === speaker.person_uuid ? "selected" : ""} ${speaker.person_type === "ANONYMOUS_SOURCE" ? "vague" : ""}`} key={speaker.person_uuid} onClick={() => onSelect(selected === speaker.person_uuid ? null : speaker.person_uuid)}><span className="speaker-avatar" style={{ background: colorForSpeaker(speaker.person_uuid) }}>{speaker.name[0]}</span><span className="speaker-info"><strong>{speaker.name}</strong><small>{speaker.citations} citations · {speaker.person_type || "PERSON"}</small>{speaker.affiliation && <small className="affiliation">{typeof speaker.affiliation === "string" ? speaker.affiliation : JSON.stringify(speaker.affiliation)}</small>}{speaker.aliases?.length > 0 && <small className="aliases">Also: {speaker.aliases.join(", ")}</small>}</span><span className={`speaker-metric ${stanceTone(speaker.average_stance)}`} title="Average stance"><i>μ</i>{simplifyStance(speaker.average_stance)}</span><span className="speaker-metric spread" title="Stance deviation"><i>σ</i>{simplifyStance(speaker.std_stance)}</span></button>)}</div>;
+  return <div className="speaker-layout">{speakers.slice(0, 8).map(speaker => {
+    const stance = simplifyStance(speaker.average_stance);
+    const stancePosition = `${((stance + 5) / 10) * 100}%`;
+    const typeLabel = speaker.person_type === "ANONYMOUS_SOURCE" ? "Anonymous source" : speaker.person_type || "Person";
+    return <button className={`speaker-tile ${selected === speaker.person_uuid ? "is-selected" : ""} ${speaker.person_type === "ANONYMOUS_SOURCE" ? "is-vague" : ""}`} key={speaker.person_uuid} onClick={() => onSelect(selected === speaker.person_uuid ? null : speaker.person_uuid)}>
+      <span className="speaker-tile__topline"><span className="speaker-tile__identity"><span className="speaker-tile__avatar" style={{ background: colorForSpeaker(speaker.person_uuid) }}>{speaker.name[0]}</span><span><strong>{speaker.name}</strong><small>{typeLabel}</small></span></span><span className="speaker-tile__citation-count"><b>{speaker.citations}</b><small>citations</small></span></span>
+      <span className="speaker-tile__details">{speaker.affiliation && <span className="speaker-tile__affiliation">{typeof speaker.affiliation === "string" ? speaker.affiliation : JSON.stringify(speaker.affiliation)}</span>}{speaker.aliases?.length > 0 && <span className="speaker-tile__aliases">Also known as {speaker.aliases.join(", ")}</span>}</span>
+      <span className="speaker-tile__stance-label"><span>Average position</span><strong className={stanceTone(speaker.average_stance)}>{stanceLabel(speaker.average_stance)}</strong><b>{stance > 0 ? "+" : ""}{stance} <small>/ 5</small></b></span>
+      <span className="speaker-tile__stance-scale" aria-label={`Average stance: ${stance} out of 5`}><i style={{ left: stancePosition }} /><span className="speaker-tile__scale-zero" /></span>
+      <span className="speaker-tile__footer"><span><small>Spread</small><b>{fmt(speaker.std_stance, 2)}</b><em>{deviationLabel(speaker.std_stance)}</em></span><span className="speaker-tile__select-hint">{selected === speaker.person_uuid ? "Showing timeline" : "View timeline"} <b>↗</b></span></span>
+    </button>;
+  })}</div>;
 }
 
 function Timeline({ citations, selectedSpeaker, topicSearchActive, similarityThreshold }) {
@@ -189,7 +218,7 @@ function Timeline({ citations, selectedSpeaker, topicSearchActive, similarityThr
         effect: resolved ? { show: false } : { show: true, period: severity === "critical" ? 0.65 : severity === "high" ? 1.15 : 1.8, symbol: "circle", symbolSize: 8, trailLength: .2 },
         animation: true,
         z: 4,
-        linkMeta: inconsistency,
+        linkMeta: { ...inconsistency, person_name: first.person_name, topic_name: first.topic_name },
       });
     });
     const severityRank = { low: 1, medium: 2, high: 3, critical: 4 };
@@ -199,7 +228,7 @@ function Timeline({ citations, selectedSpeaker, topicSearchActive, similarityThr
         value: [(positionFor(first) + positionFor(second)) / 2, (simplifyStance(effectiveStance(first)) + simplifyStance(effectiveStance(second))) / 2],
         symbolSize: 9 + (severityRank[severity] || 1) * 4,
         itemStyle: { color: "#ef8d99", borderColor: "#fff1b0", borderWidth: 2 },
-        inconsistency,
+        inconsistency: { ...inconsistency, person_name: first.person_name, topic_name: first.topic_name },
       };
     });
     const weightedDrift = items => {
@@ -242,6 +271,7 @@ function Timeline({ citations, selectedSpeaker, topicSearchActive, similarityThr
         ? Math.max(0, Math.min(1, (similarity - minimumSimilarity) / similarityRange))
         : 1;
       return {
+      id: item.citation_uuid,
       value: [positionFor(item), simplifyStance(effectiveStance(item))],
       name: item.person_name,
       symbol: item.person_type === "ORGANIZATION" ? "diamond" : "circle",
@@ -267,7 +297,7 @@ function Timeline({ citations, selectedSpeaker, topicSearchActive, similarityThr
       animationDuration: 520,
       animationEasing: "linear",
       animationDurationUpdate: 260,
-      animationEasingUpdate: "cubicInOut",
+      animationEasingUpdate: "elasticOut",
       backgroundColor: "transparent",
       grid: { left: 18, right: 18, top: 24, bottom: 86, containLabel: false },
       tooltip: {
@@ -285,10 +315,11 @@ function Timeline({ citations, selectedSpeaker, topicSearchActive, similarityThr
           const item = params.data?.citation;
           if (item) {
             const topicMentions = item.topic_names?.length ? item.topic_names : [item.topic_name];
-            return `<div class="evidence-card"><div class="evidence-card__header"><div><strong>${item.person_name}</strong><span>${item.topic_name}</span></div><b class="evidence-card__direction">${item.direction || item.stance || "UNKNOWN"}</b></div><div class="evidence-card__metrics"><div><small>Endorsement</small><b>${categoricalLabel("endorsement", item.endorsement)}</b></div><div><small>Commitment</small><b>${categoricalLabel("commitment", item.commitment)}</b></div><div><small>Conditionality</small><b>${categoricalLabel("conditionality", item.conditionality)}</b></div><div><small>Stance</small><b>${simplifyStance(effectiveStance(item))}/5</b></div></div><div class="evidence-card__quote"><small>Original evidence</small><p>${item.quote || "No original quote available."}</p></div><div class="evidence-card__summary"><small>Summary</small><p>${item.summarized_quote || "No summary available."}</p></div><div class="evidence-card__topics"><small>Topics in this citation</small><div>${topicMentions.map(topic => `<span>${topic}</span>`).join("")}</div></div><div class="evidence-card__footer"><span>${new Date(item.published_at).toLocaleDateString()}${item.topic_similarity != null ? ` · similarity ${Number(item.topic_similarity).toFixed(2)}` : ""}</span>${item.article_url ? `<a href="${item.article_url}" target="_blank" rel="noreferrer">Open article →</a>` : ""}</div></div>`;
+            const direction = item.direction || item.stance || "UNKNOWN";
+            return `<div class="evidence-card"><div class="evidence-card__header"><div><strong>${item.person_name}</strong><span>${item.topic_name}</span></div><b class="evidence-card__direction ${directionIsOpposed(direction) ? "is-opposed" : ""}">${direction}</b></div><div class="evidence-card__metrics"><div><small>Endorsement</small><b>${categoricalLabel("endorsement", item.endorsement)}</b></div><div><small>Commitment</small><b>${categoricalLabel("commitment", item.commitment)}</b></div><div><small>Conditionality</small><b>${categoricalLabel("conditionality", item.conditionality)}</b></div><div><small>Stance</small><b>${simplifyStance(effectiveStance(item))}/5</b></div></div><div class="evidence-card__quote"><small>Original evidence</small><p>${item.quote || "No original quote available."}</p></div><div class="evidence-card__summary"><small>Summary</small><p>${item.summarized_quote || "No summary available."}</p></div><div class="evidence-card__topics"><small>Topics in this citation</small><div>${topicMentions.map(topic => `<span>${topic}</span>`).join("")}</div></div><div class="evidence-card__footer"><span>${new Date(item.published_at).toLocaleDateString()}${item.topic_similarity != null ? ` · similarity ${Number(item.topic_similarity).toFixed(2)}` : ""}</span>${item.article_url ? `<a href="${item.article_url}" target="_blank" rel="noreferrer">Open article →</a>` : ""}</div></div>`;
           }
           const inconsistency = params.data?.inconsistency || params.series?.linkMeta;
-          return inconsistency ? `<strong>${inconsistency.classification}</strong><br>${inconsistency.comment || "No inconsistency comment available."}` : params.seriesName;
+          return inconsistency ? `<div class="inconsistency-card"><strong>${inconsistency.classification}</strong><span>${inconsistency.person_name || "Unknown speaker"}</span><span>${inconsistency.topic_name || "Unknown topic"}</span><p>${inconsistency.comment || "No inconsistency comment available."}</p></div>` : params.seriesName;
         },
       },
       xAxis: {
@@ -342,32 +373,38 @@ function Timeline({ citations, selectedSpeaker, topicSearchActive, similarityThr
     chart.setOption(option, true);
     const citationSeriesIndex = option.series.length - 1;
     let restoreTimer;
-    const renderCitationData = () => chart.setOption({
-      animationDurationUpdate: 360,
+    const renderCitationData = nextData => chart.setOption({
+      animationDurationUpdate: 720,
       animationEasingUpdate: "cubicInOut",
-      series: option.series.map((series, index) => index === citationSeriesIndex ? { ...series, data: citationData } : series),
-    });
+      series: [{ id: "citation-series", data: nextData }],
+    }, { lazyUpdate: false });
     const restoreCitationOffsets = () => {
-      citationData.forEach(point => delete point.symbolOffset);
-      renderCitationData();
+      renderCitationData(citationData.map(point => ({ ...point, value: [...point.value] })));
     };
     const updateCitationOffsets = hovered => {
       clearTimeout(restoreTimer);
       const hoveredPosition = chart.convertToPixel({ seriesIndex: citationSeriesIndex }, [positionFor(hovered), simplifyStance(effectiveStance(hovered))]);
       const nearby = citationData
         .map(point => ({ point, position: chart.convertToPixel({ seriesIndex: citationSeriesIndex }, point.value) }))
-        .filter(({ position }) => Math.hypot(position[0] - hoveredPosition[0], position[1] - hoveredPosition[1]) <= 34);
+        .filter(({ point, position }) => {
+          const distance = Math.hypot(position[0] - hoveredPosition[0], position[1] - hoveredPosition[1]);
+          return distance <= 52;
+        });
       const arranged = nearby.filter(({ point }) => point.citation.citation_uuid !== hovered.citation_uuid);
-      const ringRadius = Math.max(34, arranged.reduce((radius, { point }) => Math.max(radius, Number(point.symbolSize) || BUBBLE_MIN_SIZE), 0) + 10);
+      const ringRadius = Math.max(58, arranged.reduce((radius, { point }) => Math.max(radius, (Number(point.symbolSize) || BUBBLE_MIN_SIZE) / 2 + 18), 0));
+      const positions = new Map();
       arranged.forEach(({ point }, index) => {
         const angle = -Math.PI / 2 + (index * Math.PI * 2) / arranged.length;
-        point.symbolOffset = [Math.cos(angle) * ringRadius, Math.sin(angle) * ringRadius];
+        positions.set(point, chart.convertFromPixel(
+          { seriesIndex: citationSeriesIndex },
+          [hoveredPosition[0] + Math.cos(angle) * ringRadius, hoveredPosition[1] + Math.sin(angle) * ringRadius],
+        ));
       });
-      citationData.forEach(point => {
-        if (!nearby.some(candidate => candidate.point === point)) delete point.symbolOffset;
+      const arrangedData = citationData.map(point => {
+        return { ...point, value: positions.get(point) || [...point.value] };
       });
-      renderCitationData();
-      restoreTimer = setTimeout(restoreCitationOffsets, 700);
+      renderCitationData(arrangedData);
+      restoreTimer = setTimeout(restoreCitationOffsets, 2400);
     };
     chart.on("mouseover", params => {
       if (params.seriesId === "citation-series" && params.data?.citation) updateCitationOffsets(params.data.citation);
@@ -376,25 +413,44 @@ function Timeline({ citations, selectedSpeaker, topicSearchActive, similarityThr
     chart.on("mouseout", params => {
       if (params.seriesId === "citation-series") {
         clearTimeout(restoreTimer);
-        restoreTimer = setTimeout(restoreCitationOffsets, 500);
+        restoreTimer = setTimeout(restoreCitationOffsets, 2400);
       }
+    });
+    chart.on("globalout", () => {
+      clearTimeout(restoreTimer);
+      restoreTimer = setTimeout(restoreCitationOffsets, 2400);
     });
     const resize = () => chart.resize();
     window.addEventListener("resize", resize);
-    return () => { clearTimeout(restoreTimer); chart.off("mouseover"); window.removeEventListener("resize", resize); chart.dispose(); };
+    return () => { clearTimeout(restoreTimer); chart.off("mouseover"); chart.off("mouseout"); chart.off("globalout"); window.removeEventListener("resize", resize); chart.dispose(); };
   }, [visible]);
 
   return <div className="timeline-wrap"><div className="timeline-viewport echarts-viewport" ref={chartRef} role="img" aria-label="Speaker stance timeline" /></div>;
 }
 
 function App() {
-  const [searchMode, setSearchMode] = useState("list"); const [phrase, setPhrase] = useState(""); const [fields, setFields] = useState([]); const [threshold, setThreshold] = useState(.55); const [data, setData] = useState(MOCK_DATA); const [topics, setTopics] = useState(topicOptionsFrom(MOCK_DATA)); const [selectedTopicId, setSelectedTopicId] = useState(null); const [selectedSpeaker, setSelectedSpeaker] = useState(null); const [useMock, setUseMock] = useState(true); const [loading, setLoading] = useState(false); const [error, setError] = useState("");
+  const [searchMode, setSearchMode] = useState("list");
+  const [phrase, setPhrase] = useState("");
+  const [fields, setFields] = useState([]);
+  const [similarityMode, setSimilarityMode] = useState("percentile");
+  const [percentile, setPercentile] = useState(80);
+  const [threshold, setThreshold] = useState(.82);
+  const [data, setData] = useState(MOCK_DATA);
+  const [topics, setTopics] = useState(topicOptionsFrom(MOCK_DATA));
+  const [selectedTopicId, setSelectedTopicId] = useState(null);
+  const [selectedSpeaker, setSelectedSpeaker] = useState(null);
+  const [useMock, setUseMock] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const availableFields = useMemo(() => cleanTags(data.general_topic_fields), [data.general_topic_fields]);
   const activeTopic = useMemo(() => {
     if (searchMode === "semantic" && phrase.trim()) return null;
     return topics.find(topic => topic.topic_uuid === selectedTopicId) || topics[0] || null;
   }, [phrase, searchMode, selectedTopicId, topics]);
-  const displayData = useMemo(() => decorateTopicRelevance(data, searchMode, phrase, activeTopic, threshold), [activeTopic, data, phrase, searchMode, threshold]);
+  const appliedThreshold = useMemo(() => similarityMode === "manual"
+    ? clampSimilarity(threshold)
+    : percentileThreshold(data.citations || [], percentile, threshold), [data.citations, percentile, similarityMode, threshold]);
+  const displayData = useMemo(() => decorateTopicRelevance(data, searchMode, phrase, activeTopic, appliedThreshold), [activeTopic, appliedThreshold, data, phrase, searchMode]);
   useEffect(() => {
     if (useMock) {
       setTopics(topicOptionsFrom(MOCK_DATA));
@@ -414,12 +470,35 @@ function App() {
   }, [selectedTopicId, topics]);
   useEffect(() => {
     const queryPhrase = phrase.trim() || activeTopic?.topic_name || "";
-    if (useMock) {     setData(filterMock(MOCK_DATA, queryPhrase, fields, threshold)); return undefined; }
-    const timer = setTimeout(async () => { setLoading(true); try { const params = new URLSearchParams({ ...(queryPhrase ? { phrase: queryPhrase } : {}), ...(fields.length ? { general_topic_field: fields.join(",") } : {}), min_similarity: threshold }); setData(await loadLive(params)); } catch (value) { setError(value.message); } finally { setLoading(false); } }, searchMode === "semantic" ? 800 : 350);
+    const queryThreshold = similarityMode === "manual" ? clampSimilarity(threshold) : .5;
+    if (useMock) {
+      setData(filterMock(MOCK_DATA, queryPhrase, fields, similarityMode === "manual" ? queryThreshold : null));
+      return undefined;
+    }
+    const timer = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams({
+          ...(queryPhrase ? { phrase: queryPhrase } : {}),
+          ...(fields.length ? { general_topic_field: fields.join(",") } : {}),
+          min_similarity: queryThreshold.toFixed(3),
+        });
+        setData(await loadLive(params));
+      } catch (value) {
+        setError(value.message);
+      } finally {
+        setLoading(false);
+      }
+    }, searchMode === "semantic" ? 800 : 350);
     return () => clearTimeout(timer);
-  }, [activeTopic, fields, phrase, searchMode, threshold, useMock]);
+  }, [activeTopic, fields, phrase, searchMode, similarityMode, threshold, useMock]);
   const topicSearchActive = Boolean(activeTopic || (searchMode === "semantic" && phrase.trim()));
-  return <main className="page"><header><div><span className="overline">NEWSANALYSIS / EVIDENCE GRAPH</span><h1>Position landscape</h1></div><div className="controls"><div className="search-mode" role="group" aria-label="Topic search mode"><button className={searchMode === "list" ? "active" : ""} onClick={() => setSearchMode("list")}>Topics</button><button className={searchMode === "semantic" ? "active" : ""} onClick={() => setSearchMode("semantic")}>Semantic</button></div>{searchMode === "list" ? <select value={selectedTopicId || ""} onChange={event => setSelectedTopicId(event.target.value)} aria-label="Select canonical topic"><option value="" disabled>Select a topic</option>{topics.map(topic => <option value={topic.topic_uuid} key={topic.topic_uuid}>{topic.topic_name}</option>)}</select> : <input value={phrase} onChange={event => setPhrase(event.target.value)} placeholder="Search any topic phrase…" aria-label="Semantic topic search" />}<label className="field-filter"><span>Tags</span><select value="" onChange={event => event.target.value && !fields.includes(event.target.value) && setFields([...fields, event.target.value])} aria-label="Add tag filter"><option value="">Add tag…</option>{availableFields.filter(tag => !fields.includes(tag)).map(tag => <option value={tag} key={tag}>{tag}</option>)}</select></label><div className="selected-tags">{fields.map(tag => <button type="button" className="tag-chip" key={tag} onClick={() => setFields(fields.filter(item => item !== tag))}>{tag} ×</button>)}</div><label className="similarity-control"><span>Similarity</span><input type="range" min=".50" max=".99" step=".005" value={threshold} onChange={event => setThreshold(snapSimilarity(Number(event.target.value)))} /><b>{threshold.toFixed(2)}</b></label><label className="mode-toggle"><input type="checkbox" checked={!useMock} onChange={event => setUseMock(!event.target.checked)} /> live data</label><span className="loading-indicator">{loading ? <><i className="loading-spinner" /> Updating…</> : <><i className="loaded-dot" /> {useMock ? "Mock" : "Loaded"}</>}</span></div></header>{error && <div className="error">{error}</div>}<Kpis kpis={displayData.kpis} /><section className="panel timeline-panel"><div className="section-heading"><span className="overline">TIMELINE</span><span className="muted">window navigator · {displayData.citations.length} citations</span></div><Timeline citations={displayData.citations} selectedSpeaker={selectedSpeaker} topicSearchActive={topicSearchActive} similarityThreshold={threshold} /></section><section><div className="section-heading"><span className="overline">SPEAKERS</span></div><Speakers speakers={displayData.speakers} selected={selectedSpeaker} onSelect={setSelectedSpeaker} /></section></main>;
+  const selectTopic = event => {
+    setPhrase("");
+    setSearchMode("list");
+    setSelectedTopicId(event.target.value);
+  };
+  return <main className="page"><header><div><span className="overline">NEWSANALYSIS / EVIDENCE GRAPH</span><h1>Position landscape</h1></div><div className="controls"><div className="search-mode" role="group" aria-label="Topic search mode"><button className={searchMode === "list" ? "active" : ""} onClick={() => { setPhrase(""); setSearchMode("list"); }}>Topics</button><button className={searchMode === "semantic" ? "active" : ""} onClick={() => setSearchMode("semantic")}>Semantic</button></div>{searchMode === "list" ? <select value={selectedTopicId || ""} onChange={selectTopic} aria-label="Select canonical topic"><option value="" disabled>Select a topic</option>{topics.map(topic => <option value={topic.topic_uuid} key={topic.topic_uuid}>{topic.topic_name}</option>)}</select> : <input value={phrase} onChange={event => setPhrase(event.target.value)} placeholder="Search any topic phrase…" aria-label="Semantic topic search" />}<label className="field-filter"><span>Tags</span><select value="" onChange={event => event.target.value && !fields.includes(event.target.value) && setFields([...fields, event.target.value])} aria-label="Add tag filter"><option value="">Add tag…</option>{availableFields.filter(tag => !fields.includes(tag)).map(tag => <option value={tag} key={tag}>{tag}</option>)}</select></label><div className="selected-tags">{fields.map(tag => <button type="button" className="tag-chip" key={tag} onClick={() => setFields(fields.filter(item => item !== tag))}>{tag} ×</button>)}</div><div className="similarity-control"><span>Similarity retention</span><div className="similarity-mode"><button type="button" className={similarityMode === "percentile" ? "active" : ""} onClick={() => setSimilarityMode("percentile")}>Percentile</button><button type="button" className={similarityMode === "manual" ? "active" : ""} onClick={() => setSimilarityMode("manual")}>Manual (advanced)</button></div>{similarityMode === "percentile" ? <><input type="range" min="0" max="100" step="1" list="similarity-percentile-marks" value={percentileSliderPosition(percentile)} onChange={event => setPercentile(percentileFromSliderPosition(Number(event.target.value)))} /><div className="range-marks"><span>1%</span><span>5%</span><span>10%</span><span>50%</span><span>100%</span></div><b>{percentile}% retained</b></> : <><input type="range" min=".5" max="1" step=".005" list="similarity-absolute-marks" value={threshold} onChange={event => setThreshold(snapSimilarity(Number(event.target.value)))} /><div className="range-marks"><span>0.50</span><span>0.75</span><span>0.90</span><span>0.95</span><span>1.00</span></div><b>{threshold.toFixed(2)} manual</b></>}<datalist id="similarity-percentile-marks"><option value={percentileSliderPosition(1)} label="1%" /><option value={percentileSliderPosition(5)} label="5%" /><option value={percentileSliderPosition(10)} label="10%" /><option value={percentileSliderPosition(50)} label="50%" /><option value="100" label="100%" /></datalist><datalist id="similarity-absolute-marks"><option value=".5" label="0.50" /><option value=".75" label="0.75" /><option value=".9" label="0.90" /><option value=".95" label="0.95" /><option value="1" label="1.00" /></datalist><small className="applied-threshold">Minimum similarity: {appliedThreshold.toFixed(2)}</small></div><label className="mode-toggle"><input type="checkbox" checked={!useMock} onChange={event => setUseMock(!event.target.checked)} /> live data</label><span className="loading-indicator">{loading ? <><i className="loading-spinner" /> Updating…</> : <><i className="loaded-dot" /> {useMock ? "Mock" : "Loaded"}</>}</span></div></header>{error && <div className="error">{error}</div>}<Kpis kpis={displayData.kpis} /><section className="panel timeline-panel"><div className="section-heading"><span className="overline">TIMELINE</span><span className="muted">window navigator · {displayData.citations.length} citations</span></div><Timeline citations={displayData.citations} selectedSpeaker={selectedSpeaker} topicSearchActive={topicSearchActive} similarityThreshold={appliedThreshold} /></section><section><div className="section-heading"><span className="overline">SPEAKERS</span></div><Speakers speakers={displayData.speakers} selected={selectedSpeaker} onSelect={setSelectedSpeaker} /></section></main>;
 }
 
 createRoot(document.getElementById("root")).render(<App />);
