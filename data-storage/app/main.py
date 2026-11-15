@@ -81,6 +81,9 @@ _embedding_client = OpenAI(
     timeout=float(os.getenv("EMBEDDING_REQUEST_TIMEOUT_SECONDS", "1800")),
 )
 _embedding_model_name = os.getenv("EMBEDDING_MODEL", "gemini-embedding-001")
+_embedding_batch_size = int(os.getenv("EMBEDDING_BATCH_SIZE", "100"))
+if not 1 <= _embedding_batch_size <= 100:
+    raise ValueError("EMBEDDING_BATCH_SIZE must be between 1 and 100")
 _embedding_output_dimension = os.getenv("EMBEDDING_OUTPUT_DIMENSION", "").strip()
 if _embedding_output_dimension:
     try:
@@ -1540,7 +1543,9 @@ def _embed_texts_deduplicated(texts: list[str]) -> list[list[float]]:
         if key not in positions:
             positions[key] = len(unique)
             unique.append(text)
-    embeddings = _embed_texts(unique)
+    embeddings: list[list[float]] = []
+    for start in range(0, len(unique), _embedding_batch_size):
+        embeddings.extend(_embed_texts(unique[start:start + _embedding_batch_size]))
     return [embeddings[positions[_normalized_embedding_text(text)]] for text in texts]
 
 

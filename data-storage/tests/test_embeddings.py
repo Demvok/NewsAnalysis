@@ -30,6 +30,26 @@ def test_empty_embedding_batch_does_not_call_provider(monkeypatch):
     embed.assert_not_called()
 
 
+def test_deduplicated_embeddings_split_provider_requests_at_configured_limit(monkeypatch):
+    calls = []
+
+    def embed(texts):
+        calls.append(texts)
+        return [[float(index)] for index, _ in enumerate(texts)]
+
+    monkeypatch.setattr(main, "_embedding_batch_size", 100)
+    monkeypatch.setattr(main, "_embed_texts", Mock(side_effect=embed))
+    texts = [f"text-{index}" for index in range(205)]
+
+    result = main._embed_texts_deduplicated(texts)
+
+    assert [len(call) for call in calls] == [100, 100, 5]
+    assert len(result) == len(texts)
+    assert result[0] == [0.0]
+    assert result[100] == [0.0]
+    assert result[200] == [0.0]
+
+
 def test_embedding_batch_accepts_empty_and_rejects_more_than_maximum():
     assert EmbeddingBatchRequest(texts=[]).texts == []
     with pytest.raises(ValidationError):
