@@ -81,6 +81,16 @@ _embedding_client = OpenAI(
     timeout=float(os.getenv("EMBEDDING_REQUEST_TIMEOUT_SECONDS", "1800")),
 )
 _embedding_model_name = os.getenv("EMBEDDING_MODEL", "text-embedding-embeddinggemma-300m")
+_embedding_output_dimension = os.getenv("EMBEDDING_OUTPUT_DIMENSION", "").strip()
+if _embedding_output_dimension:
+    try:
+        _embedding_output_dimension_value = int(_embedding_output_dimension)
+    except ValueError as exc:
+        raise ValueError("EMBEDDING_OUTPUT_DIMENSION must be an integer") from exc
+    if _embedding_output_dimension_value < 1:
+        raise ValueError("EMBEDDING_OUTPUT_DIMENSION must be positive")
+else:
+    _embedding_output_dimension_value = None
 _default_min_cosine_similarity = float(os.getenv("EMBEDDING_MIN_COSINE_SIMILARITY", "0.0"))
 if not -1 <= _default_min_cosine_similarity <= 1:
     raise ValueError("EMBEDDING_MIN_COSINE_SIMILARITY must be between -1 and 1")
@@ -1480,10 +1490,13 @@ def get_inconsistency(inconsistency_uuid: UUID) -> dict[str, Any]:
 def _embed_texts(texts: list[str]) -> list[list[float]]:
     started = time.perf_counter()
     try:
-        response = _embedding_client.embeddings.create(
-            model=_embedding_model_name,
-            input=texts,
-        )
+        request: dict[str, Any] = {
+            "model": _embedding_model_name,
+            "input": texts,
+        }
+        if _embedding_output_dimension_value is not None:
+            request["dimensions"] = _embedding_output_dimension_value
+        response = _embedding_client.embeddings.create(**request)
     except Exception as exc:
         emit_event(
             "embedding_request",

@@ -392,6 +392,11 @@ class ServiceClient:
         try:
             response = httpx.get(
                 f"{self.settings.llm_url}/models",
+                headers=(
+                    {"Authorization": f"Bearer {self.settings.llm_api_key}"}
+                    if self.settings.llm_api_key
+                    else {}
+                ),
                 timeout=self.settings.request_timeout_seconds,
             )
             details = response.json()

@@ -135,6 +135,30 @@ data from the interface.
 > **Security:** the example configuration is for local development. Replace
 > database passwords, API keys, and provider URLs before exposing the stack.
 
+### Google Gemini API
+
+The analysis and storage services use the OpenAI-compatible Gemini endpoint, so
+no Google-specific SDK is required:
+
+```text
+LLM_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+LLM_API_KEY=<Google AI Studio API key>
+LLM_MODEL=<a chat model available to your API key>
+
+EMBEDDING_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+EMBEDDING_API_KEY=<Google AI Studio API key>
+EMBEDDING_MODEL=gemini-embedding-001
+EMBEDDING_OUTPUT_DIMENSION=768
+EMBEDDING_DIMENSION=768
+```
+
+Set `LLM_REASONING_PARAMETER=` for Gemini unless you have deliberately
+configured a provider-specific reasoning field. `chat_template_kwargs.enable_thinking`
+is intended for the local OpenAI-compatible server configuration and should not
+be sent to Gemini. If the embedding endpoint does not honor `dimensions=768`,
+use its returned dimension consistently in `EMBEDDING_DIMENSION` and recreate
+or migrate the pgvector columns before generating new vectors.
+
 ## Analysis pipeline
 
 The management service coordinates the workflow; the analysis layer determines

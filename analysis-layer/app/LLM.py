@@ -16,7 +16,7 @@ llm_main = ChatOpenAI(
     # base_url="http://host.docker.internal:1234/v1",
     base_url=os.getenv("LLM_URL"),
     model=os.getenv("LLM_MODEL", "google/gemma-4-e4b"),
-    api_key="fake_api_key",
+    api_key=os.getenv("LLM_API_KEY", "fake_api_key"),
     temperature=0.5,
     timeout=float(os.getenv("LLM_REQUEST_TIMEOUT_SECONDS", "1800")),
 ).configurable_fields(
