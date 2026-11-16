@@ -16,9 +16,10 @@
   freshly generated embedding is persisted in `dimPerson.aliases_vector` as
   `vector(EMBEDDING_DIMENSION)`. Embeddings are generated through the
   OpenAI-compatible endpoint configured
-  by `EMBEDDING_URL` (defaulting to LM Studio at
-  `http://host.docker.internal:1234/v1`) using `EMBEDDING_MODEL`
-  (defaulting to `gemini-embedding-001`).
+  by `EMBEDDING_URL` using `EMBEDDING_MODEL`. `EMBEDDING_PROVIDER=local`
+  uses an OpenAI-compatible endpoint, `google` uses Google's native
+  `batchEmbedContents` endpoint, and `local_model` loads the local GGUF
+  embedding model through llama.cpp.
 
 ## Schema lifecycle
 

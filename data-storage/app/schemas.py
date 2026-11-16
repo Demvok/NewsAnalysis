@@ -190,7 +190,7 @@ class EmbeddingRequest(BaseModel):
 
 
 class EmbeddingBatchRequest(BaseModel):
-    texts: list[str] = Field(max_length=100)
+    texts: list[str]
 
 
 class TopicEmbeddingsRequest(BaseModel):

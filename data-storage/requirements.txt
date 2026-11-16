@@ -6,3 +6,4 @@ sqlalchemy
 pgvector
 pandas
 openai
+llama-cpp-python

@@ -642,7 +642,7 @@ LM Studio queues them when the loaded model is configured for one prediction.
 
 ### Embedding parameters
 
-The storage service uses `EMBEDDING_MODEL`, `EMBEDDING_URL`, and
+The storage service uses `EMBEDDING_PROVIDER`, `EMBEDDING_MODEL`, `EMBEDDING_URL`, and
 `EMBEDDING_DIMENSION` (documented default `768`). The dimension must match the
 PostgreSQL `vector(...)` schema. `EMBEDDING_MIN_COSINE_SIMILARITY` defaults to
 `0.0` at storage level; analysis supplies stricter thresholds for person, topic,
