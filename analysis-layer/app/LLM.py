@@ -12,11 +12,22 @@ from langchain_core.runnables import ConfigurableField
 from . import prompts
 from .logger import get_logger
 from .telemetry import current_context, emit_event, sanitized_error, track_active
+
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "local").strip().lower()
+if LLM_PROVIDER not in {"local", "google"}:
+    raise ValueError("LLM_PROVIDER must be 'local' or 'google'")
+LLM_API_KEY = os.getenv("LLM_API_KEY", "fake_api_key")
+if LLM_PROVIDER == "google" and LLM_API_KEY in {"", "fake_api_key", "PASTE_GOOGLE_API_KEY_HERE"}:
+    raise ValueError("LLM_API_KEY must be configured when LLM_PROVIDER=google")
+LLM_MODEL = os.getenv("LLM_MODEL", "google/gemma-4-e4b")
+if LLM_PROVIDER == "google":
+    LLM_MODEL = LLM_MODEL.removeprefix("models/")
+
 llm_main = ChatOpenAI(
     # base_url="http://host.docker.internal:1234/v1",
     base_url=os.getenv("LLM_URL"),
-    model=os.getenv("LLM_MODEL", "google/gemma-4-e4b"),
-    api_key="fake_api_key",
+    model=LLM_MODEL,
+    api_key=LLM_API_KEY,
     temperature=0.5,
     timeout=float(os.getenv("LLM_REQUEST_TIMEOUT_SECONDS", "1800")),
 ).configurable_fields(
@@ -29,7 +40,7 @@ llm_main = ChatOpenAI(
 
 LLM_REASONING_PARAMETER = os.getenv(
     "LLM_REASONING_PARAMETER",
-    "chat_template_kwargs.enable_thinking",
+    "chat_template_kwargs.enable_thinking" if LLM_PROVIDER == "local" else "",
 )
 
 

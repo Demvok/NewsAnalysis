@@ -9,10 +9,12 @@ Code/graph/logs/
 __pycache__/
 .pytest_cache/
 .vscode/
+DB snapshots/
 
 *.pyc
 *.sqlite3
 logs/*
+data-storage/models/
 Viz/cnn_articles_api/frontend/widget-frontend/package-lock.json
 Viz/cnn_articles_api/frontend/widget-frontend/package.json
 Viz/cnn_articles_api/start.bat

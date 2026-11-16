@@ -135,6 +135,51 @@ data from the interface.
 > **Security:** the example configuration is for local development. Replace
 > database passwords, API keys, and provider URLs before exposing the stack.
 
+### Provider modes
+
+The provider mode is selected independently in each service's `.env` file.
+Use `local` for the previous OpenAI-compatible local server, or `google` for
+Google's hosted API:
+
+```text
+# Local mode
+LLM_PROVIDER=local
+LLM_URL=http://host.docker.internal:1234/v1
+LLM_MODEL=google/gemma-4-e4b
+LLM_API_KEY=fake_api_key
+LLM_REASONING_PARAMETER=chat_template_kwargs.enable_thinking
+
+EMBEDDING_PROVIDER=local_model
+EMBEDDING_URL=http://host.docker.internal:1234/v1
+EMBEDDING_MODEL=/app/models/embeddinggemma-300M-Q8_0.gguf
+EMBEDDING_API_KEY=local_embedding_provider
+EMBEDDING_DIMENSION=768
+
+# Google mode
+LLM_PROVIDER=google
+LLM_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+LLM_API_KEY=<Google AI Studio API key>
+LLM_MODEL=<a chat model available to your API key>
+LLM_REASONING_PARAMETER=
+
+EMBEDDING_PROVIDER=google
+EMBEDDING_URL=https://generativelanguage.googleapis.com/v1beta
+EMBEDDING_API_KEY=<Google AI Studio API key>
+EMBEDDING_MODEL=gemini-embedding-001
+EMBEDDING_BATCH_SIZE=80
+EMBEDDING_OUTPUT_DIMENSION=768
+EMBEDDING_DIMENSION=768
+```
+
+Google chat model names are normalized by removing an optional `models/`
+prefix. Google embeddings use the native `batchEmbedContents` API, in batches
+of at most 100 requests. The `local_model` mode loads the ignored GGUF file
+from `data-storage/models/` with llama.cpp and sends the complete local bulk
+input without the Google batch limit. Set `EMBEDDING_MODEL` to the GGUF path
+used inside the container. The GGUF file must be copied into
+`data-storage/models/` on each deployment because that directory is excluded
+from Git.
+
 ## Analysis pipeline
 
 The management service coordinates the workflow; the analysis layer determines

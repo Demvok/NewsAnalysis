@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID
 
+import httpx
 from fastapi import FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.responses import JSONResponse
 from openai import OpenAI
@@ -77,15 +78,48 @@ def telemetry_metrics_endpoint() -> dict[str, int]:
     return telemetry_metrics()
 _embedding_client = OpenAI(
     base_url=os.getenv("EMBEDDING_URL", "http://host.docker.internal:1234/v1"),
-    api_key=os.getenv("EMBEDDING_API_KEY", "fake_api_key"),
+    api_key=os.getenv("EMBEDDING_API_KEY") or "local_embedding_provider",
     timeout=float(os.getenv("EMBEDDING_REQUEST_TIMEOUT_SECONDS", "1800")),
 )
-_embedding_model_name = os.getenv("EMBEDDING_MODEL", "text-embedding-embeddinggemma-300m")
+_embedding_provider = os.getenv("EMBEDDING_PROVIDER", "local").strip().lower()
+if _embedding_provider not in {"local", "google", "local_model"}:
+    raise ValueError("EMBEDDING_PROVIDER must be 'local', 'google', or 'local_model'")
+_embedding_api_key = os.getenv("EMBEDDING_API_KEY", "fake_api_key")
+if _embedding_provider == "google" and _embedding_api_key in {
+    "", "fake_api_key", "PASTE_GOOGLE_API_KEY_HERE"
+}:
+    raise ValueError("EMBEDDING_API_KEY must be configured when EMBEDDING_PROVIDER=google")
+_embedding_model_name = os.getenv(
+    "EMBEDDING_MODEL",
+    "/app/models/embeddinggemma-300M-Q8_0.gguf"
+    if _embedding_provider == "local_model"
+    else "gemini-embedding-001"
+    if _embedding_provider == "google"
+    else "text-embedding-embeddinggemma-300m",
+)
+_embedding_batch_size = int(os.getenv("EMBEDDING_BATCH_SIZE", "100"))
+if _embedding_batch_size < 1 or (
+    _embedding_provider == "google" and _embedding_batch_size > 100
+):
+    raise ValueError(
+        "EMBEDDING_BATCH_SIZE must be positive and no greater than 100 for Google"
+    )
+_embedding_output_dimension = os.getenv("EMBEDDING_OUTPUT_DIMENSION", "").strip()
+if _embedding_output_dimension:
+    try:
+        _embedding_output_dimension_value = int(_embedding_output_dimension)
+    except ValueError as exc:
+        raise ValueError("EMBEDDING_OUTPUT_DIMENSION must be an integer") from exc
+    if _embedding_output_dimension_value < 1:
+        raise ValueError("EMBEDDING_OUTPUT_DIMENSION must be positive")
+else:
+    _embedding_output_dimension_value = None
 _default_min_cosine_similarity = float(os.getenv("EMBEDDING_MIN_COSINE_SIMILARITY", "0.0"))
 if not -1 <= _default_min_cosine_similarity <= 1:
     raise ValueError("EMBEDDING_MIN_COSINE_SIMILARITY must be between -1 and 1")
 _active_requests = 0
 _active_requests_lock = threading.Lock()
+_local_embedding_model: Any = None
 
 
 @app.middleware("http")
@@ -1480,10 +1514,29 @@ def get_inconsistency(inconsistency_uuid: UUID) -> dict[str, Any]:
 def _embed_texts(texts: list[str]) -> list[list[float]]:
     started = time.perf_counter()
     try:
-        response = _embedding_client.embeddings.create(
-            model=_embedding_model_name,
-            input=texts,
-        )
+        if _embedding_provider == "google":
+            embeddings = _embed_texts_google(texts)
+        elif _embedding_provider == "local_model":
+            embeddings = _embed_texts_local_model(texts)
+        else:
+            request: dict[str, Any] = {
+                "model": _embedding_model_name,
+                "input": texts,
+            }
+            if _embedding_output_dimension_value is not None:
+                request["dimensions"] = _embedding_output_dimension_value
+            response = _embedding_client.embeddings.create(**request)
+            response_items = list(response.data)
+            response_indexes = [getattr(item, "index", None) for item in response_items]
+            if all(isinstance(index, int) for index in response_indexes):
+                response_items.sort(key=lambda item: item.index)
+            else:
+                logger.warning(
+                    "Embedding provider omitted response indexes; preserving returned order "
+                    "for %d items",
+                    len(response_items),
+                )
+            embeddings = [item.embedding for item in response_items]
     except Exception as exc:
         emit_event(
             "embedding_request",
@@ -1501,7 +1554,6 @@ def _embed_texts(texts: list[str]) -> list[list[float]]:
             "status": "completed",
         },
     )
-    embeddings = [item.embedding for item in sorted(response.data, key=lambda item: item.index)]
     if len(embeddings) != len(texts):
         raise HTTPException(
             status_code=503,
@@ -1512,11 +1564,95 @@ def _embed_texts(texts: list[str]) -> list[list[float]]:
     return embeddings
 
 
+def _embed_texts_google(texts: list[str]) -> list[list[float]]:
+    base_url = os.getenv(
+        "EMBEDDING_URL",
+        "https://generativelanguage.googleapis.com/v1beta",
+    ).rstrip("/")
+    if base_url.endswith("/openai"):
+        base_url = base_url[:-len("/openai")]
+    model = _embedding_model_name.removeprefix("models/")
+    payload: dict[str, Any] = {
+        "requests": [
+            {
+                "model": f"models/{model}",
+                "content": {"parts": [{"text": text}]},
+                **(
+                    {"outputDimensionality": _embedding_output_dimension_value}
+                    if _embedding_output_dimension_value is not None
+                    else {}
+                ),
+            }
+            for text in texts
+        ]
+    }
+    retry_delay = max(1.0, float(os.getenv("EMBEDDING_GOOGLE_RETRY_DELAY_SECONDS", "60")))
+    max_retries = max(0, int(os.getenv("EMBEDDING_GOOGLE_MAX_RETRIES", "3")))
+    for attempt in range(max_retries + 1):
+        response = httpx.post(
+            f"{base_url}/models/{model}:batchEmbedContents",
+            headers={
+                "Content-Type": "application/json",
+                "x-goog-api-key": _embedding_api_key,
+            },
+            json=payload,
+            timeout=float(os.getenv("EMBEDDING_REQUEST_TIMEOUT_SECONDS", "1800")),
+        )
+        if response.is_success:
+            break
+        if response.status_code != 429 or attempt >= max_retries:
+            raise RuntimeError(
+                f"Google embedding request failed with HTTP {response.status_code}: "
+                f"{response.text[:500]}"
+            )
+        retry_after = response.headers.get("retry-after")
+        try:
+            delay = max(1.0, float(retry_after)) if retry_after else retry_delay
+        except ValueError:
+            delay = retry_delay
+        time.sleep(delay)
+    body = response.json()
+    embeddings = body.get("embeddings")
+    if not isinstance(embeddings, list):
+        raise RuntimeError("Google embedding response did not contain embeddings")
+    return [item["values"] for item in embeddings]
+
+
+def _embed_texts_local_model(texts: list[str]) -> list[list[float]]:
+    global _local_embedding_model
+    if _local_embedding_model is None:
+        from llama_cpp import Llama
+
+        logger.info("Loading local embedding model model=%s", _embedding_model_name)
+        _local_embedding_model = Llama(
+            model_path=_embedding_model_name,
+            embedding=True,
+            verbose=False,
+            n_ctx=int(os.getenv("EMBEDDING_CONTEXT_LENGTH", "2048")),
+        )
+    response = _local_embedding_model.create_embedding(input=texts)
+    items = response.get("data")
+    if not isinstance(items, list):
+        raise RuntimeError("Local GGUF embedding response did not contain data")
+    indexes = [item.get("index") for item in items if isinstance(item, dict)]
+    if len(items) != len(texts):
+        raise RuntimeError(
+            f"Local GGUF embedding response returned {len(items)} vectors for {len(texts)} texts"
+        )
+    if all(isinstance(index, int) for index in indexes):
+        items.sort(key=lambda item: item["index"])
+    return [item["embedding"] for item in items]
+
+
 def _normalized_embedding_text(value: str) -> str:
     return re.sub(r"\s+", " ", value.strip())
 
 
-def _embed_texts_deduplicated(texts: list[str]) -> list[list[float]]:
+def _embed_texts_deduplicated(
+    texts: list[str],
+    *,
+    inter_batch_delay_seconds: float = 0.0,
+) -> list[list[float]]:
     """Embed unique normalized inputs once and restore the original order."""
     if not texts:
         return []
@@ -1527,7 +1663,12 @@ def _embed_texts_deduplicated(texts: list[str]) -> list[list[float]]:
         if key not in positions:
             positions[key] = len(unique)
             unique.append(text)
-    embeddings = _embed_texts(unique)
+    embeddings: list[list[float]] = []
+    batch_size = len(unique) if _embedding_provider == "local_model" else _embedding_batch_size
+    for start in range(0, len(unique), batch_size):
+        if start and inter_batch_delay_seconds > 0:
+            time.sleep(inter_batch_delay_seconds)
+        embeddings.extend(_embed_texts(unique[start:start + batch_size]))
     return [embeddings[positions[_normalized_embedding_text(text)]] for text in texts]
 
 
@@ -1659,7 +1800,19 @@ def reembed_all_vectors() -> dict[str, int]:
             if topic.topic_description:
                 texts.append(topic.topic_description)
                 targets.append((topic, "topic_description_vector"))
-        embeddings = _embed_texts_deduplicated(texts) if texts else []
+        batch_delay = (
+            max(0.0, float(os.getenv("EMBEDDING_GOOGLE_BATCH_DELAY_SECONDS", "60")))
+            if _embedding_provider == "google"
+            else 0.0
+        )
+        embeddings = (
+            _embed_texts_deduplicated(
+                texts,
+                inter_batch_delay_seconds=batch_delay,
+            )
+            if texts
+            else []
+        )
         for (target, field), embedding in zip(targets, embeddings):
             setattr(target, field, embedding)
         session.flush()
